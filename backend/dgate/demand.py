@@ -256,8 +256,12 @@ WITH m AS MATERIALIZED (
            COALESCE(bool_or(db), FALSE) AS db
       FROM aw GROUP BY org HAVING count(DISTINCT key) >= {K_MIN}
 ), apb AS (
-    -- the buyers each of them wins from most often (a withheld buyer is never named)
-    SELECT * FROM (SELECT x.*, row_number() OVER (PARTITION BY org ORDER BY n DESC, bk) AS r FROM (
+    -- the buyers each of them wins from most often (a withheld buyer is never named). WP-104: a buyer is named as the
+    -- buyer list of the answer names it (`b`: its commonest spelling over all its notices), not by the commonest
+    -- spelling among one winner's notices ('Jednostka Wojskowa 4724' and 'Skarb panstwa - Jednostka Wojskowa 4724')
+    SELECT * FROM (SELECT x.org, x.bk, x.country, x.n,
+                          COALESCE((SELECT b.name FROM b WHERE b.bk = x.bk AND b.country = x.country), x.name) AS name,
+                          row_number() OVER (PARTITION BY org ORDER BY n DESC, bk) AS r FROM (
         SELECT aw.org, aw.bk, min(aw.country) AS country, count(DISTINCT aw.key) AS n,
                mode() WITHIN GROUP (ORDER BY aw.bn COLLATE "C") FILTER (WHERE NOT aw.bw) AS name
           FROM aw JOIN ap ON ap.org = aw.org WHERE aw.bk IS NOT NULL GROUP BY aw.org, aw.bk) x

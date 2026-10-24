@@ -18,13 +18,22 @@ are one company when
                       word the key keeps at its end, "aktiebolag", "co kg", dropped: `core_key`)      0.95
   name_key_spaces     the same key once spaces are removed (Landsysteme / Land Systeme, RheinmetallMAN /
                       Rheinmetall MAN), keys of 12 characters or more                                    0.90
+  company_number_division  (WP-104) one company number, and one name is the other's followed by a division
+                      ("Leonardo S.p.A. - Aircraft Division" with Leonardo's own number): a division has no legal
+                      personality of its own                                                             0.95
 
-and nothing in the group contradicts it:
+A shared number joins rows of two countries only under one name key (WP-104: a winner filed under its buyer's country
+by the notices that state its number). Nothing joined may contradict it:
 
   * two numbers that cannot be one company's (`awards.numbers_conflict`: same kind, neither the start of the other,
-    two characters apart; a VAT number and a register number are of two kinds). Rheinmetall Electronics GmbH stands
-    three times with DE119356818 and DE251121155: left alone, reported
+    two characters apart; a VAT number and a register number are of two kinds): the owner's rule, other numbers are
+    other companies. Rheinmetall Electronics GmbH stands three times with DE811127845, DE119356818 and DE251121155:
+    left alone, reported
   * two legal-form classes among the names (RENK AG / RENK GmbH)
+
+WP-104: the joins are made numbers first, names second, and only where no part joined has a conflict among what it
+is joined to (`plan`): a conflict keeps apart the rows it concerns, not every row a name links to them, and a row
+without a number that two conflicting companies could be is joined to neither.
   * a public body (`buyer_family.is_public_body`: public bodies are never merged by a company rule; the buyer
     families group them), a row removed on request or marked a natural person
 
@@ -49,14 +58,15 @@ from ..awards import numbers_conflict
 from ..buyer_family import is_public_body
 from ..config import settings
 from ..resolution.names import fold_key, key_of, legal_form_of
-from ..supplier_identity import company_number, piva_valid
+from ..supplier_identity import _FORM_COUNTRIES, company_number, piva_valid
 from . import undo_merges
 from .accept_merge_candidates import _FORM_WORDS, name_similarity
 
 log = logging.getLogger("supplier_dedupe")
 
 DETECTED_BY = "ops.supplier_dedupe"
-METHODS = {"company_number": 0.97, "name_key": 0.95, "it_tax_pair": 0.90, "name_key_spaces": 0.90}
+METHODS = {"company_number": 0.97, "name_key": 0.95, "company_number_division": 0.95, "it_tax_pair": 0.90,
+           "name_key_spaces": 0.90}
 MIN_FOLD = 12
 MIN_KEY = 4
 
@@ -83,10 +93,13 @@ _TAIL = _FORM_WORDS | {"co", "kg", "ohg", "mbh"}
 
 
 def core_key(name: str) -> str:
-    """The name key (`resolution.names.key_of`) without the legal-form words left at its end."""
+    """The name key (`resolution.names.key_of`) without the legal-form words left at its end. WP-104: and without an
+    Italian company's "Societa" in front ("SOCIETA LEONARDO S.P.A." is Leonardo S.p.A.)."""
     words = key_of(name or "")[0].split()
     while len(words) > 1 and words[-1] in _TAIL:
         words.pop()
+    if len(words) > 1 and words[0] == "societa" and legal_form_of(name) in ("spa", "srl"):
+        words.pop(0)
     return " ".join(words)
 
 
@@ -155,34 +168,77 @@ def _it_pair(a: Row, b: Row) -> bool:
     return any(nums & va and nums & vb for nums in names.values())
 
 
+# WP-104: a division of a company is the company (it has no legal personality of its own): "Leonardo S.p.A. - Aircraft
+# Division" and "Leonardo S.p.A. Divisione Sistemi di Difesa" state Leonardo's own number. Read only with one shared
+# number: a name that merely begins with another is never enough.
+_DIVISION = re.compile(r"\b(?:division|divisione|divisao|divisie|geschaftsbereich|sparte)\b")
+
+
+def group_country(rows: list[Row]) -> str | None:
+    """The one country of rows that are one company, or None when nothing decides it. WP-104: one company number under
+    one name in two countries is a winner the notices of one country filed under that country. The country its legal
+    form allows (`supplier_identity._FORM_COUNTRIES`: an s.r.o. is Czech or Slovak), else the one most of its award
+    rows are under when they are more than all the others together (Pilatus Aircraft Ltd: 16 under CH, 3 under BG)."""
+    countries = {("GB" if r.country == "UK" else r.country) for r in rows}
+    if len(countries) == 1:
+        return countries.pop()
+    holders = [set(_FORM_COUNTRIES[f]) for r in rows for f in r.forms if f in _FORM_COUNTRIES]
+    allowed = countries & set.intersection(*holders) if holders else countries
+    if len(allowed) == 1:
+        return allowed.pop()
+    awards: dict[str, int] = defaultdict(int)
+    for r in rows:
+        c = "GB" if r.country == "UK" else r.country
+        if c in (allowed or countries):
+            awards[c] += r.awards
+    top = max(awards, key=lambda c: awards[c])
+    return top if awards[top] * 2 > sum(awards.values()) else None
+
+
+def _division_of(a: Row, b: Row) -> bool:
+    """One name is the other's followed by words that name a division."""
+    short, long_ = sorted((a.key, b.key), key=len)
+    return bool(short) and long_.startswith(short + " ") and bool(_DIVISION.search(long_[len(short):]))
+
+
+def _pair_conflict(a: Row, b: Row, it_keys: set[tuple[int, int]]) -> str | None:
+    """Why two rows cannot be one company, or None: two numbers that cannot be one company's (the owner's rule: other
+    numbers, other companies), or two legal-form classes (RENK AG / RENK GmbH). An Italian tax pair one stated name
+    carries is not a conflict of numbers."""
+    if _conflict(a.numbers, b.numbers) and (min(a.id, b.id), max(a.id, b.id)) not in it_keys:
+        return "different_company_numbers"
+    if a.forms and b.forms and not a.forms & b.forms:
+        return "different_legal_forms"
+    return None
+
+
 def plan(rows: list[Row]) -> tuple[list[dict[str, Any]], dict[str, int], list[str]]:
     """The groups to merge ({head, members: [(id, method, confidence)], names}), the groups left alone by reason, and
-    report lines for the Italian pairs that wait (two numbers under one name, not stated together)."""
-    by_id = {r.id: r for r in rows}
-    parent: dict[int, int] = {}
-    edge: dict[tuple[int, int], str] = {}
+    report lines for the Italian pairs that wait (two numbers under one name, not stated together).
 
-    def find(x: int) -> int:
-        while parent.setdefault(x, x) != x:
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        return x
+    WP-104: the rows a rule joins are merged in two passes, numbers first, names second, and a join is made only where
+    it cannot be wrong: two parts are joined when neither has, among the parts it is joined to in that pass, one it
+    cannot be one company with (`_pair_conflict`). So one row whose number another number contradicts no longer keeps
+    a whole group apart (Heckler & Koch: four rows stated with N0047964B stood apart because a fifth row carries
+    another number), and a row without a number that two companies of one name could be (Rheinmetall Electronics GmbH,
+    three VAT numbers) is joined to none of them. A part that ends with a conflict inside is left whole, as before."""
+    by_id = {r.id: r for r in rows}
+    edges: dict[tuple[int, int], str] = {}
 
     def join(a: Row, b: Row, method: str) -> None:
         k = (min(a.id, b.id), max(a.id, b.id))
-        if k not in edge or METHODS[method] > METHODS[edge[k]]:
-            edge[k] = method
-        parent[find(a.id)] = find(b.id)
+        if k not in edges or METHODS[method] > METHODS[edges[k]]:
+            edges[k] = method
 
     buckets: dict[tuple[str, str], list[Row]] = defaultdict(list)
-    numbers: dict[tuple[str, str], list[Row]] = defaultdict(list)
+    numbers: dict[str, list[Row]] = defaultdict(list)
     for r in rows:
         k = r.key
         if len(k) >= MIN_KEY and not k.isdigit() and not r.public:
             buckets[(r.country, fold_key(k))].append(r)
         for n in r.numbers:
             if not r.public:
-                numbers[(r.country, n)].append(r)
+                numbers[n].append(r)
     left: dict[str, int] = defaultdict(int)
     waiting: list[str] = []
     it_keys: set[tuple[int, int]] = set()      # the Italian pairs whose two numbers one stated name carries
@@ -200,8 +256,16 @@ def plan(rows: list[Row]) -> tuple[list[dict[str, Any]], dict[str, int], list[st
     for members in numbers.values():
         for i, a in enumerate(members):
             for b in members[i + 1:]:
-                if a.id != b.id and _names_agree(a, b):
+                if a.id == b.id:
+                    continue
+                # WP-104: one number in two countries only under one name key (Pilatus Aircraft Ltd, CH, and the same
+                # company filed under Bulgaria by its Bulgarian notices, both stated with 15030004652)
+                if a.country != b.country and (a.key != b.key or group_country([a, b]) is None):
+                    continue
+                if _names_agree(a, b):
                     join(a, b, "company_number")
+                elif a.country == b.country and _division_of(a, b):
+                    join(a, b, "company_number_division")
     for members in buckets.values():
         if members[0].country != "IT":
             continue
@@ -214,36 +278,80 @@ def plan(rows: list[Row]) -> tuple[list[dict[str, Any]], dict[str, int], list[st
                       and not a.numbers & b.numbers):
                     waiting.append(f"  IT {a.id} {a.name[:40]!r} {sorted(a.numbers)} ~ {b.id} {b.name[:40]!r} "
                                    f"{sorted(b.numbers)}: two numbers under one name, never stated together")
-    comps: dict[int, list[int]] = defaultdict(list)
-    for x in parent:
-        comps[find(x)].append(x)
+
+    parent: dict[int, int] = {}
+
+    def find(x: int) -> int:
+        while parent.setdefault(x, x) != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def members_of() -> dict[int, list[int]]:
+        out: dict[int, list[int]] = defaultdict(list)
+        for x in by_id:
+            out[find(x)].append(x)
+        return out
+
+    def clash(ids: list[int]) -> str | None:
+        rs = [by_id[i] for i in ids]
+        reasons = {_pair_conflict(a, b, it_keys) for i, a in enumerate(rs) for b in rs[i + 1:]} - {None}
+        return min(reasons) if reasons else None     # numbers before forms
+
+    for number_pass in (True, False):
+        parts = members_of()
+        links: dict[int, set[int]] = defaultdict(set)
+        for (a, b), method in edges.items():
+            if (method in ("company_number", "company_number_division", "it_tax_pair")) == number_pass:
+                pa, pb = find(a), find(b)
+                if pa != pb:
+                    links[pa].add(pb)
+                    links[pb].add(pa)
+        safe = {p for p, near in links.items() if not clash([i for q in (p, *near) for i in parts[q]])}
+        for p in sorted(links):
+            for q in sorted(links[p]):
+                if p in safe and q in safe:
+                    parent[find(p)] = find(q)
+    # what the joins left apart, by reason: each set of rows a rule links (every edge), once
+    full: dict[int, int] = {}
+
+    def find_full(x: int) -> int:
+        while full.setdefault(x, x) != x:
+            full[x] = full[full[x]]
+            x = full[x]
+        return x
+
+    for a, b in edges:
+        full[find_full(a)] = find_full(b)
+    linked: dict[int, list[int]] = defaultdict(list)
+    for x in full:
+        linked[find_full(x)].append(x)
+    for ids in linked.values():
+        if (why := clash(ids)):
+            left[why] += 1
     groups = []
-    for ids in comps.values():
-        if len(ids) < 2:
+    for ids in members_of().values():
+        if len(ids) < 2 or clash(ids):    # a chain of safe joins that still meets a conflict: left whole
             continue
-        members = [by_id[i] for i in ids]
-        forms = {f for m in members for f in m.forms}
-        it_pairs = {k for k in it_keys if k[0] in ids}
-        clash = any(_conflict(a.numbers, b.numbers) and (min(a.id, b.id), max(a.id, b.id)) not in it_pairs
-                    for i, a in enumerate(members) for b in members[i + 1:])
-        if clash and not it_pairs:
-            left["different_company_numbers"] += 1
-        elif clash:
-            left["different_company_numbers_beyond_the_pair"] += 1
-        elif len(forms) > 1:
-            left["different_legal_forms"] += 1
-        else:
-            members.sort(key=lambda m: (-m.awards, not m.numbers, m.id))
-            head = members[0]
-            joined = []
-            for m in members[1:]:
-                mine = [k for k in edge if m.id in k and k[0] in ids and k[1] in ids]
-                # a pair only the stated name proves says so, whatever else joined it
-                method = ("it_tax_pair" if any(k in it_pairs for k in mine)
-                          else max((edge[k] for k in mine), key=lambda x: METHODS[x]))
-                joined.append((m.id, method, METHODS[method]))
-            groups.append({"head": head.id, "members": joined, "names": [m.name for m in members],
-                           "numbers": sorted({n for m in members for n in m.numbers})})
+        if (country := group_country([by_id[i] for i in ids])) is None:
+            left["countries_undecided"] += 1
+            continue
+        # the head is a row of the company's country (a row filed under another country is never the head)
+        members = sorted((by_id[i] for i in ids),
+                         key=lambda m: (("GB" if m.country == "UK" else m.country) != country, -m.awards,
+                                        not m.numbers, m.id))
+        head = members[0]
+        joined = []
+        for m in members[1:]:
+            mine = [k for k in edges if m.id in k and k[0] in ids and k[1] in ids]
+            # a pair only the stated name proves says so, whatever else joined it
+            method = ("it_tax_pair" if any(k in it_keys for k in mine)
+                      else max((edges[k] for k in mine), key=lambda x: METHODS[x]))
+            joined.append((m.id, method, METHODS[method]))
+        groups.append({"head": head.id, "members": joined, "names": [m.name for m in members],
+                       "numbers": sorted({n for m in members for n in m.numbers}), "country": country,
+                       # the rows filed under another country, corrected before the merge (`run`)
+                       "recountry": sorted(m.id for m in members if m.country != country)})
     groups.sort(key=lambda g: (-len(g["members"]), g["head"]))
     return groups, dict(left), waiting
 
@@ -265,6 +373,10 @@ def run(conn, *, apply: bool = False, limit: int | None = None, out=print, sampl
     for g in groups[:sample]:
         out(f"  head {g['head']} {g['names'][0][:50]!r} <- " + " | ".join(n[:40] for n in g["names"][1:5])
             + f"  [{', '.join(m for _, m, _ in g['members'])}] {g['numbers'][:3]}")
+    # WP-104: every pair the write merges, exactly (head <- member, method, confidence)
+    for g in groups:
+        for oid, method, conf in g["members"]:
+            out(f"  pair {g['head']} <- {oid} {method} {conf}")
     for line in waiting[:sample]:
         out(line)
     if not apply:
@@ -273,11 +385,23 @@ def run(conn, *, apply: bool = False, limit: int | None = None, out=print, sampl
         return result
     started = conn.execute("SELECT clock_timestamp() AS t").fetchone()["t"]
     conn.commit()
+    result["recountried"] = 0
     for g in groups[:limit]:
+        for oid in g["recountry"]:
+            # WP-104: the award rows of a row filed under another country move to the company's country first, recorded
+            # as a correction (`organisation_country_fix`, basis `company_number_twin`); the row itself keeps the
+            # country its notices stated. `--undo-batch` puts both back.
+            old = conn.execute("SELECT btrim(country) AS c FROM organisation WHERE id = %s", (oid,)).fetchone()["c"]
+            n = conn.execute("UPDATE award SET supplier_country = %s WHERE organisation_id = %s AND supplier_country = %s",
+                             (g["country"], oid, old)).rowcount
+            conn.execute("""INSERT INTO organisation_country_fix (org_id, old_country, new_country, basis, award_rows)
+                            VALUES (%s, %s, %s, 'company_number_twin', %s)""", (oid, old, g["country"], n))
+            result["recountried"] += 1
         for oid, method, conf in g["members"]:
             db.merge_organisations(conn, g["head"], oid, method=method, confidence=conf,
                                    evidence=f"supplier rule {method}; numbers {g['numbers'][:4]}",
-                                   detected_by=DETECTED_BY, allow_identifier_conflict=True)
+                                   detected_by=DETECTED_BY, allow_identifier_conflict=True,
+                                   allow_other_country=oid in g["recountry"])
             result["merged"] += 1
         conn.commit()
     ended = conn.execute("SELECT clock_timestamp() AS t").fetchone()["t"]
@@ -290,8 +414,13 @@ def run(conn, *, apply: bool = False, limit: int | None = None, out=print, sampl
 
 
 def undo_batch(conn, start: str, end: str, *, apply: bool = False, out=print) -> dict[str, Any]:
-    return undo_merges.run(conn, apply=apply, start=start, end=end, methods=tuple(METHODS),
-                           expected=None, detected_by=DETECTED_BY, out=out)
+    """Undo the merges of [start, end), then the country corrections the same run recorded (WP-104)."""
+    from . import supplier_countries
+
+    result = undo_merges.run(conn, apply=apply, start=start, end=end, methods=tuple(METHODS),
+                             expected=None, detected_by=DETECTED_BY, out=out)
+    result["countries_put_back"] = supplier_countries.undo(conn, start, end, apply=apply, out=out)
+    return result
 
 
 def main(argv: list[str] | None = None) -> int:

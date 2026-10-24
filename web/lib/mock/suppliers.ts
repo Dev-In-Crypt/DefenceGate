@@ -4,6 +4,7 @@
  * are made up, which is why this is never used with an API configured.
  */
 import type { BuyerSuppliers, Paginated, Supplier, SupplierContract, SupplierContracts, SupplierFilters, SupplierItem, SupplierNotice, SupplierSummary } from '../types';
+import type { ValueSum } from '../value-totals';
 
 const ITEMS: SupplierItem[] = [
   { id: '1', slug: '1-demo-airframes-gmbh', name: 'Demo Airframes GmbH', country: 'DE', awardCount: 14, firstYear: 2023, lastYear: 2026, cpvDivisions: ['35', '34'] },
@@ -23,7 +24,7 @@ const VALUES: Record<string, SupplierItem['contractValues']> = {
 };
 const sumIn = (s: SupplierItem, cur: string) => s.contractValues?.find((v) => v.currency === cur)?.amount;
 
-export function querySuppliers(f: SupplierFilters): Paginated<SupplierItem> {
+export function querySuppliers(f: SupplierFilters): Paginated<SupplierItem> & { groupTotals: ValueSum[] | null } {
   const q = (f.q ?? '').trim().toLowerCase();
   const countries = (f.country ?? '').split(',').filter(Boolean);
   const cpv = (f.cpv ?? '').split(',').filter(Boolean);
@@ -39,7 +40,17 @@ export function querySuppliers(f: SupplierFilters): Paginated<SupplierItem> {
   if (f.sort === 'name') items = [...items].sort((a, b) => a.name.localeCompare(b.name));
   const cur = f.sort?.startsWith('value-') ? f.sort.slice(6) : null;
   if (cur) items = [...items].sort((a, b) => (sumIn(b, cur) ?? -1) - (sumIn(a, cur) ?? -1) || b.awardCount - a.awardCount);
-  return { items, total: items.length, page: 1, pageSize: f.pageSize ?? 20 };
+  // WP-104: a group's total, per currency, as the API adds its companies' sums
+  let groupTotals: ValueSum[] | null = null;
+  if (f.group) {
+    const by = new Map<string, ValueSum>();
+    for (const v of items.flatMap((s) => s.contractValues ?? [])) {
+      const t = by.get(v.currency) ?? { currency: v.currency, amount: 0, count: 0, lotEstimates: 0 };
+      by.set(v.currency, { ...t, amount: t.amount + v.amount, count: t.count + v.count });
+    }
+    groupTotals = [...by.values()].sort((a, b) => b.count - a.count || a.currency.localeCompare(b.currency));
+  }
+  return { items, total: items.length, page: 1, pageSize: f.pageSize ?? 20, groupTotals };
 }
 
 export function supplierSummary(): SupplierSummary {

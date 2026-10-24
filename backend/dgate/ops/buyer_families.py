@@ -10,7 +10,8 @@ adds the rule `shared_tax_id` for the rows the name rules left alone (public bod
 proves one legal entity, never merged: WP-74, `tax_id_groups`), and brings `buyer_family_member` in line: rows are added or updated, and rows no rule
 produces any more are deleted (this table only). Idempotent.
 
-    python -m dgate.ops.buyer_families          # dry run: every group, nothing written
+    python -m dgate.ops.buyer_families          # dry run: every group and the rows that change, nothing written
+    python -m dgate.ops.buyer_families --changes   # dry run: only the rows that change (WP-104)
     python -m dgate.ops.buyer_families --yes    # write
 """
 
@@ -73,8 +74,10 @@ def groups_of(rows: list[tuple[int, str, str, int, str | None]]) -> list[Group]:
     for key, members in by_key.items():
         if len(members) < 2:
             continue
-        # WP-87: a renamed body's family is headed by its successor (curated renames), whatever the counts
-        members.sort(key=lambda m: (m.method == CURATED_RENAME, -m.notices, m.org_id))
+        # WP-87: a renamed body's family is headed by its successor (curated renames), whatever the counts. WP-104: and an
+        # office by its own name ("Staatliches Hochbauamt Ulm", not "Bundesrepublik Deutschland vertreten durch ... das
+        # Staatliche Hochbauamt Ulm"), where one is among its rows
+        members.sort(key=lambda m: (m.method == CURATED_RENAME, " vertreten " in f" {m.name} ", -m.notices, m.org_id))
         out.append(Group(key, members[0], members[1:]))
     out.sort(key=lambda g: (-g.notices, g.key))
     return out
@@ -154,15 +157,16 @@ TWIN_METHODS = ("stated_ted_ref", "doue_ref", "procedure_id")
 
 def twin_pairs(conn) -> list[tuple[int, int]]:
     """(the national copy's buyer, the TED twin's buyer) of every notice published in TED and in a national portal
-    under two buyer rows of one country (Video Downlink Track Antenna: TED 146213 under 'Ministry of Defence', its
-    TenderNed copy 146554 under 'Ministerie van Defensie'), the twin linked by an identifier."""
+    (Video Downlink Track Antenna: TED 146213 under 'Ministry of Defence', its TenderNed copy 146554 under 'Ministerie
+    van Defensie'), the twin linked by an identifier. WP-104: the pairs whose two rows are one buyer row are returned
+    too: they are the copies that say the row stays where it is (`twin_groups` counts them)."""
     return [(r["copy"], r["twin"]) for r in conn.execute(
         """SELECT o.buyer_org_id AS copy, t.buyer_org_id AS twin
              FROM opportunity o
              JOIN opportunity t ON t.native_id = o.ted_ref AND t.source_id = (SELECT id FROM source WHERE code = 'ted')
             WHERE o.ted_ref IS NOT NULL AND o.twin_method = ANY(%s) AND o.is_defence AND t.is_defence
               AND NOT o.suppressed AND NOT t.suppressed AND NOT o.buyer_withheld AND NOT t.buyer_withheld
-              AND o.buyer_org_id IS NOT NULL AND t.buyer_org_id IS NOT NULL AND o.buyer_org_id <> t.buyer_org_id
+              AND o.buyer_org_id IS NOT NULL AND t.buyer_org_id IS NOT NULL
               AND o.country = t.country""", (list(TWIN_METHODS),)).fetchall()]
 
 
@@ -170,19 +174,26 @@ def twin_groups(groups: list[Group], pairs: list[tuple[int, int]], buyers: dict[
     """WP-96: the copy follows the twin's buyer family. A buyer row that no rule placed and whose notices are the
     national copies of TED notices joins the family of the TED notices' buyer (the one most of its copies point at);
     a twin's buyer with no family heads a new one. A row a rule placed is never moved, and a head is never made a
-    member."""
+    member.
+
+    WP-104: only when more than half of the row's twinned copies point at that one buyer. A copy whose TED twin is
+    under the row itself is a vote to stay: the Polish Ministry of National Defence (107 copies of its own TED notices)
+    was put under the Cyberspace Resources Centre of the Armed Forces (buyer 9770) because 28 of its copies are TED
+    notices the centre published, the ministry being named as the legal entity in the national bulletin."""
     head_of = {m.org_id: g for g in groups for m in (g.head, *g.members)}
     votes: dict[int, dict[int, int]] = defaultdict(lambda: defaultdict(int))
     for copy, twin in pairs:
         if copy in head_of or copy not in buyers:
             continue
         target = head_of[twin].head.org_id if twin in head_of else twin
-        if target != copy:
-            votes[copy][target] += 1
+        votes[copy][target] += 1        # target == copy: a copy of the row's own TED notice
+    moving = {copy for copy, by_target in votes.items()
+              if max((n for t, n in by_target.items() if t != copy), default=0) * 2 > sum(by_target.values())}
     added: dict[int, Group] = {}
-    for copy, by_target in sorted(votes.items()):
+    for copy in sorted(moving):
+        by_target = {t: n for t, n in votes[copy].items() if t != copy}
         target = max(by_target, key=lambda t: (by_target[t], -t))
-        if target in votes:             # the target is itself a copy that moves: left alone (no chains)
+        if target in moving:            # the target is itself a copy that moves: left alone (no chains)
             continue
         member = Member(copy, buyers[copy].name, buyers[copy].notices, TWIN_NOTICE, TWIN_CONFIDENCE,
                         buyers[copy].reg_no)
@@ -213,9 +224,9 @@ def all_groups(conn, extra_pairs: list[tuple[int, int]] = ()) -> list[Group]:
     return groups
 
 
-def run(conn, *, write: bool = False, extra_pairs: list[tuple[int, int]] = ()) -> dict[str, int]:
+def run(conn, *, write: bool = False, extra_pairs: list[tuple[int, int]] = (), out=None) -> dict[str, int]:
     """`extra_pairs`: pairs to treat as `rejected_public_units` although not yet stored (the dry run
-    of `ops.accept_merge_candidates`)."""
+    of `ops.accept_merge_candidates`). `out`: where the rows that change are printed, one line each."""
     groups = all_groups(conn, extra_pairs)
     wanted = {m.org_id: (g.head.org_id, m.method, m.confidence)
               for g in groups for m in g.members}
@@ -224,6 +235,13 @@ def run(conn, *, write: bool = False, extra_pairs: list[tuple[int, int]] = ()) -
         "SELECT org_id, head_org_id, method, confidence FROM buyer_family_member").fetchall()}
     changed = [o for o, v in wanted.items() if stored.get(o) != v]
     gone = [o for o in stored if o not in wanted]
+    if out:
+        # WP-104: the exact rows the write changes, before it writes: (member, head, method) now and as stored
+        for o in sorted(changed):
+            out(f"  set    {o:>7} -> {wanted[o][0]:>7} {wanted[o][1]} {wanted[o][2]}"
+                + (f"  (stored -> {stored[o][0]} {stored[o][1]})" if o in stored else "  (new)"))
+        for o in sorted(gone):
+            out(f"  remove {o:>7} -> {stored[o][0]:>7} {stored[o][1]} {stored[o][2]}")
     if write:
         for o in changed:
             head, method, conf = wanted[o]
@@ -256,12 +274,15 @@ def report(conn) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--yes", action="store_true", help="write; without it nothing changes")
+    parser.add_argument("--changes", action="store_true", help="print only the rows that change, not every group")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     with db.connect(settings().dsn) as conn:
-        for line in report(conn):
-            print(line)
-        counts = run(conn, write=args.yes)
+        if not args.changes:
+            for line in report(conn):
+                print(line)
+        print("rows that change (member -> head, method, confidence):")
+        counts = run(conn, write=args.yes, out=print)
     log.info("%s (%s)", ", ".join(f"{k} {v}" for k, v in counts.items()),
              "written" if args.yes else "dry run, nothing is written")
     return 0

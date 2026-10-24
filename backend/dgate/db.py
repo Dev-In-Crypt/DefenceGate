@@ -789,9 +789,13 @@ def _attach_identifier(conn: psycopg.Connection, org_id: int, raw_name: str, nor
 def merge_organisations(
     conn: psycopg.Connection, keep: int, absorbed: int, *,
     method: str, confidence: float, evidence: str, detected_by: str,
-    allow_identifier_conflict: bool = False,
+    allow_identifier_conflict: bool = False, allow_other_country: bool = False,
 ) -> dict[str, int]:
     """Make `absorbed` an alias of `keep`. Nothing is deleted.
+
+    `allow_other_country` (WP-104, `ops/supplier_dedupe` only): `absorbed` is the same company filed under another
+    country by its notices, proven by one company number under one name; its award rows were moved to `keep`'s country
+    first. It keeps its own country and its own number (the number is never moved across countries).
 
     `allow_identifier_conflict` is for a caller that has another proof of identity than
     the number (`ops/buyer_cleanup`: the same normalised name as a flagged defence
@@ -817,7 +821,8 @@ def merge_organisations(
         raise ValueError("unknown organisation")
     if k["merged_into"] is not None or a["merged_into"] is not None:
         raise ValueError("an organisation that is already merged cannot be merged again")
-    if k["country"] != a["country"]:
+    other_country = k["country"] != a["country"]
+    if other_country and not allow_other_country:
         raise ValueError("organisations of different countries are never merged")
     if (k["national_reg_no"] and a["national_reg_no"]
             and k["national_reg_no"] != a["national_reg_no"] and not allow_identifier_conflict):
@@ -832,7 +837,7 @@ def merge_organisations(
     notices = conn.execute(
         "UPDATE opportunity SET buyer_org_id = %s WHERE buyer_org_id = %s RETURNING 1",
         (keep, absorbed)).fetchall()
-    if a["national_reg_no"] and not k["national_reg_no"]:
+    if a["national_reg_no"] and not k["national_reg_no"] and not other_country:
         conn.execute("UPDATE organisation SET national_reg_no = NULL WHERE id = %s", (absorbed,))
         conn.execute(
             """UPDATE organisation SET national_reg_no = %s, identifier_method = %s,

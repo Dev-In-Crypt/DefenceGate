@@ -20,7 +20,7 @@ test('a supplier names its curated group and its source, and the group view list
   await expect(group).toContainText('Source of the list: Demo group list (demo data).');
   await group.getByRole('link', { name: 'Demo group' }).click();
   await expect(page).toHaveURL(/\/suppliers\?group=demo$/);
-  await expect(page.locator('[data-group-view]')).toContainText('nothing is merged or added up across them');
+  await expect(page.locator('[data-group-view]')).toContainText('nothing is merged across them');
 });
 
 test('the market names the set it counts, links it in the tender list, and waits with the amendment share', async ({ page }) => {

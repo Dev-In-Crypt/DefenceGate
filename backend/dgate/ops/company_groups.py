@@ -52,9 +52,11 @@ GROUPS: tuple[CompanyGroup, ...] = (
     CompanyGroup(
         "leonardo", "Leonardo", "Leonardo S.p.A., integrated annual report: consolidated companies "
         "(https://www.leonardo.com/en/investors)", "IT",
-        re.compile(r"^leonardo(?: s ?p ?a| societa per azion[ei]| spa \d+)?$"),
-        re.compile(r"^leonardo (?:germany|uk|drs|hispania|polska|poland|us|usa|australia|helicopters|electronics"
-                   r"|global solutions|logistics|international|mw)\b")),
+        re.compile(r"^leonardo(?: s ?p ?a| societa per azion[ei]| spa[ _]?\d+)?$"),
+        # WP-104: and PZL-Swidnik (Leonardo's Polish helicopter maker, with or without the parent's name) and Leonardo
+        # Belgium, both in the consolidated companies
+        re.compile(r"^(?:leonardo )?pzl swidnik\b|^leonardo (?:germany|uk|drs|hispania|polska|poland|us|usa|australia"
+                   r"|helicopters|electronics|global solutions|logistics|international|mw|belgium)\b")),
     CompanyGroup(
         "saab", "Saab", "Saab AB, annual report: group companies (https://www.saab.com/investors)", "SE",
         re.compile(r"^saab(?: aktiebolag)?$"),
