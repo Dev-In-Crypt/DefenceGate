@@ -375,7 +375,8 @@ def check(facts: dict[str, Any], p: dict[str, Any], ctx: dict[str, str] | None =
     def midcap_covered(k: str) -> bool:
         return org == "large" and size is not None and size[1] <= 499 and bool(_MIDCAP.search(k))
 
-    types = facts.get("entity_types")
+    # WP-102 (p05, 191): where only designated bodies may apply, that line says who may apply (no "covered by it" beside a block)
+    types = None if facts.get("designated_applicants") and p["country"] else facts.get("entity_types")
     if types and isinstance(types["value"], list) and types["value"]:
         kinds = [_str(k) for k in types["value"]]
         if not org:

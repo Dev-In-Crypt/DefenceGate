@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { CircleAlert, CircleCheck, CircleHelp, CircleX } from 'lucide-react';
-import { fitLabel, shownFit } from '@/lib/fit';
+import { fitLabel, fitOrder, shownFit, topicsLine } from '@/lib/fit';
 import { useFit, useFitState } from '@/lib/fit-hooks';
-import { fitFor, hiddenByFilter, isLoaded, refresh, setOnlyFits, topicsMatched } from '@/lib/fit-store';
+import { fitFor, hiddenByFilter, isLoaded, lookupFailed, refresh, setOnlyFits, topicsMatched } from '@/lib/fit-store';
 import { useProfile } from '@/components/readiness/use-readiness';
 import { cn } from '@/lib/utils';
 import { Choice, TextInput } from '../dg/form';
@@ -23,7 +23,8 @@ export function FitBadge({ id, className }: { id: string; className?: string }) 
   const s = useFit(id);
   if (!s.ready || !s.hasProfile || !isLoaded(id)) return null;
   const result = fitFor(id);
-  const { word, detail } = fitLabel(result);
+  // WP-102: a failed look-up is not "rules not read"
+  const { word, detail } = lookupFailed(id) ? { word: 'Not compared yet: reload the page', detail: 'The rules of this call could not be loaded just now.' } : fitLabel(result);
   return (
     <span title={detail}
       className={cn('inline-flex max-w-full items-start gap-1.5 rounded-pill border border-line bg-surface-inset px-2.5 py-[5px] font-sans text-label text-ink', className)}>
@@ -42,9 +43,12 @@ export function FitBadge({ id, className }: { id: string; className?: string }) 
 export function FitItem({ id, children, className, text = '' }: { id: string; children: React.ReactNode; className?: string; text?: string }) {
   const s = useFit(id);
   const matched = s.onlyFits && s.hasProfile ? topicsMatched(s, text) : 0;
+  // WP-102 (p05): with the filter on, the calls with the visitor's topics first, the eligible ones of them first; a call that needs a
+  // partner the profile says it lacks, or that others join only as partners, after the rest
+  const order = s.onlyFits && s.hasProfile && isLoaded(id) ? fitOrder(fitFor(id), matched) : 0;
   return (
-    <li hidden={hiddenByFilter(s, id)} className={className} style={matched > 0 ? { order: -matched } : undefined} data-topics-matched={matched || undefined}>
-      {matched > 0 && <p className="m-0 mb-1 text-small font-bold text-ink">Matches {matched} of your {s.topics.length === 1 ? 'topic' : `${s.topics.length} topics`}</p>}
+    <li hidden={hiddenByFilter(s, id)} className={className} style={order !== 0 ? { order } : undefined} data-topics-matched={matched || undefined} data-fit-order={order || undefined}>
+      {matched > 0 && <p className="m-0 mb-1 text-small font-bold text-ink">{topicsLine(matched, s.topics.length)}</p>}
       {children}
     </li>
   );
@@ -94,7 +98,7 @@ export function FitFilter({ className, whole }: { className?: string; whole?: Wh
         setOnlyFits(e.target.checked);
         if (whole && e.target.checked !== whole.on) router.push(e.target.checked ? whole.onHref : whole.offHref, { scroll: false });
       }}
-        hint={`Keeps the calls ${whole ? 'of this search' : 'on this page'} that are eligible or where nothing known blocks you, judged on the rules read from each call’s document and, for EDF and EDIP calls, on the programme’s rules. Hides the blocked ones and the ones without rules. With your topics below, the calls that name them come first${whole ? ', across the whole list' : ''}.`} />
+        hint={`Keeps the calls ${whole ? 'of this search' : 'on this page'} that are eligible or where nothing known blocks you, judged on the rules read from each call’s document and, for EDF and EDIP calls, on the programme’s rules. Hides the blocked ones and the ones without rules. With your topics below, the calls that name them come first${whole ? ', across the whole list' : ''}, the eligible ones of them first; calls that need a partner you said you lack, or that others join only as partners, come last.`} />
       <Topics />
       <p role="status" className="m-0 text-small text-ink-muted">
         {s.loaded === 0 ? `Checking the calls ${whole?.on ? 'of this search' : 'on this page'}…` : (

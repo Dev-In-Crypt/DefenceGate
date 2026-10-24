@@ -10,8 +10,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import type { EligibilityFacts } from './eligibility-check';
-import { ASSOCIATED, ASSOCIATION_SOURCES, check, countryStatus } from './eligibility-check';
-import { PARTNER_ONLY_WORD, applicantFit, callFit, checkProfileOf, fitLabel, shownFit, type CallFacts, type FitResult } from './fit';
+import { ASSOCIATED, ASSOCIATION_SOURCES, check, countryStatus, factDisplay } from './eligibility-check';
+import { NO_UA_PARTNER, PARTNER_ONLY_WORD, applicantFit, callFit, checkProfileOf, fitLabel, fitOrder, linesSummary, shownFit, topicsLine, verdictLines, type CallFacts, type FitResult } from './fit';
+import { applySummary } from './funding-path';
 import { parseProfile, toRequest, type Profile } from './profile';
 
 const PATH = 'lib/data/wp102-pairs.json';
@@ -103,5 +104,24 @@ const ncc = callFit({ state: 'read', programme: 'DIGITAL', topic: 'DIGITAL-ECCC-
 assert.equal(fitLabel(ncc).word, PARTNER_ONLY_WORD);
 assert.equal(applicantFit('EDF', 'EDF-EDIP-P-2027-FNLC-CPA-GNPS', { ...company, applicantKind: '' })!.fit, 'no');
 assert.equal(applicantFit('EDF', 'EDF-EDIP-P-2027-FNLC-CPA-GNPS', { ...company, applicantKind: '', orgKind: '' })!.fit, 'check');
+
+// 6. The call page and the list (one verdict, the short block, the order of "Fits my profile").
+const cpa = callFit({ state: 'read', programme: 'EDF', topic: 'EDF-EDIP-P-2027-FNLC-CPA-SEAP', facts: { eligible_countries: f('EU Member States') } as EligibilityFacts }, company, null);
+assert.equal(shownFit(cpa), 'no');
+assert.ok(verdictLines(cpa).some((l) => l.verdict === 'no'), 'a box that lists the lines of a "no" never says "none is a no"');
+assert.ok(!/none is a no/.test(linesSummary(verdictLines(cpa))));
+const usiNoPartner = { fit: 'check' as const, result: { verdict: 'check' as const, lines: [] }, conditions: [NO_UA_PARTNER], blockedBy: [] };
+assert.equal(verdictLines(usiNoPartner)[0].reason, NO_UA_PARTNER);
+assert.ok(fitOrder(usiNoPartner, 0) > 0, 'a call that needs a partner the profile lacks goes after the rest');
+const eligible = callFit({ state: 'read', programme: 'DIGITAL', topic: 'X', facts: { eligible_countries: f('EU Member States') } as EligibilityFacts }, company, null);
+assert.ok(fitOrder(eligible, 1) < fitOrder(callFit({ state: 'read', programme: 'DIGITAL', topic: 'X', facts: { eligible_countries: f('EU Member States'), consortium_required: f(true) } as EligibilityFacts }, company, null), 1));
+assert.ok(fitOrder(eligible, 2) < fitOrder(eligible, 1) && fitOrder(eligible, 0) === 0);
+assert.equal(topicsLine(1, 1), 'Matches your topic');
+assert.equal(topicsLine(1, 3), 'Matches 1 of your 3 topics');
+const c131 = { rulesApply: null, documentEligibility: { facts: { entity_types: f(['SME company', 'Small mid-cap company (up to 499 employees)']), sme_only: f(false), investor_precommitment: f(true, null, 'programme'), eligible_countries: f('Union, Ukraine, or an EEA member associated to Horizon Europe') } } } as never;
+const short = applySummary(c131, 'BE')!;
+assert.ok(short.lines.some((l) => l.key === 'investor' && /20 %/.test(l.text)) && short.verdict === 'check', 'the 20 % investor rule is in the short block');
+assert.ok(short.lines.some((l) => l.key === 'size' && /SMEs and small mid-caps/.test(l.text)));
+assert.equal(factDisplay('sme_only', (c131 as { documentEligibility: { facts: EligibilityFacts } }).documentEligibility.facts), 'Not for SMEs alone, and not for every company: only SMEs and small mid-caps (up to 499 staff).');
 
 console.log(`wp102 checks passed: ${checkable} checkable pairs correct (before WP-102: ${data.before.correct}/${data.before.checkable}), ${compared} call x profile verdicts equal to the API's`);

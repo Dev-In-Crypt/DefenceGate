@@ -4,6 +4,7 @@ import { getServerSnapshot, getSnapshot, mount, refresh, subscribe, unmount, typ
 /** For a badge or an item of a list: the state of the store, with the item registered while it is on the page. */
 export function useFit(id: string): FitSnapshot {
   useEffect(() => {
+    if (!id) return undefined;      // WP-102: a box without a call (the form of a page with no id) registers nothing
     mount(id);
     return () => unmount(id);
   }, [id]);

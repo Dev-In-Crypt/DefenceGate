@@ -7176,11 +7176,6 @@
    "conditions": [],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply (Entities designated at Member State level as National Cyber Hubs; Public bodies acting as National Cyber Hubs; Legal entities (public or private bodies) established in eligible countries) and your organisation is covered by it. A condition applies: Applicants must be designated at Member State level as National Cyber Hubs."
-    },
-    {
      "key": "designated",
      "verdict": "no",
      "reason": "Only National Cyber Hubs may apply. You are not eligible unless your organisation is one."
@@ -7883,11 +7878,6 @@
    "word": "Blocked by: Only these may apply",
    "conditions": [],
    "lines": [
-    {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply (Entities designated at Member State level as National Cyber Hubs; Public bodies acting as National Cyber Hubs; Legal entities (public or private bodies) established in eligible countries) and your organisation is covered by it. A condition applies: Applicants must be designated at Member State level as National Cyber Hubs."
-    },
     {
      "key": "designated",
      "verdict": "no",
@@ -8592,11 +8582,6 @@
    "conditions": [],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply (Entities designated at Member State level as National Cyber Hubs; Public bodies acting as National Cyber Hubs; Legal entities (public or private bodies) established in eligible countries) and your organisation is covered by it. A condition applies: Applicants must be designated at Member State level as National Cyber Hubs."
-    },
-    {
      "key": "designated",
      "verdict": "no",
      "reason": "Only National Cyber Hubs may apply. You are not eligible unless your organisation is one."
@@ -9300,11 +9285,6 @@
    "conditions": [],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply (Entities designated at Member State level as National Cyber Hubs; Public bodies acting as National Cyber Hubs; Legal entities (public or private bodies) established in eligible countries) and your organisation is covered by it. A condition applies: Applicants must be designated at Member State level as National Cyber Hubs."
-    },
-    {
      "key": "designated",
      "verdict": "no",
      "reason": "Only National Cyber Hubs may apply. You are not eligible unless your organisation is one."
@@ -10007,11 +9987,6 @@
    "word": "Blocked by: Only these may apply and 1 more",
    "conditions": [],
    "lines": [
-    {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply (Entities designated at Member State level as National Cyber Hubs; Public bodies acting as National Cyber Hubs; Legal entities (public or private bodies) established in eligible countries) and your organisation is covered by it. A condition applies: Applicants must be designated at Member State level as National Cyber Hubs."
-    },
     {
      "key": "designated",
      "verdict": "no",
@@ -10721,11 +10696,6 @@
    "conditions": [],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply (Entities designated at Member State level as National Cyber Hubs; Public bodies acting as National Cyber Hubs; Legal entities (public or private bodies) established in eligible countries) and your organisation is covered by it. A condition applies: Applicants must be designated at Member State level as National Cyber Hubs."
-    },
-    {
      "key": "designated",
      "verdict": "no",
      "reason": "Only National Cyber Hubs may apply. You are not eligible unless your organisation is one."
@@ -11429,11 +11399,6 @@
    "word": "Blocked by: Only these may apply",
    "conditions": [],
    "lines": [
-    {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply (Entities designated at Member State level as National Cyber Hubs; Public bodies acting as National Cyber Hubs; Legal entities (public or private bodies) established in eligible countries) and your organisation is covered by it. A condition applies: Applicants must be designated at Member State level as National Cyber Hubs."
-    },
     {
      "key": "designated",
      "verdict": "no",
@@ -12140,11 +12105,6 @@
    "conditions": [],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply (Entities designated at Member State level as National Cyber Hubs; Public bodies acting as National Cyber Hubs; Legal entities (public or private bodies) established in eligible countries) and your organisation is covered by it. A condition applies: Applicants must be designated at Member State level as National Cyber Hubs."
-    },
-    {
      "key": "designated",
      "verdict": "no",
      "reason": "Only National Cyber Hubs may apply. You are not eligible unless your organisation is one."
@@ -12848,11 +12808,6 @@
    "conditions": [],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply (Entities designated at Member State level as National Cyber Hubs; Public bodies acting as National Cyber Hubs; Legal entities (public or private bodies) established in eligible countries) and your organisation is covered by it. A condition applies: Applicants must be designated at Member State level as National Cyber Hubs."
-    },
-    {
      "key": "designated",
      "verdict": "no",
      "reason": "Only National Cyber Hubs may apply. You are not eligible unless your organisation is one."
@@ -13555,11 +13510,6 @@
    "word": "Blocked by: Only these may apply and 1 more",
    "conditions": [],
    "lines": [
-    {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply (Entities designated at Member State level as National Cyber Hubs; Public bodies acting as National Cyber Hubs; Legal entities (public or private bodies) established in eligible countries) and your organisation is covered by it. A condition applies: Applicants must be designated at Member State level as National Cyber Hubs."
-    },
     {
      "key": "designated",
      "verdict": "no",

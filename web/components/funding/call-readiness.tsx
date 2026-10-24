@@ -8,7 +8,7 @@ import { callSummary } from '@/lib/call-readiness';
 import { cleanQuote } from '@/lib/quote';
 import { fitLabel, linesSummary, type Fit } from '@/lib/fit';
 import { useFit } from '@/lib/fit-hooks';
-import { fitFor, isLoaded } from '@/lib/fit-store';
+import { fitFor, isLoaded, lookupFailed } from '@/lib/fit-store';
 import { isFinished, toRequest } from '@/lib/profile';
 import { ASSESS_FAILED, AssessError, VERDICT_WORD, assess, costStatement, daysRange } from '@/lib/readiness';
 import type { Assessment, CallTiming, ProgrammeAssessment } from '@/lib/readiness-types';
@@ -142,7 +142,7 @@ export function CallReadiness({ callId, headingLevel = 'h3' }: { callId: string;
       {result.state === 'done' && <p className="m-0 text-body font-semibold">{callSummary(fit, timings)}</p>}
 
       <div className="flex flex-col gap-2">
-        <h4 className="m-0 text-label">This call’s rules and its programme’s, against your profile: {doc ? (doc.fit === 'unknown' ? (facts ? 'nothing to compare with your profile' : 'rules not read: check the call document') : fitLabel(doc).word) : 'comparing…'}</h4>
+        <h4 className="m-0 text-label">This call’s rules and its programme’s, against your profile: {doc ? (lookupFailed(callId) ? 'not compared yet: reload the page' : doc.fit === 'unknown' ? (facts ? 'nothing to compare with your profile' : 'rules not read: check the call document') : fitLabel(doc).word) : 'comparing…'}</h4>
         {doc?.result ? (
           <>
             <p className="m-0 text-small font-semibold">{linesSummary(doc.result.lines)}</p>

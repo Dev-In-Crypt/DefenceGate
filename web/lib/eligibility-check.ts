@@ -256,6 +256,8 @@ export function factDisplay(key: string, facts: EligibilityFacts): string {
     if (single) return `Not for every applicant. ${single}`;
     if (partnerNeeds(facts).ukraine) return `Not for every applicant: ${ownNote(f)}`;
   }
+  // WP-102 (131): never a bare "No" under "Reserved for SMEs" where the call names only SMEs and small mid-caps
+  if (key === 'sme_only' && f.value === false && smallKindsOnly(facts)) return `Not for SMEs alone, and not for every company: only ${sizeRule(facts)!.words}.`;
   return factText(f);
 }
 
@@ -434,7 +436,9 @@ export function check(facts: EligibilityFacts, p: Profile, ctx?: CallContext): R
   // Who may apply: a call that names the kinds of applicant it is open to is not open to a profile that is not
   // plainly one of them (call 78 of 17 October 2026: an EDIC or a government-appointed mechanism only). A list is read
   // as possibly partial, so the verdict is "check", never "no".
-  const types = facts.entity_types;
+  // WP-102 (p05, 191): where only designated bodies may apply, that line says who may apply; a list of legal entities beside it is not
+  // "your organisation is covered by it" under a verdict that blocks
+  const types = facts.designated_applicants && p.country ? undefined : facts.entity_types;
   if (types && Array.isArray(types.value) && types.value.length > 0) {
     const kinds = types.value.map(String);
     if (!p.orgType) lines.push({ key: 'entity', label: 'Who may apply', verdict: 'check', reason: `The call names who may apply: ${kinds.join('; ')}. Check that your organisation is one of them.`, quote: types.quote });

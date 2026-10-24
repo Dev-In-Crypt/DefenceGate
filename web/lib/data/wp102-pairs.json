@@ -9534,11 +9534,6 @@
    "conditions": [],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Public bodies designated or entrusted by the relevant Member State with cybersecurity responsibilities; Cybersecurity competent authorities; CSIRTs designated under the NIS2 Directive. Nothing in that list says a company like yours may. Check the document before you go on."
-    },
-    {
      "key": "designated",
      "verdict": "check",
      "reason": "Only public bodies that have been designated or entrusted by the relevant Member State with responsibilities in the area of cybersecurity may apply; anybody else can take part only as a partner in a consortium with one. Others may take part in a consortium with them: Other relevant public or private partners may also participate in the consortium to support the implementation of the preparedness activities."
@@ -10610,11 +10605,6 @@
    "word": "Only as a partner of the bodies the call names",
    "conditions": [],
    "lines": [
-    {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Public bodies designated or entrusted by the relevant Member State with cybersecurity responsibilities; Cybersecurity competent authorities; CSIRTs designated under the NIS2 Directive. Nothing in that list says a company like yours may. Check the document before you go on."
-    },
     {
      "key": "designated",
      "verdict": "check",
@@ -11703,11 +11693,6 @@
    "conditions": [],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Public bodies designated or entrusted by the relevant Member State with cybersecurity responsibilities; Cybersecurity competent authorities; CSIRTs designated under the NIS2 Directive. Nothing in that list says a company like yours may. Check the document before you go on."
-    },
-    {
      "key": "designated",
      "verdict": "check",
      "reason": "Only public bodies that have been designated or entrusted by the relevant Member State with responsibilities in the area of cybersecurity may apply; anybody else can take part only as a partner in a consortium with one. Others may take part in a consortium with them: Other relevant public or private partners may also participate in the consortium to support the implementation of the preparedness activities."
@@ -12779,11 +12764,6 @@
    "word": "Only as a partner of the bodies the call names",
    "conditions": [],
    "lines": [
-    {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Public bodies designated or entrusted by the relevant Member State with cybersecurity responsibilities; Cybersecurity competent authorities; CSIRTs designated under the NIS2 Directive. Nothing in that list says a company like yours may. Check the document before you go on."
-    },
     {
      "key": "designated",
      "verdict": "check",
@@ -13863,11 +13843,6 @@
    "conditions": [],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Public bodies designated or entrusted by the relevant Member State with cybersecurity responsibilities; Cybersecurity competent authorities; CSIRTs designated under the NIS2 Directive. Nothing in that list says a company like yours may. Check the document before you go on."
-    },
-    {
      "key": "designated",
      "verdict": "check",
      "reason": "Only public bodies that have been designated or entrusted by the relevant Member State with responsibilities in the area of cybersecurity may apply; anybody else can take part only as a partner in a consortium with one. Others may take part in a consortium with them: Other relevant public or private partners may also participate in the consortium to support the implementation of the preparedness activities."
@@ -14945,11 +14920,6 @@
    "conditions": [],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Public bodies designated or entrusted by the relevant Member State with cybersecurity responsibilities; Cybersecurity competent authorities; CSIRTs designated under the NIS2 Directive. Nothing in that list says a company like yours may. Check the document before you go on."
-    },
-    {
      "key": "designated",
      "verdict": "check",
      "reason": "Only public bodies that have been designated or entrusted by the relevant Member State with responsibilities in the area of cybersecurity may apply; anybody else can take part only as a partner in a consortium with one. Others may take part in a consortium with them: Other relevant public or private partners may also participate in the consortium to support the implementation of the preparedness activities."
@@ -16024,11 +15994,6 @@
    "word": "Blocked by: Country and 1 more",
    "conditions": [],
    "lines": [
-    {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Public bodies designated or entrusted by the relevant Member State with cybersecurity responsibilities; Cybersecurity competent authorities; CSIRTs designated under the NIS2 Directive. Nothing in that list says a company like yours may. Check the document before you go on."
-    },
     {
      "key": "designated",
      "verdict": "check",
@@ -17117,11 +17082,6 @@
    "conditions": [],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Public bodies designated or entrusted by the relevant Member State with cybersecurity responsibilities; Cybersecurity competent authorities; CSIRTs designated under the NIS2 Directive. Nothing in that list says a company like yours may. Check the document before you go on."
-    },
-    {
      "key": "designated",
      "verdict": "check",
      "reason": "Only public bodies that have been designated or entrusted by the relevant Member State with responsibilities in the area of cybersecurity may apply; anybody else can take part only as a partner in a consortium with one. Others may take part in a consortium with them: Other relevant public or private partners may also participate in the consortium to support the implementation of the preparedness activities."
@@ -18198,11 +18158,6 @@
    "word": "Only as a partner of the bodies the call names",
    "conditions": [],
    "lines": [
-    {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Public bodies designated or entrusted by the relevant Member State with cybersecurity responsibilities; Cybersecurity competent authorities; CSIRTs designated under the NIS2 Directive. Nothing in that list says a company like yours may. Check the document before you go on."
-    },
     {
      "key": "designated",
      "verdict": "check",
@@ -19285,11 +19240,6 @@
    "word": "Only as a partner of the bodies the call names",
    "conditions": [],
    "lines": [
-    {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Public bodies designated or entrusted by the relevant Member State with cybersecurity responsibilities; Cybersecurity competent authorities; CSIRTs designated under the NIS2 Directive. Nothing in that list says a company like yours may. Check the document before you go on."
-    },
     {
      "key": "designated",
      "verdict": "check",

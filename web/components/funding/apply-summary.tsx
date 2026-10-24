@@ -5,7 +5,7 @@ import { CircleAlert, CircleCheck, CircleHelp, CircleX } from 'lucide-react';
 import { applySummary, SUMMARY_WORD } from '@/lib/funding-path';
 import { fitLabel, shownFit } from '@/lib/fit';
 import { useFit } from '@/lib/fit-hooks';
-import { fitFor, isLoaded } from '@/lib/fit-store';
+import { fitFor, isLoaded, lookupFailed } from '@/lib/fit-store';
 import type { Call } from '@/lib/types';
 import { Select } from '@/components/dg/form';
 import { Icon } from '@/components/dg/icon';
@@ -22,6 +22,10 @@ function ProfileVerdict({ id }: { id: string }) {
   const s = useFit(id);
   if (!s.ready || !s.hasProfile) return null;
   if (!isLoaded(id)) return <p role="status" className="m-0 text-body text-ink-muted">Comparing the call with your saved profile…</p>;
+  if (lookupFailed(id)) {
+    // WP-102 (BM-01 69): a failed look-up is not "rules not read"; the rules read are further down the page
+    return <p role="status" className="m-0 text-body text-ink-muted" data-profile-verdict="failed">Your saved profile could not be compared with this call just now. Reload the page; the rules read from the call are further down.</p>;
+  }
   const r = fitFor(id);
   const shown = shownFit(r);
   const lines = (r.result?.lines ?? []).filter((l) => l.verdict !== 'yes');

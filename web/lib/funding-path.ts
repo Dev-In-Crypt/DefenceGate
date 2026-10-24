@@ -8,7 +8,7 @@
  *                 and nothing else open is known; everything else "check", with the rule named
  *   whatItFunds   the commercial subject in plain words: the topic keywords the source states, never a technical specification
  */
-import { check, consortiumCondition, type EligibilityFacts } from './eligibility-check';
+import { check, consortiumCondition, sizeRule, type EligibilityFacts } from './eligibility-check';
 import { formatDateUtc } from './format';
 import { fold, parseQuery } from './text-search';
 import { countryName } from './taxonomy';
@@ -111,6 +111,12 @@ export function applySummary(call: Pick<Call, 'rulesApply' | 'documentEligibilit
   } else if (facts.consortium_required?.value === false) {
     const c = consortiumCondition(facts);
     lines.push({ key: 'consortium', verdict: 'info', text: c ? `No consortium for every applicant: ${lowerFirst(c)}` : 'A single applicant may apply, as the call document states it.' });
+  }
+  // WP-102 (131): the size limit and the investor pre-commitment are in the short block too, not only further down the page
+  const size = sizeRule(facts);
+  if (size) lines.push({ key: 'size', verdict: 'info', text: `Only for ${size.words}, with the staff of linked enterprises counted${size.midcap ? `; a small mid-cap only on a condition: ${size.midcap}` : ''}.` });
+  if (facts.investor_precommitment?.value === true) {
+    lines.push({ key: 'investor', verdict: 'check', text: 'A pre-commitment of a single qualified investor for at least 20 % of the funding round you aim to raise is required.' });
   }
   const verdict = lines.reduce<Verdict>((v, l) => (l.verdict === 'info' ? v : worst(v, l.verdict)), 'yes');
   return { verdict, lines };

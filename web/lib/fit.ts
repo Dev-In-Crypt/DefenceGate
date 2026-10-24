@@ -322,6 +322,37 @@ export function fitLabel(r: FitResult): { word: string; detail: string } {
   return { word: FIT_WORD.unknown, detail: FIT_MEANING.unknown };
 }
 
+/**
+ * WP-102 (one verdict per call page: 114, 118): every line of the one verdict, the document's and the ones that come from the programme's
+ * rules (a rule that blocks, `blockedBy`) or that every applicant is asked (`conditions`), so a box that lists lines never says "none is a
+ * no" under a verdict that is a no.
+ */
+export function verdictLines(r: FitResult): Line[] {
+  const lines = r.result?.lines ?? [];
+  const rule = (b: string) => (b.includes(': ') ? b.slice(b.lastIndexOf(': ') + 2) : b);
+  const blocked = r.blockedBy.filter((b) => !lines.some((l) => l.label === b))
+    .map((b, i): Line => ({ key: `programme-${i}`, label: 'Rule of the programme or the action', verdict: 'no', reason: `${rule(b)}.` }));
+  const asked = r.conditions.filter((c) => !r.blockedBy.includes(c)).map((c, i): Line => ({ key: `condition-${i}`, label: 'Condition', verdict: 'check', reason: c }));
+  return [...lines, ...blocked, ...asked];
+}
+
+/**
+ * WP-102 (p05): the CSS order of a call in "Fits my profile": the calls holding more of the visitor's topics first, among them the eligible
+ * ones first; a call that needs a partner the profile says it lacks (NO_UA_PARTNER) or that others join only as partners after every other.
+ * 0 keeps the server's order.
+ */
+export function fitOrder(r: FitResult, matched: number): number {
+  const word = fitLabel(r).word;
+  const weak = word === NO_UA_PARTNER || word === PARTNER_ONLY_WORD;
+  if (matched > 0) return -(matched * 10 + (shownFit(r) === 'yes' ? 2 : weak ? 0 : 1));
+  return weak ? 1 : 0;
+}
+
+/** WP-102: "Matches your topic", "Matches 2 of your 3 topics" (never "Matches 1 of your topic"). */
+export function topicsLine(matched: number, topics: number): string {
+  return topics === 1 ? 'Matches your topic' : `Matches ${matched} of your ${topics} topics`;
+}
+
 /** One sentence above a list of lines: how many need a look, and whether any is a plain no (UX walk-through U4). */
 export function linesSummary(lines: Line[]): string {
   const n = lines.length;
