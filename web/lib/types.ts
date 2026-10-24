@@ -380,7 +380,7 @@ export interface Tender {
   awardedTo?: AwardedTo[];
   awardedPersons?: number;
   /** WP-95: what the award states and what kind of amount it is. WP-106: on list items and export rows too, with `awardedTo`. WP-103: `setAside`, a figure the notice states that its own estimate contradicts (the kind is then `estimate`). */
-  awardValue?: { amount: number; currency: string; kind: ValueKind; setAside?: number | null } | null;
+  awardValue?: { amount: number; currency: string; kind: ValueKind; setAside?: number | null; /** WP-108: `lots` or `procedure`; absent for the estimate of WP-103 */ setAsideReason?: 'lots' | 'procedure' | null } | null;
   /** WP-103: whether the notice was read for its winners; false: an award whose winners DefenceGate has not read yet. Absent on older APIs. */
   winnersRead?: boolean;
   /** WP-106, the notice's own page: the other notices of its procedure (the call of an award, the award of a call), oldest first. */
@@ -495,6 +495,10 @@ export interface TenderVersion {
   historic?: boolean;
   /** Our own corrected reading of a notice we already held (`remapped`): shown, not counted as the publisher's change. */
   correction?: boolean;
+  /** WP-108: why a correction is one: `remapped` (our corrected reading). */
+  reason?: 'remapped' | null;
+  /** WP-108: the publication date the source moved in the version that made the notice awarded: said apart, not the buyer's change. */
+  redated?: FieldChange[];
   /** When we first saw this version. */
   detectedAt: IsoDateTime;
   changes: FieldChange[];
@@ -569,6 +573,8 @@ export interface DigestTender {
   changes: FieldChange[];
   /** How many notices of the week this row stands for (identical title, buyer, date and kind are listed once). Absent on older issues. */
   repeats?: number;
+  /** WP-108: the notice's status now (as `Tender.statusNative`), read when the issue is served: a new notice cancelled since says so. */
+  statusNative?: string | null;
 }
 export type DigestCallKind = 'call-new' | 'call-amended' | 'call-opened' | 'call-closing';
 export interface DigestCall {

@@ -36,7 +36,12 @@ import httpx
 import psycopg
 
 from . import db
-from .award_value import TED_VALUE_FIELDS, ted_value, ted_value_set_aside
+from .award_value import (
+    TED_VALUE_FIELDS,
+    ted_value,
+    ted_value_set_aside,
+    ted_value_set_aside_reason,
+)
 from .classify import CORE_SQL, military_cpv_codes
 from .config import settings
 from .normalise import _country2, looks_like_contact, normalise_identifier, redact_emails
@@ -426,6 +431,8 @@ class Read:
     framework_id: int | None = None
     # WP-103: the notice's figure set aside as implausible (`award_value.ted_value_set_aside`), kept on the notice row
     value_set_aside: float | None = None
+    # WP-108: why it was set aside (`award_value.SET_ASIDE_REASONS`)
+    value_set_aside_reason: str | None = None
 
 
 def _lists(value: Any) -> list[list[str]]:
@@ -689,8 +696,9 @@ def store_notice(conn: psycopg.Connection, src_id: int, opp: dict[str, Any], rea
     conn.execute(
         """INSERT INTO award_notice (opportunity_id, raw_key, winners_seen, winners_kept, skipped_person,
                                      skipped_no_country, status, payload_hash, payload_updated_at,
-                                     value_amount, value_currency, value_kind, framework_id, value_set_aside)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                     value_amount, value_currency, value_kind, framework_id, value_set_aside,
+                                     value_set_aside_reason)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
            ON CONFLICT (opportunity_id) DO UPDATE
               SET raw_key = EXCLUDED.raw_key, winners_seen = EXCLUDED.winners_seen,
                   winners_kept = EXCLUDED.winners_kept, skipped_person = EXCLUDED.skipped_person,
@@ -700,14 +708,19 @@ def store_notice(conn: psycopg.Connection, src_id: int, opp: dict[str, Any], rea
             WHERE EXCLUDED.payload_hash IS NOT NULL""",
         (opp["id"], raw_key, read.winners_seen, kept, read.counts["skipped_person"],
          read.counts["skipped_no_country"], status, payload_hash, payload_updated_at, va, vc, vk, read.framework_id,
-         read.value_set_aside))
+         read.value_set_aside, read.value_set_aside_reason))
     c["notices_" + status] += 1
     for k, v in read.counts.items():
         c[k] += v
 
 
 # The serving columns the value of a TED notice is read with (`award_value.ted_value`).
-VALUE_COLUMNS = "o.value_amount, o.value_currency, o.value_kind, o.notice_subtype, o.title_original, o.title_en"
+# WP-108: and `procedure_value`, the largest estimate another notice of the same eForms procedure states in the same
+# currency (`award_value.procedure_set_aside`; index opp_procedure_identifier, a few rows per procedure)
+VALUE_COLUMNS = ("o.value_amount, o.value_currency, o.value_kind, o.notice_subtype, o.title_original, o.title_en, "
+                 "(SELECT max(p.value_amount) FROM opportunity p WHERE p.procedure_identifier = o.procedure_identifier "
+                 "AND p.id <> o.id AND p.value_currency = o.value_currency AND p.value_kind IN ('estimated', 'lot_sum')) "
+                 "AS procedure_value")
 RESULT_NOTICE_SQL = ("(o.notice_subtype = ANY(%(subtypes)s) "
                      "OR (o.notice_subtype IS NULL AND o.status_native = ANY(%(legacy)s)))")
 RESULT_NOTICE_PARAMS = {"subtypes": list(AWARD_SUBTYPES), "legacy": list(LEGACY_AWARD_TYPES)}
@@ -795,6 +808,7 @@ def read_ted_notice(rec: dict[str, Any], opp: dict[str, Any], client: httpx.Clie
             counters["legacy_with_winners"] += 1
     read = with_values(read, ted_value(rec, opp))
     read.value_set_aside = ted_value_set_aside(rec, opp)
+    read.value_set_aside_reason = ted_value_set_aside_reason(rec, opp)
     return rec, read
 
 

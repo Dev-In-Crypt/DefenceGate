@@ -97,6 +97,10 @@ class DigestTender(BaseModel):
     # publication date and kind (a Polish unit's 13 notices for 13 sites, 12 Czech lots) are listed once.
     # 1 for a row that stands for itself. The counts above still count every notice.
     repeats: int = 1
+    # WP-108 (persona p04, AU ZLT-50): the notice's status now (the effective status, as `Tender.statusNative`), read when
+    # the issue is served, so a notice new that week and cancelled since says so, as /changes does. None on a row whose
+    # notice is no longer served.
+    statusNative: str | None = None
 
 
 class DigestCall(BaseModel):
@@ -339,6 +343,20 @@ def refresh(conn, *, now: datetime | None = None, max_builds: int = 8, recompute
     return {"weeks": len(weeks), "built": len(todo), "rows": rows, "missing": len([w for w in weeks if w not in held])}
 
 
+def with_current_status(conn, body: dict[str, Any]) -> dict[str, Any]:
+    """WP-108: the issue with each tender row's status as it is now (`DigestTender.statusNative`): a stored issue keeps
+    the week as it was, and a notice new that week may have been cancelled since (AU ZLT-50, new on 12 October 2026 and
+    cancelled after: the digest showed it new, /changes "Cancelled since"). One query over the issue's rows."""
+    keys = ("tendersNew", "tendersAmended")
+    ids = [int(t["id"]) for k in keys for t in body.get(k) or [] if str(t.get("id", "")).isdigit()]
+    if not ids:
+        return body
+    api = T._api()
+    now = {str(r["id"]): r["s"] for r in conn.execute(
+        f"SELECT o.id, {api.EFFECTIVE_STATUS_SQL} AS s FROM opportunity o WHERE o.id = ANY(%s)", (ids,)).fetchall()}
+    return {**body, **{k: [{**t, "statusNative": now.get(str(t["id"]))} for t in body.get(k) or []] for k in keys}}
+
+
 # ------------------------------------------------------------------ endpoints
 
 @router.get("/v1/digest", response_model=Digest)
@@ -370,6 +388,7 @@ def get_digest(
         body = _plain(build_all(conn, chosen, now=now, only=[])[""])
     if prefixes:
         body = _plain(with_cpv(conn, body, chosen, code, prefixes))
+    body = with_current_status(conn, body)
     i = weeks.index(chosen)
     from .stats import list_meta  # stats imports tenders
 

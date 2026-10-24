@@ -8,10 +8,10 @@ import { getTenderDeadline, localDeadline } from '@/lib/deadline';
 import { VALUE_MISSING_MEANS, sourceDisplay, valueMissingNote, valueMissingNotes } from '@/lib/source-status';
 import { displayName } from '@/lib/display-name';
 import { formatDateUtc, formatMoney, isPlaceholderAmount, noticeDateLabel } from '@/lib/format';
-import { setAsideNote, versionCountLine, winnersNotReadLine } from '@/lib/award-lines';
+import { correctionLines, setAsideNote, versionCountLine, winnersNotReadLine } from '@/lib/award-lines';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata, tenderMeetsMinimumContent } from '@/lib/seo';
-import { AWARD_VALUE_LABEL, sourceStatusWord, tenderChangedLabel, valueKindLabel } from '@/lib/tender-status';
+import { AWARD_VALUE_LABEL, AWARD_NOTICE_VALUE_LABEL, noticeValueLabel, sourceStatusWord, tenderChangedLabel, valueKindLabel } from '@/lib/tender-status';
 import { WHO_MAY_BID_NOTE, WHO_MAY_BID_UNKNOWN, whoMayBid, winnersHref } from '@/lib/who-may-bid';
 import { cpvName } from '@/lib/cpv';
 import { countryName, isNonEnglish, legalBasisLabel, procedureLabel, TENDER_SCOPES } from '@/lib/taxonomy';
@@ -55,7 +55,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description = [
     `${displayName(tender.buyerName, 'title')}.`,
     d.iso ? `Deadline ${d.utc}.` : 'No deadline stated.',
-    `Estimated value ${tender.estimatedValue ? formatMoney(tender.estimatedValue) : 'not stated'}.`,
+    `${noticeValueLabel(tender)} ${tender.estimatedValue ? formatMoney(tender.estimatedValue) : 'not stated'}.`,
     `Source: ${tender.source.sourceName}.`,
   ].join(' ');
   return buildMetadata({
@@ -228,14 +228,15 @@ export default async function TenderDetailPage({ params }: Props) {
                   {setAside && <div className="mt-1 font-sans text-small font-normal text-ink-muted" data-set-aside>{setAside}</div>}
                 </FactCell>
               ) : (
-              <FactCell label="Estimated value">
+              <FactCell label={noticeValueLabel(tender)}>
                 <AmountDisplay money={tender.estimatedValue} size="lg" />
                 {(!tender.estimatedValue || isPlaceholderAmount(tender.estimatedValue.amount)) && missingNote && (
                   <div className="mt-1 font-sans text-small font-normal text-ink-muted">{missingNote}{missingNote.startsWith('No usable') && <> {VALUE_MISSING_MEANS}</>}</div>
                 )}
-                {tender.estimatedValue && !isPlaceholderAmount(tender.estimatedValue.amount) && valueKindLabel(tender.valueKind) && (
-                  <div className="mt-1 font-sans text-small font-normal text-ink-muted">{sentence(valueKindLabel(tender.valueKind) ?? '')}</div>
-                )}
+                {/* WP-108 (p07, V7000 375694-2026): an award notice's total is what the award states, not the buyer's estimate */}
+                {tender.estimatedValue && !isPlaceholderAmount(tender.estimatedValue.amount) && (noticeValueLabel(tender) === AWARD_NOTICE_VALUE_LABEL
+                  ? <div className="mt-1 font-sans text-small font-normal text-ink-muted" data-award-notice-value>The total the award notice states; not told apart as a contract value or a framework ceiling</div>
+                  : valueKindLabel(tender.valueKind) && <div className="mt-1 font-sans text-small font-normal text-ink-muted">{sentence(valueKindLabel(tender.valueKind) ?? '')}</div>)}
               </FactCell>
               )}
               <FactCell label="Notice ID">{tender.noticeId}</FactCell>
@@ -380,7 +381,11 @@ export default async function TenderDetailPage({ params }: Props) {
             ? <VersionTimeline versions={ownVersions} />
             : <p className="m-0 text-body text-ink-muted">The version history could not be read for this notice.</p>}
           {corrections.length > 0 && (
-            <div data-corrections>
+            <div data-corrections className="flex flex-col gap-2">
+              {/* WP-108 (p10: "2 corrections (below)" with nothing below while the fold was closed): each correction in one line, open, with its date, fields, before and after; the fold keeps the full entries */}
+              <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small" data-correction-lines>
+                {correctionLines(corrections).map((line, i) => <li key={i} className="min-w-0 break-words">{line}</li>)}
+              </ul>
               <Details summary={`${corrections.length} ${corrections.length === 1 ? 'correction' : 'corrections'} by DefenceGate, not changes by the publisher`}>
                 <VersionTimeline versions={corrections} />
               </Details>

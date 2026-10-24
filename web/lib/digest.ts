@@ -146,10 +146,15 @@ function callHeadline(c: DigestCall): string {
   return `${what}: ${c.title}`;
 }
 
+/** WP-108 (p04, AU ZLT-50): a notice new that week and cancelled since says so, as /changes and its feed do. */
+export function cancelledSince(t: Pick<DigestTender, 'kind' | 'statusNative'>): boolean {
+  return t.kind === 'new' && (t.statusNative ?? '').toLowerCase() === 'cancelled';
+}
+
 /** At most `n` plain lines for a feed entry: the calls first, then the notices. */
 export function headlines(d: Digest, n = 8): string[] {
   const calls = [...d.callsNew, ...d.callsOpened, ...d.callsAmended, ...d.callsClosing].map(callHeadline);
-  const tenders = [...d.tendersNew, ...d.tendersAmended].map((t: DigestTender) => `${t.kind === 'new' ? 'New notice' : 'Amended notice'}: ${t.title}${repeatsLabel(t.repeats) ? ` (${repeatsLabel(t.repeats)})` : ''}`);
+  const tenders = [...d.tendersNew, ...d.tendersAmended].map((t: DigestTender) => `${t.kind === 'new' ? 'New notice' : 'Amended notice'}${cancelledSince(t) ? ' (cancelled since)' : ''}: ${t.title}${repeatsLabel(t.repeats) ? ` (${repeatsLabel(t.repeats)})` : ''}`);
   return [...calls, ...tenders].slice(0, n);
 }
 

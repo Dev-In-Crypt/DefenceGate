@@ -5,7 +5,7 @@
 import { ApiError, REMOVED, getCalls, getHealth, getMarketStats, getSupplierContracts, getTenderExportPage, isCallSlug, isTenderSlug, whenRemoved } from './api';
 import { callStatusKind, getCallDeadline } from './deadline';
 import { parseCallFilters, parseMarketFilters, parseTenderFilters, toQuery, toTenderQuery, type SearchParams } from './filters';
-import { MARKET_HEADER, SUPPLIER_CONTRACT_HEADER, csvValueKind, marketRows, supplierContractRows, winnerCells } from './export-tables';
+import { MARKET_HEADER, SUPPLIER_CONTRACT_HEADER, VALUE_KIND_NOT_STATED, csvValueKind, marketRows, supplierContractRows, winnerCells } from './export-tables';
 import {
   EXPORT_CACHE_MAX, EXPORT_CACHE_TTL_MS, EXPORT_MAX_RUNNING, EXPORT_PAGE_MIN, EXPORT_PER_CLIENT, EXPORT_RETRY_AFTER_SECONDS, ExportRunner, Gate,
   TtlCache, collectByCursor, exportCap, listOrder, tooBroad,
@@ -49,7 +49,8 @@ export function tenderRow(t: Tender, truncated = false): Cell[] {
   return [
     t.id, t.noticeId, t.title, t.buyerName, t.country, (t.cpvCodes?.length ? t.cpvCodes : t.cpv ? [t.cpv] : []).join(' '), t.procedure,
     isoUtc(t.publishedAt, t.publishedAt !== null && isMidnight(t.publishedAt)), isoUtc(dl, dateOnly),
-    value?.amount, value?.currency, value ? csvValueKind(award ? t : { ...t, awardValue: null }) : null,
+    // WP-108 (p07: empty on 24 rows, "not stated" on 57): one vocabulary, every row says its value kind; no value is "not stated"
+    value?.amount, value?.currency, (value ? csvValueKind(award ? t : { ...t, awardValue: null }) : null) ?? VALUE_KIND_NOT_STATED,
     tenderStatusView(t).word, anomalyNotes(t).join(' | '),
     t.source.sourceName, safeHttpUrl(t.source.url) ?? '', t.source.licence, t.source.attribution, isoUtc(t.source.retrievedAt),
     isTenderSlug(t.slug) ? absoluteUrl(`/tenders/${t.slug}`) : '',

@@ -24,6 +24,13 @@ a second run writes nothing.
 Expected on production (read-only count of 24 October 2026, docs/verification/round3/wp103-selfcheck.md): the 17
 versions of 15 October 06:48-06:49 that changed the value, the legal basis or the publication date, among the
 versions the report counts.
+
+WP-108 (round 4, persona p10): the rule above left out a version that also moved the source's own status code (EV or
+PUB to ADJ or RES: the buyer's award came with the re-read). 12 such versions of 14-15 October 2026 (videoscopio 2812:
+EUR 45,980 to 38,000, i.e. / 1.21, published 28 Sep to 3 Sep, Open to Awarded; one Canary Islands notice / 1.07, IGIC)
+stood as the buyers' amendments. Such a version gets one note of kind `remapped_fields` listing the mapper's fields
+(`db.mapper_fields`); its status change stays the publisher's. The value ratio is not a condition (the rule is the entry
+stamp, as in `db.upsert_opportunity`); the report counts the ratios it sees.
 """
 
 from __future__ import annotations
@@ -40,7 +47,12 @@ NOTE = "PLACSP entry read again under the mapping of 12 October 2026 (the held v
 OWNED = sorted(db.MAPPER_OWNED)
 
 CANDIDATES = """
-    SELECT v.id, v.opportunity_id, o.native_id, v.observed_at, v.changed_fields
+    SELECT v.id, v.opportunity_id, o.native_id, v.observed_at, v.changed_fields,
+           p.payload->>'status_native' AS prev_status_native, v.payload->>'status_native' AS status_native,
+           p.payload->'value_amount' AS prev_value, v.payload->'value_amount' AS value,
+           CASE WHEN jsonb_typeof(p.payload->'value_amount') = 'number' AND jsonb_typeof(v.payload->'value_amount') = 'number'
+                THEN round((p.payload->>'value_amount')::numeric / NULLIF((v.payload->>'value_amount')::numeric, 0), 2)
+           END AS ratio
       FROM opportunity_version v
       JOIN opportunity o ON o.id = v.opportunity_id
       JOIN LATERAL (SELECT p.payload FROM opportunity_version p
@@ -50,10 +62,7 @@ CANDIDATES = """
        AND o.source_id IN (SELECT id FROM source WHERE code IN ('es_placsp', 'es_placsp_agg'))
        AND p.payload->>'source_updated_at' IS NULL
        AND v.payload->>'source_updated_at' IS NOT NULL
-       AND cardinality(v.changed_fields) > 0
-       AND v.changed_fields <@ (%(owned)s::text[] || CASE
-             WHEN p.payload->>'status_native' IS NOT DISTINCT FROM v.payload->>'status_native'
-             THEN ARRAY['status'] ELSE ARRAY[]::text[] END)
+       AND v.changed_fields && %(owned)s::text[]
        AND NOT EXISTS (SELECT 1 FROM opportunity_version_note n
                         WHERE n.opportunity_version_id = v.id AND n.kind = ANY(%(kinds)s))
      ORDER BY v.id
@@ -61,18 +70,33 @@ CANDIDATES = """
 
 
 def run(conn, *, write: bool) -> tuple[Counter, list[str]]:
-    rows = conn.execute(CANDIDATES, {"owned": OWNED, "kinds": list(NOT_A_CHANGE)}).fetchall()
+    rows = conn.execute(CANDIDATES, {"owned": OWNED,
+                                     "kinds": [*NOT_A_CHANGE, db.REMAPPED_FIELDS_NOTE]}).fetchall()
     c: Counter = Counter()
     examples: list[str] = []
     for r in rows:
+        ours, whole = db.mapper_fields(list(r["changed_fields"]),
+                                       {"status_native": r["prev_status_native"], "value_amount": r["prev_value"]},
+                                       {"status_native": r["status_native"], "value_amount": r["value"]})
+        if not ours:
+            continue
         c["versions"] += 1
+        c["whole version" if whole else "mapper fields only (the rest a real change)"] += 1
         c["fields " + ",".join(sorted(r["changed_fields"]))] += 1
         c["observed " + r["observed_at"].strftime("%Y-%m-%d")] += 1
-        if len(examples) < 20:
-            examples.append(f"{r['native_id']} v{r['id']} {r['observed_at']:%Y-%m-%d %H:%M} {','.join(r['changed_fields'])}")
+        if "value_amount" in ours:
+            c[f"value ratio {r['ratio']}"] += 1
+        if len(examples) < 20 or not whole:
+            examples.append(f"{r['native_id']} v{r['id']} {r['observed_at']:%Y-%m-%d %H:%M} {','.join(r['changed_fields'])}"
+                            + ("" if whole else f" (noted: {','.join(ours)}; status {r['prev_status_native']} -> "
+                                                 f"{r['status_native']} stays a change)"))
         if write:
-            c["annotated"] += db.annotate_versions(conn, [r["id"]], "remapped",
-                                                   NOTE + ", ".join(sorted(r["changed_fields"])))
+            if whole:
+                c["annotated"] += db.annotate_versions(conn, [r["id"]], "remapped",
+                                                       NOTE + ", ".join(sorted(r["changed_fields"])))
+            else:
+                c["annotated_fields"] += db.annotate_versions(conn, [r["id"]], db.REMAPPED_FIELDS_NOTE,
+                                                              NOTE + ", ".join(ours), fields=ours)
     if write:
         conn.commit()
     else:

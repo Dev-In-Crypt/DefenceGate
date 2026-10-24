@@ -2,7 +2,7 @@ import { TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { callStatusKind, getCallDeadline, getTenderDeadline, localDeadline, now } from '@/lib/deadline';
 import { formatDateUtc, funderLine, isPlaceholderAmount, openingPhrase, variantsLine } from '@/lib/format';
-import { AWARD_VALUE_LABEL, anomalyNotes, isLongRunning, subjectAddsTo, tenderChangedLabel, tenderStatusView, winnersLine } from '@/lib/tender-status';
+import { AWARD_VALUE_LABEL, anomalyNotes, isLongRunning, noticeValueLabel, subjectAddsTo, tenderChangedLabel, tenderStatusView, winnersLine } from '@/lib/tender-status';
 import { PROGRAMMES, REGIMES, isNonEnglish } from '@/lib/taxonomy';
 import { WHO_BADGE } from '@/lib/filters';
 import { displayName } from '@/lib/display-name';
@@ -240,7 +240,7 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
               {award.kind === 'framework' && <div className="font-sans text-small font-normal text-ink-muted">The most that may be bought, not a contract value</div>}
             </ListFact>
           ) : (
-          <ListFact label="Estimated value" tone={closed ? 'closed' : 'default'}>
+          <ListFact label={noticeValueLabel(tender)} tone={closed ? 'closed' : 'default'}>
             <AmountDisplay money={tender.estimatedValue} />
             {valueNote && (!tender.estimatedValue || isPlaceholderAmount(tender.estimatedValue.amount)) && (
               <div className="font-sans text-small font-normal text-ink-muted">{valueNote}</div>

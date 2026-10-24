@@ -11,6 +11,9 @@ import { countryName } from './taxonomy';
 import { sourceStatusWord, valueKindLabel } from './tender-status';
 import type { MarketStats, SupplierContract, SupplierContracts, Tender } from './types';
 
+/** WP-108: the one word for a value whose kind the file cannot state, and for a row with no value at all (tenderRow). */
+export const VALUE_KIND_NOT_STATED = 'not stated';
+
 /**
  * What a tender row's value is, on every row that has a value (p09: 143 of 232 rows had none). The kind the notice gives
  * (TED: total, estimated, lot sum, first lot) as it stands; a notice that states none: `estimated` for a call (no award is
@@ -27,12 +30,12 @@ export function csvValueKind(t: Pick<Tender, 'valueKind' | 'statusNative'> & Par
     case 'lot_sum': return 'estimate (sum of lots)';
     case 'first_lot': return 'estimate (first lot)';
     // TED's `total`: an award's total is a contract value or a ceiling, not told apart here; on any other notice it is its estimate
-    case 'total': return awarded ? 'not stated' : 'estimate';
+    case 'total': return awarded ? VALUE_KIND_NOT_STATED : 'estimate';
     case '': break;
-    default: return valueKindLabel(t.valueKind) ?? 'not stated';
+    default: return valueKindLabel(t.valueKind) ?? VALUE_KIND_NOT_STATED;
   }
   const placsp = /placsp/i.test(t.source.sourceId ?? '');
-  return !placsp && awarded ? 'not stated' : 'estimate';
+  return !placsp && awarded ? VALUE_KIND_NOT_STATED : 'estimate';
 }
 
 /** WP-95's value kinds, as the supplier page words them; WP-106: the tender file's words too. */

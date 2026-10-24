@@ -1,5 +1,6 @@
 import type { StatusKind, Tender } from './types';
 import { getTenderDeadline, now } from './deadline';
+import { formatDateUtc } from './format';
 
 /**
  * What the two stamps of a tender's source badge mean. `retrievedAt` is the newest version that is not one of our own
@@ -99,6 +100,34 @@ export function sourceStatusWord(t: Pick<Tender, 'statusNative'>): string | null
 
 /** WP-95: the label of an award's value by its kind. WP-106: the list cards and the CSV use the same words. */
 export const AWARD_VALUE_LABEL = { contract: 'Awarded value', framework: 'Framework ceiling', estimate: 'Estimated value' } as const;
+
+/** WP-108: the label of an award notice's own value when no award value was read (TED's total of the notice). */
+export const AWARD_NOTICE_VALUE_LABEL = 'Value in the award notice';
+
+/**
+ * WP-108 (p07, V7000 375694-2026: "Estimated value ... Total" on an awarded notice): the label of a notice's own value where no
+ * award value was read (`awardValue` absent). TED's total on an award notice is what the award states, not an estimate; on any
+ * other notice the value is the buyer's estimate.
+ */
+export function noticeValueLabel(t: Pick<Tender, 'statusNative' | 'valueKind'>): string {
+  return sourceStatusWord(t) === 'Awarded' && (t.valueKind ?? '').trim() === 'total' ? AWARD_NOTICE_VALUE_LABEL : 'Estimated value';
+}
+
+/**
+ * WP-108 (p10, award 220199-2026 found by its number: "No deadline stated" and "See the 1 open tender"): the status part of a
+ * tender's one-line summary in the site search. A notice that is not open says its status; an open one its deadline.
+ */
+export function searchStatusLine(t: Pick<Tender, 'status' | 'deadline'> & Partial<Pick<Tender, 'statusNative' | 'deadlineIsDate' | 'anomalies'>>, ref: Date = now()): string {
+  const view = tenderStatusView(t, ref);
+  if (view.kind === 'closed' || view.kind === 'upcoming' || view.kind === 'unknown') return view.label;
+  return t.deadline ? `Deadline ${formatDateUtc(t.deadline)}` : 'No deadline stated';
+}
+
+/** WP-108: the noun of the search's "See ..." link: "open tender(s)" only when the matches listed are open. */
+export function searchTenderNoun(items: Parameters<typeof tenderStatusView>[0][], total: number, ref: Date = now()): string {
+  const open = items.every((t) => { const k = tenderStatusView(t, ref).kind; return k === 'open' || k === 'soon'; });
+  return `${open ? 'open ' : ''}${total === 1 ? 'tender' : 'tenders'}`;
+}
 
 /** WP-106: "Madzeal, S.L.; Indra Sistemas S.A. and 3 more", and the persons counted, never named; null with nobody named. */
 export function winnersLine(t: Pick<Tender, 'awardedTo' | 'awardedPersons'>, shown = 2, name: (s: string) => string = (s) => s): string | null {
