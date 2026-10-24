@@ -38,7 +38,9 @@ test('the report maps who buys the codes, per country, from the codes alone', as
   await expect(spain.getByRole('heading', { name: 'Spain' })).toBeVisible();
   await expect(spain.locator('[data-demand-summary]')).toContainText(`${es.procurements} procurements by ${es.coreBuyers} core defence buyers and ${es.otherBuyers} other defence-scope buyers`);
   await expect(spain.locator('[data-demand-buyer]')).toHaveCount(es.topBuyers.length);
-  await expect(spain.locator('[data-demand-buyer]').first().getByRole('link')).toHaveAttribute('href', `/buyers/${es.topBuyers[0].slug}`);
+  await expect(spain.locator('[data-demand-buyer]').first().getByRole('link')).toHaveAttribute('href',
+    // WP-112: with the codes, so the buyer page shows the trade's tenders and top suppliers
+    `/buyers/${es.topBuyers[0].slug}?cpv=${encodeURIComponent(DEMO.codes.map((c: { prefix: string }) => c.prefix).join(','))}`);
   // named winners only with at least kMin awards; every other winner as a count
   const named = DEMO.byCountry.flatMap((c: { topWinners: { awards: number }[] }) => c.topWinners);
   expect(named.length).toBeGreaterThan(0);

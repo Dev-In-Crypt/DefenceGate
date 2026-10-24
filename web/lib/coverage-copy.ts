@@ -70,13 +70,19 @@ export const SOURCE_SHORT: Record<string, string> = {
   nl_tenderned: 'TenderNed',
 };
 
+const SOURCE_COUNTRY: Record<string, string> = {
+  pl_ezam: 'PL', pl_atlas: 'PL', es_placsp: 'ES', es_placsp_agg: 'ES', de_bkms: 'DE', fr_boamp: 'FR', nl_tenderned: 'NL',
+};
+
 /**
  * WP-112 (p04: "Poland: TED + e-Zamówienia" above a count of three sources, Atlas Przetargów among them): the line for one country from the
  * sources the count on the page actually holds (`counted`: source ids, largest first), TED first. Falls back to `coverageLine`.
  */
 export function countedLine(country: string, counted: readonly string[]): string {
-  const ids = [...new Set(counted)].sort((a, b) => Number(b === 'ted') - Number(a === 'ted'));
-  if (ids.length === 0) return coverageLine(country);
+  // a national source of another country is not this country's (it cannot hold its notices); TED alone: the usual line
+  const ids = [...new Set(counted)].filter((id) => id === 'ted' || !SOURCE_COUNTRY[id] || SOURCE_COUNTRY[id] === country)
+    .sort((a, b) => Number(b === 'ted') - Number(a === 'ted'));
+  if (!ids.some((id) => id !== 'ted')) return coverageLine(country);
   const n = NATIONAL_COVERAGE[country];
   const said = ids.map((id) => SOURCE_SHORT[id] ?? id);
   return `${countryName(country)}: ${said.join(' + ')}${n?.note ? `; ${n.note}` : ''}`;

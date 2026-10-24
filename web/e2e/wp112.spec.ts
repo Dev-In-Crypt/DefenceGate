@@ -82,10 +82,10 @@ test('who to approach: a winner matched by an additional code apart, a prime\'s 
 });
 
 test('the company list credits PLACSP only for a page with its wins (p03, p04, p06)', async ({ page }) => {
+  // the demo map holds no PLACSP source, so this shows the Polish page's credit; the per-page rule itself is the API's
+  // (tests/integration/test_wp112.py::test_the_supplier_list_credits_placsp_only_for_a_page_with_its_wins)
   await visit(page, '/suppliers?country=PL', { title: /supplier/i, h1: 'Companies' });
   await expect(page.locator('[data-attribution]')).toHaveText('Source: TED, © European Union.');
-  await visit(page, '/suppliers?country=ES', { title: /supplier/i, h1: 'Companies' });
-  await expect(page.locator('[data-attribution]')).toContainText('Origen de los datos');
 });
 
 test('the market counts all defence on request, and a German reader is not sent to the Spanish rules (p03, p06)', async ({ page }) => {

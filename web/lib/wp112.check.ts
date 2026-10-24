@@ -87,7 +87,8 @@ void (async () => {
   // ---------------------------------------------------------------- 4. coverage and group titles
   assert.equal(countedLine('PL', ['pl_ezam', 'ted', 'pl_atlas']),
     'Poland: TED + e-Zamówienia + Atlas Przetargów (a one-off load of its archive of past notices)');
-  assert.equal(countedLine('NL', ['ted']), 'Netherlands: TED; in practice chiefly one buyer, the Ministry of Defence');
+  assert.equal(countedLine('NL', ['ted', 'nl_tenderned']), 'Netherlands: TED + TenderNed; in practice chiefly one buyer, the Ministry of Defence');
+  assert.equal(countedLine('IT', ['ted', 'fr_boamp']), 'Italy: TED only; the national portal is not collected', 'another country\'s source is not counted');
   assert.equal(cpvGroupName('374'), 'Sports goods and equipment');
   assert.equal(cpvGroupName('246'), 'Explosives');
 

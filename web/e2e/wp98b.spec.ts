@@ -100,9 +100,10 @@ test('the supplier list gives contract values, orders by them in one currency, a
   const SUPPLIERS = { title: /supplier/i, h1: 'Companies' } as const;
   await visit(page, '/suppliers', SUPPLIERS);
   const first = page.locator('main li', { hasText: 'Demo Airframes GmbH' });
-  await expect(first.locator('[data-contract-values]')).toHaveText('Contract values: EUR 4,500,000 over 3 of 14 contracts');
+  // WP-112 (p06, p07): the line accounts for the contracts it does not sum
+  await expect(first.locator('[data-contract-values]')).toHaveText('Contract values: EUR 4,500,000 over 3 of 14 contracts; 11 more with a framework ceiling, an estimate or no value of their own (not added)');
   await expect(page.locator('main li', { hasText: 'Demo Logistics B.V.' }).locator('[data-contract-values]'))
-    .toHaveText('Contract values: none stated for this company alone');
+    .toHaveText('Contract values: none stated for this company alone (a framework ceiling or an estimate is not added)');
   await visit(page, '/suppliers?sort=value-EUR', SUPPLIERS);
   await expect(page.locator('main li a[href^="/suppliers/"]').first()).toHaveText('Demo Ordnance SA');
   await expect(page.getByText(/Ignored filter/)).toHaveCount(0);

@@ -88,7 +88,8 @@ test('a supplier page downloads every contract as CSV, with source, licence and 
   expect(res.status()).toBe(200);
   expect(res.headers()['content-type']).toContain('text/csv');
   const body = (await res.text()).replace(/^﻿/, '');
-  expect(body.split(/\r?\n/)[0]).toBe('supplier,notice_id,title,buyer,buyer_country,published,cpv,value,currency,value_kind,in_contract_sum,winners_in_notice,framework_notice_id,source_name,source_url,licence,attribution,page_url,result_truncated');
+  // WP-112 (p07): the company number after the name
+  expect(body.split(/\r?\n/)[0]).toBe('supplier,company_number,notice_id,title,buyer,buyer_country,published,cpv,value,currency,value_kind,in_contract_sum,winners_in_notice,framework_notice_id,source_name,source_url,licence,attribution,page_url,result_truncated');
   expect(body).toContain('Commission Decision 2011/833/EU');
   expect((await request.get('/suppliers/999-nobody/contracts.csv')).status()).toBe(404);
 });

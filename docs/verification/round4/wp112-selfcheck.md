@@ -158,7 +158,7 @@ after `supplier`. Shared code: `suppliers._stated` (the page and the file use th
 `web/components/tenders/filter-bars.tsx` and `web/lib/taxonomy.ts` (`countryOrder`, item 9), `web/app/(public)/requirements/page.tsx` and
 `web/lib/readiness.ts` (`appearsLine`), `web/components/market/buyer-suppliers.tsx` (`restNote`), `web/lib/cpv.ts` and
 `web/lib/data/cpv-groups.json` (group titles), `web/lib/ui.check.ts`, `wp81.check.ts`, `wp98b.check.ts` (expectations of changed words),
-`backend/tests/integration/test_wp105.py` (primes at buyers by trade), `web/lib/mock/demand.json` and `web/lib/mock/suppliers.ts`
+`backend/tests/integration/test_wp105.py` (primes at buyers by trade), `backend/tests/integration/test_wp89.py` (the market's groups under the codes asked: 343 only, and 343 and 354 without codes), `web/e2e/wp66.spec.ts` (buyer link with the codes), `web/e2e/wp98b.spec.ts` (the fuller list value line), `web/e2e/wp100.spec.ts` (the `company_number` column), `web/lib/mock/demand.json` and `web/lib/mock/suppliers.ts`
 (the new fields).
 
 ## Ops on production
@@ -167,4 +167,6 @@ None. No data is written; the answers change with the code. The market's and the
 
 ## Results
 
-RESULTS_PLACEHOLDER
+- Backend (test copy, Postgres 17 on 55512): ruff clean; unit 3,775 passed; integration 1,365 passed (the one failure of the first run, `test_wp89::test_the_market_takes_a_cpv_filter`, was the old group rule; updated, its file re-run green).
+- Web: `tsc --noEmit` clean; `node scripts/run-checks.mjs` all green (`wp112.check.ts` new); `next build` green; Playwright full suite 816 passed, 61 skipped, 1 failed: `digest.spec.ts` conditional request (304 expected, 200 under four workers on a shared machine), green on its own re-run (15 passed); WP-112 spec green on desktop and 375 px.
+- `wp112.spec.ts`: the company-list credit is shown only for a page without PLACSP wins (the demo map holds no PLACSP source); the per-page rule is tested on the API.
