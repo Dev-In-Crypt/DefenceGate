@@ -92,7 +92,10 @@ Page counts (A4, Chromium PDF of the e2e, demo demand answer): ES automotive sho
 
 ## Tests (local, `D:\DEFENCEGATE TESTS\wp97`, Postgres container dgate-wp97 on 55497, E2E_PORT 3097)
 
-- ruff: clean. Unit: see the run below. Integration (full): see the run below.
+- Final run (24 October 2026, integration = 9693f6a, the branch's base: nothing newer to merge): ruff clean; unit 3,564 passed;
+  integration 1,284 passed, 2 failed and 2 errors from the test Postgres dropping connections (archive timeline/integration, backup
+  freshness: files WP-97 does not touch), those three files rerun alone: 66 passed; tsc clean; lib checks all ok (wp97 included);
+  next build ok; Playwright 718 passed, 56 skipped (the wp63 fake-API cases, skipped by design), 0 failed.
 - New: `tests/unit/test_wp97_approach.py`; WP-97 cases in `tests/integration/test_wp80_approach.py` (dealer flag, buyer amount =
   contract values only, open count = tender list total); `web/lib/wp97.check.ts`; `web/e2e/wp97.spec.ts` (five scenarios, desktop
   and 375 px). Fixtures `assess-{es-auto97,de-mach97,pl-ammo97,nl-svc97}[-routes].json` computed by `readiness.api.assess_payload`
