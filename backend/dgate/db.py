@@ -36,7 +36,6 @@ from .normalise import (
     normalise_identifier,
     normalise_org_name,
     scrub_opportunity,
-    strip_name_contacts,
 )
 
 log = logging.getLogger(__name__)
@@ -688,8 +687,8 @@ def _resolve_organisation(
     nearly equal are written to `organisation_merge_candidate` and wait for a
     person: a poisoned alias table is worse than none.
     """
-    # WP-115: the alias keeps the name as stated, so a contact block written into it goes before it is stored
-    raw_name = strip_name_contacts(raw_name)
+    # The alias keeps the name as stated, a contact block written into it included (owner, 24 Oct 2026: kept); only the
+    # matching key leaves it out (`normalise_org_name`), so the same body with and without it is one organisation.
     if not raw_name or not country:
         return None
     norm = normalise_org_name(raw_name)

@@ -7,8 +7,9 @@ import { etagOf } from './atom';
  */
 export async function withEtag(request: Request, res: Response): Promise<Response> {
   if (res.status !== 200) return res;
-  const body = await res.text();
-  const etag = etagOf(body);
+  // The bytes as sent: `res.text()` would drop a CSV's UTF-8 byte-order mark (WP-116), which Excel needs
+  const body = await res.arrayBuffer();
+  const etag = etagOf(new TextDecoder('utf-8', { ignoreBOM: true }).decode(body));
   const headers = new Headers(res.headers);
   headers.set('etag', etag);
   if (matches(request.headers.get('if-none-match'), etag)) {

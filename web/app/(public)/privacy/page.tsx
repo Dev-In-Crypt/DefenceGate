@@ -22,7 +22,7 @@ export default function PrivacyPage() {
       toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Privacy notice', href: '/privacy' }]}
       title="Privacy notice"
-      lead="Version 1.5, published 18 October 2026. It says what happens today and what will apply once sign-in opens. It is updated before anything that changes it goes live."
+      lead="Version 1.6, published 24 October 2026 (the sign-in cookie also holds the account page to return to). It says what happens today and what will apply once sign-in opens. It is updated before anything that changes it goes live."
     >
       <Callout title="In short">
         <ClauseList items={[
@@ -56,7 +56,7 @@ export default function PrivacyPage() {
         <ClauseList items={[
           <><span className="font-mono">dg-theme</span> (local storage, your device only): your light or dark choice. Kept until you clear your browser data.</>,
           <><span className="font-mono">dg.profile.v1</span> (local storage, your device only): only if you use the readiness check or the supplier profile, the answers you give there (for example a company name, its country and size, product codes and certificates). They stay in your browser: we do not see them and do not keep them. To compute a result they are sent once to our server, used for that answer only and neither stored nor logged. You can delete them with &ldquo;Clear my answers&rdquo; in the readiness check, or by clearing your browser data.</>,
-          <><span className="font-mono">__Host-dg_bind</span> (cookie, first party): only while you sign in. Ties the sign-in link to the browser that asked for it. Expires after 15 minutes.</>,
+          <><span className="font-mono">__Host-dg_bind</span> (cookie, first party): only while you sign in. Ties the sign-in link to the browser that asked for it and, if you were opening a page of your account, holds that page's address so that you come back to it after signing in. Expires after 15 minutes.</>,
           <><span className="font-mono">__Host-dg_session</span> (cookie, first party): only when you are signed in. Keeps you signed in. Expires after 30 days at most, or after 7 days without use.</>,
         ]} />
         <p className={P}>The two cookies are strictly necessary to provide the sign-in you asked for, so no consent banner is shown. They are never used for tracking.</p>

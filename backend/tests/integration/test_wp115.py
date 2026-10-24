@@ -50,11 +50,14 @@ def test_a_case_reference_does_not_split_the_buyer(conn):
     assert conn.execute("SELECT count(*) AS n FROM organisation").fetchone()["n"] == 1
 
 
-def test_contact_block_is_not_stored_with_a_new_buyer(conn):
-    oid = db.resolve_organisation(conn, "Stadt Y, Hauptstr. 1, 12345 Y, Tel. 0221 123456, E-Mail: a@b.de", "DE")
+def test_contact_block_is_kept_as_stated_but_left_out_of_the_matching_key(conn):
+    # owner decision of 24 Oct 2026: the stated name keeps its contact block; the canonical (matching) form leaves it out
+    stated = "Stadt Y, Hauptstr. 1, 12345 Y, Tel. 0221 123456, E-Mail: a@b.de"
+    oid = db.resolve_organisation(conn, stated, "DE")
     assert _row(conn, oid)["canonical_name"] == "stadt y hauptstr 1 12345 y"
     raw = conn.execute("SELECT raw_name FROM organisation_alias WHERE organisation_id = %s", (oid,)).fetchone()
-    assert raw["raw_name"] == "Stadt Y, Hauptstr. 1, 12345 Y"
+    assert raw["raw_name"] == stated
+    assert db.resolve_organisation(conn, "Stadt Y, Hauptstr. 1, 12345 Y", "DE") == oid
 
 
 def test_rows_split_by_false_numbers_rejoin_and_the_undo_restores_them(conn):
