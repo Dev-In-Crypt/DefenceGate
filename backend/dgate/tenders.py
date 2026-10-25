@@ -1744,6 +1744,39 @@ def _id_of(slug: str, what: str) -> int:
     return int(m.group(1))
 
 
+@router.get("/v1/tenders/{slug}/moved")
+def tender_moved(slug: str, conn=Depends(get_conn)) -> dict[str, Any]:
+    """WP-121 (p10: a link cited in an earlier round, /tenders/267780, answered 404): where an old notice address leads when
+    `/v1/tenders/{slug}` has no notice for it. A notice we hold that left the defence scope (a reclassification: a police
+    purchase once read as defence) leads to its other publication of the same procurement that is in scope (`ted_ref`, the
+    link the lists collapse on), else it is answered as `left`: its title and its source's link, so a cited address still
+    says what it was and where the original is. 404 for an id we never held, 410 for one removed on request; nothing for a
+    notice still in scope (its own endpoint serves it)."""
+    tender_id = _id_of(slug, "tender")
+    row = conn.execute(
+        """SELECT o.id, o.native_id, o.ted_ref, o.is_defence, o.suppressed, o.title_en, o.title_original, o.source_url,
+                  s.code AS source_code, s.name AS source_name
+             FROM opportunity o JOIN source s ON s.id = o.source_id WHERE o.id = %s""", (tender_id,)).fetchone()
+    if not row:
+        raise HTTPException(404, "no such tender")
+    if row["suppressed"]:
+        raise removed()
+    if row["is_defence"]:
+        raise HTTPException(404, "the notice is in scope: read it at /v1/tenders/{slug}")
+    twin = conn.execute(
+        """SELECT o.id, o.title_en, o.title_original FROM opportunity o JOIN source s ON s.id = o.source_id
+            WHERE o.is_defence AND NOT o.suppressed AND o.id <> %(id)s
+              AND ((s.code = 'ted' AND %(ref)s::text IS NOT NULL AND o.native_id = %(ref)s)
+                   OR (%(ted)s AND o.ted_ref = %(native)s))
+            ORDER BY (s.code = 'ted') DESC, o.id LIMIT 1""",
+        {"id": tender_id, "ref": row["ted_ref"], "ted": row["source_code"] == "ted", "native": row["native_id"]}).fetchone()
+    if twin:
+        return {"slug": make_slug(twin["id"], redact_emails(twin["title_en"]) or redact_emails(twin["title_original"]) or ""), "left": None}
+    return {"slug": None, "left": {
+        "title": redact_emails(row["title_en"]) or redact_emails(row["title_original"]) or "",
+        "noticeId": row["native_id"], "sourceName": row["source_name"], "url": http_url(row["source_url"])}}
+
+
 @router.get("/v1/tenders/{slug}", response_model=Tender)
 def get_tender(slug: str, conn=Depends(get_conn)):
     tender_id = _id_of(slug, "tender")

@@ -71,10 +71,11 @@ export default async function ChangesPage({ searchParams }: Props) {
   const notices = ignoredFilters(sp, 'changes');
   // WP-90: the week under way ("this week so far", from the digest) is listed up to now; it has no issue of the digest yet
   const thisWeek = filters.week !== undefined && filters.week === weekOf(now());
-  // A page past the API's last (100) is past the end of the list: an answer, not an outage (QA m-8)
+  // A page past the API's last (100) is past the end of the list (QA m-8): WP-121, its first page is read for the total, and the
+  // address goes to the last page, as the other lists do
   const pastEnd = (filters.page ?? 1) > CHANGE_MAX_PAGE;
   // WP-106 (p03): a period beyond the last 14 days: the archive's weeks, each the list behind its digest (the week under way too)
-  const [data, weeks] = await Promise.all([pastEnd ? null : getChanges(filters).catch(() => null), getDigestWeeks().catch(() => [])]);
+  const [data, weeks] = await Promise.all([getChanges(pastEnd ? { ...filters, page: 1 } : filters).catch(() => null), getDigestWeeks().catch(() => [])]);
   const current = weekOf(now());
   const periods = [{ value: current, label: weekSoFarLabel(current, now()) }, ...weeks.map((w) => ({ value: w.week, label: weekLabel(w.week) }))];
   if (filters.week && !periods.some((o) => o.value === filters.week)) periods.push({ value: filters.week, label: weekLabel(filters.week) });
@@ -115,13 +116,6 @@ export default async function ChangesPage({ searchParams }: Props) {
       </div>
     </form>
   );
-  const firstPage = (
-    <EmptyState title={`There is no page ${filters.page} of this list`}
-      action={<Button variant="secondary" href={`/changes${toChangeQuery({ ...filters, page: 1 })}`}>Go to page 1</Button>}>
-      The list ends before this page. Page 1 has the newest changes.
-    </EmptyState>
-  );
-  if (pastEnd) return <>{header}<FilterNotices notices={notices} />{filterForm}{firstPage}</>;
   // A week outside the archive, or not yet ended, is a 404 of the API: not a fault of the list.
   if (!data && filters.week) notFound();
   if (!data) {
@@ -139,9 +133,9 @@ export default async function ChangesPage({ searchParams }: Props) {
       </>
     );
   }
-  const last = lastPage(data.total, data.pageSize);
-  if (data.total > 0 && (filters.page ?? 1) > last) redirect(`/changes${toChangeQuery({ ...filters, page: last })}`);
-  if (data.total === 0 && (filters.page ?? 1) > 1) return <>{header}<FilterNotices notices={notices} />{filterForm}{firstPage}</>;
+  // WP-121: past the last page (an empty list's last page is page 1), the last page, as tenders, buyers, funding and suppliers answer
+  const last = Math.min(lastPage(data.total, data.pageSize), CHANGE_MAX_PAGE);
+  if ((filters.page ?? 1) > last) redirect(`/changes${toChangeQuery({ ...filters, page: last })}`);
   // WP-87: the feed of exactly this list (every filter but the page; a feed is always the last 14 days)
   const feedHref = `/changes.atom${toChangeQuery({ ...filters, week: undefined, kind: undefined, page: undefined, pageSize: undefined })}`;
   // A rolling window ends now; a week ends at the next Monday 00:00 (exclusive), so its last day is the second before.

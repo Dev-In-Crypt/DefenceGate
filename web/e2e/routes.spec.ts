@@ -29,9 +29,10 @@ test('home: the tasks, the site search, the honest alerts button and what change
   await expect(page.getByRole('link', { name: /what changed/i }).first()).toBeVisible();
 });
 
+// WP-121 (moved): the tile's tenders action (the tile became two actions, tenders and funding)
 test('home: "Find tenders and funding" lands on /tenders, where a country and a CPV set the filters', async ({ page }) => {
   await visit(page, '/', { title: /DefenceGate/, h1: 'Win, partner, qualify.' });
-  await Promise.all([page.waitForURL(/\/tenders$/), page.getByRole('list', { name: 'What do you want to know?' }).getByRole('link', { name: /Find tenders and funding/ }).click()]);
+  await Promise.all([page.waitForURL(/\/tenders$/), page.getByRole('list', { name: 'What do you want to know?' }).getByRole('link', { name: /^Browse tenders/ }).click()]);
   await expect(page.locator('h1').first()).toHaveText('Tenders');
   await visit(page, '/tenders?country=PL&cpv=35', { title: /tenders/i, h1: 'Tenders' });
   const url = new URL(page.url());

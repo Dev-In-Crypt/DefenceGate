@@ -4,6 +4,9 @@ import { Button } from './button';
 import { Icon } from './icon';
 import { CONTROL, boxCls } from './field';
 
+/** WP-121: short enough for the field at 320 px ("For example Rheinmetall, radar or drone" was cut to "...radar or dro"). */
+const PLACEHOLDER = 'Rheinmetall, radar, drone';
+
 /**
  * The site search (WP-86): a GET to /search, which asks tenders, funding, buyers and companies at once. `compact` is the
  * header's field (the label read out, not shown; a 44 px search button); otherwise the label is shown with a "Search" button
@@ -21,7 +24,7 @@ export function SiteSearchForm({ id, compact = false, defaultValue, className }:
         <div className={cn(boxCls(undefined, false, true), compact && 'px-3')}>
           {!compact && <Icon icon={Search} className="shrink-0 text-ink-muted" />}
           <input id={id} type="search" name="q" required minLength={2} maxLength={100} defaultValue={defaultValue} autoComplete="off"
-            placeholder={compact ? 'Search' : 'For example Rheinmetall, radar or drone'} className={CONTROL} />
+            placeholder={compact ? 'Search' : PLACEHOLDER} className={CONTROL} />
         </div>
       </div>
       {compact ? (

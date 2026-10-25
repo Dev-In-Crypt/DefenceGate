@@ -4,6 +4,7 @@
  * out and how many notices two of them share. Pure and import-light: lib/wp52b.check.ts runs it on its own.
  */
 import { formatDateUtc, formatNumber, formatTimeUtc } from './format';
+import { SCOPE_CHOICES } from './taxonomy';
 import type { ScopeCounts } from './types';
 
 interface Bounded { total: number; totalCapped?: boolean; maxOffset?: number }
@@ -66,5 +67,7 @@ export function countsNote(c: Pick<ScopeCounts, 'asOf' | 'overlap'> | null | und
 /** Core and supplies share notices (the national copy of a core notice is listed once in the first count): said, so the three counts add up. */
 export function overlapNote(c: Pick<ScopeCounts, 'overlap'> | null | undefined): string | null {
   const n = c?.overlap ?? 0;
-  return n > 0 ? `Core and supplies add up to ${formatNumber(n)} more than the first count: ${formatNumber(n)} supply ${n === 1 ? 'notice is' : 'notices are'} the national copy of a core notice, which the first count shows once.` : null;
+  // WP-121 (p01: "Core and supplies" are words no label of the filter has): the labels' own words
+  const { relevant, core, supply } = SCOPE_CHOICES;
+  return n > 0 ? `${core.label} and ${supply.label} add up to ${formatNumber(n)} more than ${relevant.label}: ${formatNumber(n)} ${n === 1 ? 'notice is' : 'notices are'} in both (the national copy of a notice of ${core.label.toLowerCase()}), which ${relevant.label} counts once.` : null;
 }

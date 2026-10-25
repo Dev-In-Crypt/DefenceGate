@@ -5,6 +5,15 @@
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
 
+/**
+ * WP-121 (p04: a journalist found the citing rule only in term 12 of the terms): the suggested citation of a figures page, in the words of
+ * that term: DefenceGate, the original sources (those that published the notices counted) and the date of the figures.
+ */
+export function citeLine(sources: string[], asOf: string, url: string): string {
+  const from = sources.length === 0 ? 'TED and national portals' : sources.length === 1 ? sources[0] : `${sources.slice(0, -1).join(', ')} and ${sources.at(-1)}`;
+  return `DefenceGate (${url}), from ${from}, figures as of ${asOf}.`;
+}
+
 /** "2026-10" -> "Oct 2026". Anything that is not a year-month is returned as it came. */
 export function monthLabel(ym: string): string {
   const m = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(ym);

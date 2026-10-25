@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Printer } from 'lucide-react';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { getHealth, getTender, getTenders, getTenderVersions, isTenderSlug, REMOVED, whenRemoved } from '@/lib/api';
+import { getHealth, getTender, getTenderMoved, getTenders, getTenderVersions, isTenderSlug, REMOVED, whenRemoved, type TenderMoved } from '@/lib/api';
+import { EmptyState } from '@/components/dg/feedback';
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { getTenderDeadline, localDeadline } from '@/lib/deadline';
 import { VALUE_MISSING_MEANS, sourceDisplay, valueMissingNote, valueMissingNotes } from '@/lib/source-status';
@@ -49,7 +50,10 @@ const IN_CARD = 'border-b-0 [&>div:first-child]:border-t-0';
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const tender = await getTender((await params).slug).catch(whenRemoved);
   if (tender === REMOVED) return { title: 'Removed on request', robots: { index: false } };
-  if (!tender) return { title: 'Tender not found', robots: { index: false } };
+  if (!tender) {
+    const moved = await getTenderMoved((await params).slug).catch(() => null);
+    return { title: moved?.left ? LEFT_SCOPE : 'Tender not found', robots: { index: false } };
+  }
   const d = getTenderDeadline(tender);
   // Structured fields only: buyer, deadline, value, source.
   const description = [
@@ -65,6 +69,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     // The sitemap lists core-scope notices only; a notice that only supplies a defence buyer is not promoted.
     noindex: !tenderMeetsMinimumContent(tender) || tender.scope !== 'core',
   });
+}
+
+const LEFT_SCOPE = 'No longer in our defence scope';
+
+/** WP-121: the page of a notice we held that left the defence scope: what it was and where the original is, nothing more. */
+function LeftScope({ left }: { left: NonNullable<TenderMoved['left']> }) {
+  const url = safeHttpUrl(left.url);
+  return (
+    <EmptyState level="h1" title={LEFT_SCOPE} action={<Button href="/tenders">Browse tenders</Button>}>
+      This address was the page of a notice we no longer list: on a later reading it is not a defence purchase.{' '}
+      {url
+        ? <>The original: <a href={url} rel="noopener noreferrer" className="font-semibold">{left.title || left.noticeId}</a> ({left.sourceName}, notice {left.noticeId}).</>
+        : <>It was {left.title ? `“${left.title}”, ` : ''}notice {left.noticeId} of {left.sourceName}.</>}
+    </EmptyState>
+  );
 }
 
 function Panel({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
@@ -84,7 +103,13 @@ export default async function TenderDetailPage({ params }: Props) {
   healthRead.catch(() => undefined);
   const tender = await getTender(slug).catch(whenRemoved);
   if (tender === REMOVED) return <RemovedOnRequest what="notice" />;
-  if (!tender) notFound();
+  if (!tender) {
+    // WP-121 (p10): an old address of a notice that left the scope leads to its publication in scope, or says what it was
+    const moved = await getTenderMoved(slug).catch(() => null);
+    if (moved?.slug && isTenderSlug(moved.slug)) permanentRedirect(`/tenders/${moved.slug}`);
+    if (moved?.left) return <LeftScope left={moved.left} />;
+    notFound();
+  }
   // The API looks up the leading id only; a changed title must not break a link.
   if (tender.slug !== slug && isTenderSlug(tender.slug)) permanentRedirect(`/tenders/${tender.slug}`);
 

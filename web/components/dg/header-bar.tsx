@@ -80,7 +80,8 @@ export function HeaderBar({ accountsOpen = false }: { accountsOpen?: boolean }) 
           ) : <NavLink key={n.key} href={n.href!} label={n.label} active={groupActive(n)} />)}
         </nav>
         <div className="ml-auto flex items-center gap-2 xl:ml-0">
-          <SiteSearchForm id="header-search" compact className="hidden w-48 xl:flex" />
+          {/* WP-121: one search on the home page's first screen: its own (the phone menu keeps the header's) */}
+          {pathname !== '/' && <SiteSearchForm id="header-search" compact className="hidden w-48 xl:flex" />}
           <ThemeToggle />
           {cta && <Button href={cta.href} className="hidden lg:inline-flex">{cta.label}</Button>}
           <button ref={toggleRef} type="button" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} aria-controls="mobile-nav" onClick={() => setOpen(!open)}

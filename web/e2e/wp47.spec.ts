@@ -94,9 +94,9 @@ test('the filter column folds into groups, keeps every filter, and stays on scre
   expect(await country.evaluate((d) => (d as HTMLDetailsElement).open)).toBe(true);
   expect(await country.locator('input[type=checkbox]').count(), 'every country stays a filter').toBeGreaterThanOrEqual(20);
   await expect(country.locator('input[type=checkbox]').first()).toBeVisible();
-  await country.locator('summary').click();
+  await country.locator(':scope > summary').click();   // WP-121: the group's own summary (its "Show all" has one too)
   expect(await country.evaluate((d) => (d as HTMLDetailsElement).open)).toBe(false);
-  await country.locator('summary').click();
+  await country.locator(':scope > summary').click();   // WP-121: the group's own summary (its "Show all" has one too)
   // Every option row of a filter is at least 32 px high (a checkbox or radio label is the target).
   const sizes = await form.evaluate((f) => [...f.querySelectorAll('label:has(input[type=checkbox]), label:has(input[type=radio])')]
     .filter((l) => l.getBoundingClientRect().height > 0).map((l) => Math.round(l.getBoundingClientRect().height)));

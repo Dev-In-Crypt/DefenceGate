@@ -54,6 +54,20 @@ export function FitItem({ id, children, className, text = '' }: { id: string; ch
   );
 }
 
+/**
+ * WP-121 (p2: the heading said "54 calls" over the 41 cards "Fits my profile" left): the list's count says what is shown. `text` is the
+ * server's count, kept as long as the filter hides nothing (the first render is the server's: no hydration difference); `ids` are the calls
+ * of the page and `whole` says the page is every call of the search (`fit=1`).
+ */
+export function FitCount({ text, ids, total, whole }: { text: string; ids: string[]; total: number; whole: boolean }) {
+  const s = useFitState();
+  const hidden = ids.filter((id) => hiddenByFilter(s, id)).length;
+  if (hidden === 0) return <>{text}</>;
+  const noun = total === 1 ? 'call' : 'calls';
+  // the filter's own words for what it hides ("Hides the blocked ones and the ones without rules")
+  return <>{whole ? `Showing ${ids.length - hidden} of ${total} ${noun} (${hidden} hidden: blocked or without rules)` : `${text} (${hidden} of them hidden: blocked or without rules)`}</>;
+}
+
 export interface FitListItem { id: string; text: string; node: React.ReactNode; heading?: React.ReactNode }
 
 /**

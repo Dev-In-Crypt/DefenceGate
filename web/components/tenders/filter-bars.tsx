@@ -25,15 +25,40 @@ const formatPreset = (n: number) => (n >= 1_000_000 ? `${n / 1_000_000}M` : `${n
 
 const FORM = 'flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5';
 
+/**
+ * WP-121 (p01: the filter column was ~3,500 px on a desktop): a long group shows its first `n` and every chosen one; the rest fold under
+ * "Show all", a native <details>, so it works without script and a folded box is still sent with the form.
+ */
+const SHOWN_COUNTRIES = 6;
+const SHOWN_PRESETS = 4;
+function ShowAll({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <details className="group/all min-w-0" data-show-all>
+      <summary className="inline-flex min-h-9 cursor-pointer list-none items-center text-small font-bold text-ink [&::-webkit-details-marker]:hidden">
+        <span className="group-open/all:hidden">{label}</span><span className="hidden group-open/all:inline">Show fewer</span>
+      </summary>
+      {children}
+    </details>
+  );
+}
+
 /** WP-90: open by default on /tenders (an analyst's first filter); folded on /buyers as before. */
 function CountryChoices({ selected, open = false }: { selected: string[] | undefined; open?: boolean }) {
+  // WP-112 (p02: on a phone Portugal sat far below, the list ordered by how much we hold): the chosen ones first, then by name
+  const order = countryOrder(selected);
+  const head = Math.max(SHOWN_COUNTRIES, selected?.length ?? 0);
+  const box = (c: string) => (
+    <Choice key={c} name={PARAM.country} value={c} defaultChecked={selected?.includes(c)}
+      label={<span className="inline-flex gap-2"><span className="font-mono text-mono-strong">{c}</span><span className="sr-only">{'\u00a0'}</span>{BUYER_COUNTRIES[c]}</span>} />
+  );
   return (
-    <FoldGroup legend="Buyer country" open={open} scroll count={selected?.length}>
-      {/* WP-112 (p02: on a phone Portugal sat far below, the list ordered by how much we hold): the chosen ones first, then by name */}
-      {countryOrder(selected).map((c) => (
-        <Choice key={c} name={PARAM.country} value={c} defaultChecked={selected?.includes(c)}
-          label={<span className="inline-flex gap-2"><span className="font-mono text-mono-strong">{c}</span><span className="sr-only">{'\u00a0'}</span>{BUYER_COUNTRIES[c]}</span>} />
-      ))}
+    <FoldGroup legend="Buyer country" open={open} count={selected?.length}>
+      {order.slice(0, head).map(box)}
+      {order.length > head && (
+        <ShowAll label={`Show all ${order.length} countries`}>
+          <div className="flex min-w-0 flex-col [&_label]:min-h-9 [&_label]:pt-1.5">{order.slice(head).map(box)}</div>
+        </ShowAll>
+      )}
     </FoldGroup>
   );
 }
@@ -66,25 +91,35 @@ export function TenderFilterBar({ filters, basePath, scopeCounts, countsNote }: 
         {/* WP-98b: goods and services, each a row of official codes (lib/analyst.ts) */}
         <div className="flex flex-col gap-1.5" data-cpv-presets>
           <span className="text-label text-ink">Product groups</span>
-          {PRESET_GROUPS.map((g) => (
-            <div key={g.id} className="flex flex-col gap-1" data-preset-group={g.id}>
-              <span className="text-small text-ink-muted">{g.label}</span>
-              <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
-                {CPV_PRESETS.filter((p) => p.group === g.id).map((p) => {
-                  const on = preset?.id === p.id;
-                  return (
-                    <li key={p.id}>
-                      <Link href={`${basePath}${toTenderQuery({ ...filters, cpv: on ? undefined : presetPrefixes(p), cpvMain: on ? undefined : presetMainOnly(p) || undefined, page: 1 })}`} aria-current={on || undefined}
-                        title={`CPV ${presetPrefixes(p).join(', ')}${presetMainOnly(p) ? ', main code only' : ', any code of the notice'}`}
-                        className={cn('inline-flex min-h-8 items-center rounded-pill border px-3 text-small font-semibold', on ? 'border-ink bg-ink text-surface' : 'border-line text-ink')}>
-                        {p.label}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
+          {PRESET_GROUPS.map((g) => {
+            const all = CPV_PRESETS.filter((p) => p.group === g.id);
+            // WP-121: the first few and the chosen one in sight, the rest under "Show all"
+            const head = all.filter((p, i) => i < SHOWN_PRESETS || p.id === preset?.id);
+            const rest = all.filter((p) => !head.includes(p));
+            const pill = (p: (typeof all)[number]) => {
+              const on = preset?.id === p.id;
+              return (
+                <li key={p.id}>
+                  <Link href={`${basePath}${toTenderQuery({ ...filters, cpv: on ? undefined : presetPrefixes(p), cpvMain: on ? undefined : presetMainOnly(p) || undefined, page: 1 })}`} aria-current={on || undefined}
+                    title={`CPV ${presetPrefixes(p).join(', ')}${presetMainOnly(p) ? ', main code only' : ', any code of the notice'}`}
+                    className={cn('inline-flex min-h-8 items-center rounded-pill border px-3 text-small font-semibold', on ? 'border-ink bg-ink text-surface' : 'border-line text-ink')}>
+                    {p.label}
+                  </Link>
+                </li>
+              );
+            };
+            return (
+              <div key={g.id} className="flex flex-col gap-1" data-preset-group={g.id}>
+                <span className="text-small text-ink-muted">{g.label}</span>
+                <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">{head.map(pill)}</ul>
+                {rest.length > 0 && (
+                  <ShowAll label={`Show all ${all.length} ${g.label.toLowerCase()} groups`}>
+                    <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0 pt-1">{rest.map(pill)}</ul>
+                  </ShowAll>
+                )}
+              </div>
+            );
+          })}
         </div>
         <TextInput name={PARAM.cpv} maxLength={200} label="CPV code" placeholder="For example 35 or 35120000" defaultValue={filters.cpv?.join(', ') ?? ''}
           hint={preset ? `${preset.label}: ${preset.codes.length} official codes and everything under them${presetMainOnly(preset) ? ', as the main product code (a works notice lists the services of the works as further codes)' : ', as any code of the notice'}. Starts with the digits you enter; separate several with commas.` : 'Starts with the digits you enter. Separate several with commas.'} />

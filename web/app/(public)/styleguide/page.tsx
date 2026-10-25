@@ -4,6 +4,7 @@ import { ArrowRight, Bell } from 'lucide-react';
 import { getCalls, now } from '@/lib/api';
 import { getDeadline, SOON_DAYS, URGENT_DAYS } from '@/lib/deadline';
 import { cn } from '@/lib/utils';
+import { NOT_FOUND_META } from '@/lib/seo';
 import type { Call, DeadlineState, StatusKind, Tender, TenderVersion } from '@/lib/types';
 import { Logo, LogoMark } from '@/components/dg/logo';
 import { Button } from '@/components/dg/button';
@@ -25,7 +26,8 @@ import { Details } from '@/components/dg/details';
 import { DataTable } from '@/components/dg/data-table';
 import { DetailLayout, SectionNav } from '@/components/dg/detail-layout';
 
-export const metadata: Metadata = { title: 'Styleguide', robots: { index: false, follow: false } };
+// WP-121: in production the page is a 404 (below), and its tab says so too
+export const metadata: Metadata = process.env.NODE_ENV === 'production' ? NOT_FOUND_META : { title: 'Styleguide', robots: { index: false, follow: false } };
 
 const COLOR_TOKENS = ['bg', 'surface', 'surface-inset', 'line', 'ink', 'ink-muted', 'primary', 'on-primary', 'accent', 'accent-text', 'urgent', 'on-urgent', 'link', 'open-bg', 'open-fg', 'soon-bg', 'soon-fg', 'closed-bg', 'closed-fg', 'alert', 'primary-hover', 'primary-press', 'edge'];
 const TYPE = [

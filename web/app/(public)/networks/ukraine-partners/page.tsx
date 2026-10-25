@@ -8,6 +8,7 @@ import { AboutData } from '@/components/dg/about-data';
 import { CountryNote, DataSources, OrgLink, TableBox } from '@/components/networks/parts';
 import type { SearchParams } from '@/lib/filters';
 import { Pagination } from '@/components/dg/pagination';
+import { partnerCrumbs } from '@/components/dg/companies-tabs';
 import type { UkrainePartners } from '@/lib/networks-types';
 
 export const revalidate = 900;
@@ -75,7 +76,7 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
   const pageHref = (n: number) => `${base}${all ? '&programme=all' : !all && codes.join() !== DEFENCE_PROGRAMMES.join() ? `&programme=${codes.join(',')}` : ''}${n > 1 ? `&page=${n}` : ''}`;
   return (
     <ContentPage
-      crumbs={[{ label: 'Home', href: '/' }, { label: 'Organisations', href: '/organisations' }, { label: 'Partners of Ukrainian organisations', href: '/networks/ukraine-partners' }]}
+      crumbs={partnerCrumbs('Ukraine partners', '/networks/ukraine-partners')}
       title="Ukraine partners"
       lead="Organisations that led an EU-funded project with a Ukrainian participant: primes that already work with Ukrainian companies, and consortia to join."
       wide

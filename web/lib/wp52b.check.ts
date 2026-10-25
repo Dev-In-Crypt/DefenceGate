@@ -48,9 +48,11 @@ assert.equal(countsAsOf(undefined), null);
 assert.equal(countsAsOf('not a date'), null);
 assert.equal(overlapNote({ overlap: 0 }), null);
 assert.equal(overlapNote({}), null);
-assert.match(overlapNote({ overlap: 46 }) ?? '', /^Core and supplies add up to 46 more than the first count: 46 supply notices are the national copy of a core notice/);
-assert.match(overlapNote({ overlap: 1 }) ?? '', /1 supply notice is the national copy/);
-assert.equal(countsNote({ asOf: '2026-10-19T11:05:00Z', overlap: 46 })?.startsWith('Counts as of 19 Oct 2026, 11:05 UTC. Core and supplies add up to 46 more'), true);
+// WP-121: the same note in the words of the filter's labels (was "Core and supplies add up to 46 more than the first count: 46 supply notices
+// are the national copy of a core notice")
+assert.match(overlapNote({ overlap: 46 }) ?? '', /^Military goods and works and Other purchases by armed forces add up to 46 more than All defence: 46 notices are in both \(the national copy of a notice of military goods and works\)/);
+assert.match(overlapNote({ overlap: 1 }) ?? '', /: 1 notice is in both \(the national copy/);
+assert.equal(countsNote({ asOf: '2026-10-19T11:05:00Z', overlap: 46 })?.startsWith('Counts as of 19 Oct 2026, 11:05 UTC. Military goods and works and Other purchases by armed forces add up to 46 more'), true);
 assert.equal(countsNote({ asOf: '2026-10-19T11:05:00Z' }), 'Counts as of 19 Oct 2026, 11:05 UTC.', 'the home stamp has its date (WP-59, NEW-13)');
 assert.equal(countsNote(null), null);
 // 1,522 = 294 + 1,274 - 46: the three counts and the note agree.

@@ -88,6 +88,8 @@ export interface DeadlineInfo {
   /** "in 46 days" | "Today" | "Closed"; "" when there is no deadline. */
   countdown: string;
   label: string;
+  /** WP-121: the instant it closes (the end of the day of a date-only deadline); null when there is no stated deadline. */
+  closesAt?: IsoDateTime | null;
   /** The source states a date, not a time of day. */
   dateOnly?: boolean;
   /** An open call past its latest cut-off that takes submissions continuously or in several cut-offs. */
@@ -109,7 +111,7 @@ export function getDeadline(deadline: IsoDateTime | null, ref: Date = now(), soo
   const days = daysLeft(deadline, ref);
   const state = deadlineState(deadline, ref, soonDays);
   return {
-    iso: deadline, days, state,
+    iso: deadline, days, state, closesAt: deadline,
     utc: deadline === null ? '' : formatDateTimeUtc(deadline),
     countdown: countdownLabel(days),
     label: state === 'urgent' && days !== null ? urgentLabel(days) : stateLabel(state),
@@ -176,6 +178,19 @@ export function getTenderDeadline(
   if (notClosed) return calm(info);
   if (tender.status !== 'closed' || info.state === 'closed') return info;
   return { ...info, state: 'closed', countdown: 'Closed', label: stateLabel('closed') };
+}
+
+/**
+ * WP-121 (owner: "strictly the soonest deadlines first"): the `n` items that close soonest and are still open at `ref`, by the instant
+ * each closes (a date-only deadline at the end of its day, so a "28 Oct" call is not put before a tender closing 28 Oct at 10:00). A
+ * deadline already passed, a rolling call past its cut-off and an item without a deadline are left out. Every deadline is read against
+ * the one `ref`, so the rows of a list never disagree on what "today" is.
+ */
+export function soonestOpen<T>(items: T[], info: (t: T, ref: Date) => DeadlineInfo, n: number, ref: Date = now()): { item: T; deadline: DeadlineInfo }[] {
+  return items.map((item) => ({ item, deadline: info(item, ref) }))
+    .filter(({ deadline: d }) => d.closesAt && d.state !== 'closed' && !d.rolling)
+    .sort((a, b) => Date.parse(a.deadline.closesAt!) - Date.parse(b.deadline.closesAt!))
+    .slice(0, n);
 }
 
 /**

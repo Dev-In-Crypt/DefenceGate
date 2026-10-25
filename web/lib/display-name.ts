@@ -148,6 +148,29 @@ function shout(text: string, kind: NameKind): string {
 }
 
 /**
+ * WP-121 (p04: "Agencja Uzbrojenia, [email removed]" among a buyer's name variants): the token the pipeline writes where it took an e-mail
+ * address out of a stored name (backend/dgate/normalise.py EMAIL_PLACEHOLDER) is never shown, with the comma or brackets around it. The
+ * stored name is not touched.
+ */
+const REMOVED_TOKEN = /[\s,;:–-]*\(?\[email removed\]\)?/gi;
+export function withoutRemovedToken(text: string): string {
+  if (!text.toLowerCase().includes('[email removed]')) return text;
+  return text.replace(REMOVED_TOKEN, '').replace(/^[\s,;:–-]+|[\s,;:–-]+$/g, '');
+}
+
+/** WP-121: a buyer's name variants as shown: without the removal token, each once (case aside), and not the name the page shows. */
+export function shownVariants(names: readonly string[], own: string): string[] {
+  const seen = new Set([withoutRemovedToken(own).toLowerCase()]);
+  const out: string[] = [];
+  for (const n of names.map(withoutRemovedToken)) {
+    if (!n || seen.has(n.toLowerCase())) continue;
+    seen.add(n.toLowerCase());
+    out.push(n);
+  }
+  return out;
+}
+
+/**
  * `text` as a person reads it: sentence case for a title, title case for a name. Anything that is not
  * mostly upper case is returned unchanged, and so is a single short word (an acronym). Stretches between
  * " - " are read one by one: each opens a sentence, and a stretch that is one short word ("BNT" in
@@ -160,6 +183,7 @@ function shout(text: string, kind: NameKind): string {
  */
 export function displayName(text: string, kind: NameKind = 'sentence'): string {
   if (!text) return text;
+  text = withoutRemovedToken(text);
   if (kind === 'title') return tidyName(text);
   return shoutCase(text, kind);
 }

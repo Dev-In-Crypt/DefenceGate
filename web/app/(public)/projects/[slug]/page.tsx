@@ -10,6 +10,7 @@ import { Card } from '@/components/dg/card';
 import { FactsGrid } from '@/components/dg/facts-grid';
 import { Tag } from '@/components/dg/tag';
 import { ConsortiumTable, DataSources, OrgLink, SourceLink } from '@/components/networks/parts';
+import { companyCrumbs } from '@/components/dg/companies-tabs';
 
 export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }> };
@@ -45,7 +46,7 @@ export default async function ProjectPage({ params }: Props) {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: 'Home', href: '/' }, { label: 'Organisations', href: '/organisations' }, { label, href: `/projects/${p.slug}` }]}
+        crumbs={[...companyCrumbs('organisations'), { label, href: `/projects/${p.slug}` }]}
         eyebrow={(
           <p className="m-0 flex flex-wrap gap-2">
             {p.programme && <Tag kind="programme">{p.programme.code}</Tag>}

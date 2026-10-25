@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { buildMetadata } from '@/lib/seo';
-import { formatDateUtc, formatNumber, plural } from '@/lib/format';
+import { countPlus, formatDateUtc, formatNumber, plural } from '@/lib/format';
 import { countryName } from '@/lib/taxonomy';
 import { displayName } from '@/lib/display-name';
 import { searchStatusLine, searchTenderNoun } from '@/lib/tender-status';
@@ -79,7 +79,8 @@ const cpvHref = (prefix: string) => `/tenders?${new URLSearchParams({ cpv: prefi
 function Part({ s, part }: { s: SiteSearch; part: (typeof GROUPS)[number]['parts'][number] }) {
   const g: SearchGroup<unknown> = s[part.key];
   const all = seeAllHref(part.key, s.q);
-  const total = g.total === null ? '' : `${g.atLeast ? 'at least ' : ''}${formatNumber(g.total)}`;
+  // WP-121 (p08: "See all at least 26 open tenders"): a count that stopped reads "26+"
+  const total = g.total === null ? '' : countPlus(g.total, g.atLeast);
   return (
     <div className="flex min-w-0 flex-col gap-2">
       {part.label && <h3 className="m-0 text-h4">{part.label}</h3>}

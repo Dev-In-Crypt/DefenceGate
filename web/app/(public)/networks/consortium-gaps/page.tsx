@@ -11,6 +11,7 @@ import { ContentPage, ContentSection } from '@/components/dg/content-page';
 import { EmptyState, ErrorState } from '@/components/dg/feedback';
 import { DataSources, OrgLink, TableBox } from '@/components/networks/parts';
 import { AboutData } from '@/components/dg/about-data';
+import { partnerCrumbs } from '@/components/dg/companies-tabs';
 import type { SearchParams } from '@/lib/filters';
 
 export const revalidate = 900;
@@ -62,7 +63,7 @@ export default async function ConsortiumGapsPage({ searchParams }: Props) {
   const notices = unknownProgramme ? [`Unknown programme ${unknownProgramme}: the European Defence Fund is shown.`] : [];
   return (
     <ContentPage
-      crumbs={[{ label: 'Home', href: '/' }, { label: 'Organisations', href: '/organisations' }, { label: 'Gaps in consortia', href: '/networks/consortium-gaps' }]}
+      crumbs={partnerCrumbs('Consortium gaps', '/networks/consortium-gaps')}
       title="Consortium gaps"
       lead="Organisations funded at least twice in one capability area that never had a partner from the country you choose: a place to look for a partner the established consortia do not have."
       wide

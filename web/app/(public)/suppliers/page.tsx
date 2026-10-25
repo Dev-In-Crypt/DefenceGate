@@ -270,6 +270,14 @@ export default async function SuppliersPage({ searchParams }: Props) {
         )}
         {/* WP-98b: whose award results are read for the countries asked (the buyer's, else the supplier's), above an empty list too */}
         <CoverageNote countries={(api.buyerCountry || api.country).split(',').filter(Boolean)} kind="awards" />
+        {/* WP-121 (p01, p04: the list opened on Spanish caterers, with nothing on it saying why): the order, said on the list */}
+        {pageCredit && !f.source && !(api.buyerCountry || api.country) && f.sort === 'awards' && (
+          <p className="m-0 max-w-prose text-small text-ink-muted" data-order-note>
+            Most wins first, counted in TED&rsquo;s result notices and in Spain&rsquo;s national award results, the only national ones read: Spanish
+            winners lead the list. <Link href={href({ ...f, source: 'ted' }, 1)} className="font-semibold">Show TED&rsquo;s winners only</Link> to compare countries,
+            or see the <Link href="/organisations" className="font-semibold">organisations in EU-funded defence projects</Link>.
+          </p>
+        )}
         {pageCredit && !f.source && (api.buyerCountry || api.country) && (
           <p className="m-0 max-w-prose text-small text-ink-muted" data-ted-only-link>
             Comparing countries? <Link href={href({ ...f, source: 'ted' }, 1)} className="font-semibold">Show TED&rsquo;s winners only</Link>, the one source every country has.

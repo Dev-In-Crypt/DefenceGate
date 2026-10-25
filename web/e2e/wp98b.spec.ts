@@ -33,9 +33,10 @@ test('product groups for goods and services, and the deadline presets in sight',
     'Uniforms, footwear and protective gear', 'Machined parts and spare parts', 'Ships and naval', 'Aircraft and aviation']);   // WP-105
   await expect(presets.locator('[data-preset-group="services"] a')).toHaveText([
     'Transport and logistics', 'Fuel', 'Facility management and cleaning', 'Catering', 'Vehicle repair and maintenance', 'Training', 'IT services']);
-  await expect(presets.getByRole('link', { name: 'Uniforms, footwear and protective gear' }))
+  // WP-121: the fifth and later goods groups fold under "Show all" (the column was ~3,500 px); the links are the same
+  await expect(presets.getByRole('link', { name: 'Uniforms, footwear and protective gear', includeHidden: true }))
     .toHaveAttribute('href', `/tenders?cpv=${encodeURIComponent('3581,181,182,183,188,351134,395')}`);
-  await expect(presets.getByRole('link', { name: /^Ammunition/ })).toHaveAttribute('href', `/tenders?cpv=${encodeURIComponent('353,2461')}`);
+  await expect(presets.getByRole('link', { name: /^Ammunition/, includeHidden: true })).toHaveAttribute('href', `/tenders?cpv=${encodeURIComponent('353,2461')}`);
   // the deadline presets are not inside the folded date range
   const seven = page.locator('[data-deadline-presets] a', { hasText: 'Next 7 days' });
   await expect(seven).toBeVisible();
