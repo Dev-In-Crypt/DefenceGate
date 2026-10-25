@@ -105,8 +105,8 @@ Providing an e-mail address and a password is necessary to have an account; with
 0. Owner decisions of 25 October 2026: mail provider Brevo (Sendinblue SAS, France); security log kept 90 days (to be enforced on the API log before publishing).
 1. The mail provider: name and country in sections 5 and 8, its data processing agreement, SPF/DKIM for the sender
    domain.
-2. The security log period: the API's container log is rotated by size only (5 x 20 MB). Either state "until it is
-   overwritten" as above or choose a period (for example 30 days) and have it enforced like the proxy log (`logprune`).
+2. The security log period: decided 90 days (owner, 25 Oct); WP-126 writes account events to their own file, which
+   `logprune` cuts at 90 days (deployed with round 8).
 3. Whether "Sign-in is not open yet" stays in section 5 on publication.
 4. The lawyer's review (OPEN_ITEMS_FOR_LAWYER.md) of the security log basis and of the plan wording together with the
    terms draft 2.2.
