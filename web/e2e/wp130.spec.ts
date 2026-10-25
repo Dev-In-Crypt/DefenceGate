@@ -73,7 +73,7 @@ test('3: the footer link to the last collection run is underlined in both themes
   for (const scheme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme: scheme });
     await page.goto('/about');
-    const link = page.locator('footer').getByRole('link', { name: 'Last collection run (any source)' });
+    const link = page.locator('footer').getByRole('link', { name: 'Last run that brought data (any source)' });
     await expect(link).toBeVisible();
     expect(await link.evaluate((a) => getComputedStyle(a).textDecorationLine), scheme).toContain('underline');
   }
