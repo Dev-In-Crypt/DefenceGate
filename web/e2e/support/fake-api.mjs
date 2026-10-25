@@ -2,6 +2,8 @@
 // numbers of the UX audit of 19 October 2026: 1,449 open notices with a deadline (593 in November), 287,634 closed notices that stop at
 // position 10,000, 2,311 changes in 14 days (3,100 for Poland), a digest week of 873 new notices. For e2e/wp52b-api.spec.ts and e2e/wp127-api.spec.ts; nothing else uses it.
 //
+// `npx playwright test` against a local build starts it and a second `next start` that reads it (playwright.config.ts, the
+// fake-api-* projects, WP-128). By hand, against a site of your own:
 //   node e2e/support/fake-api.mjs [port]              then:  DG_API_URL=http://127.0.0.1:4010 npx next start -p 3100
 //   E2E_FAKE_API=1 E2E_BASE_URL=http://127.0.0.1:3100 npx playwright test e2e/wp52b-api.spec.ts
 //

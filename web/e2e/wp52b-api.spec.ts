@@ -1,16 +1,16 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { visit } from './helpers';
 
 /**
  * WP-52b against a fake API with the audit's numbers (e2e/support/fake-api.mjs): 593 deadlines in November, a closed list of 287,634 that
  * stops at position 10,000, a search that cannot be counted, a feed of 2,311 changes (3,100 for Poland), a digest week of 873 notices.
- * Skipped unless E2E_FAKE_API=1 (the site must be started with DG_API_URL pointing at the fake; see the file's header).
+ * Tagged @fake-api: they run in the fake-api-* projects of playwright.config.ts, on a site that reads the fake (WP-128; they were
+ * skipped unless E2E_FAKE_API=1, which no run set).
  */
-test.skip(!process.env.E2E_FAKE_API, 'needs the fake API: E2E_FAKE_API=1 and a site started with DG_API_URL=http://127.0.0.1:4010');
 
 const text = async (page: Page, path: string) => (await page.request.get(path)).text();
 
-test('T9: November shows its 593 deadlines, twelve pages of at most 50, and the page stays small', async ({ page }) => {
+test('T9: November shows its 593 deadlines, twelve pages of at most 50, and the page stays small', { tag: '@fake-api' }, async ({ page }) => {
   await visit(page, '/calendar?view=month&month=2026-11', { title: /calendar/i, h1: 'Deadline calendar' });
   await expect(page.locator('#results-heading')).toContainText('593 deadlines in November 2026');
   const cards = await page.locator('section[aria-labelledby="results-heading"] li').count();
@@ -33,7 +33,7 @@ test('T9: November shows its 593 deadlines, twelve pages of at most 50, and the 
   await expect(page.locator('#results-heading')).toContainText('1,449 upcoming deadlines');
 });
 
-test('T3: a closed list of 287,634 stops at position 10,000 and says so; a search that cannot be counted reads "at least"', async ({ page }) => {
+test('T3: a closed list of 287,634 stops at position 10,000 and says so; a search that cannot be counted reads "at least"', { tag: '@fake-api' }, async ({ page }) => {
   await visit(page, '/tenders?status=closed', { title: /tenders/i, h1: 'Tenders' });
   await expect(page.locator('#results-heading')).toHaveText('Showing 1–10 of 287,634 tenders');
   await expect(page.getByText(/Counts as of 07:55 UTC/).first()).toBeAttached();
@@ -56,7 +56,7 @@ test('T3: a closed list of 287,634 stops at position 10,000 and says so; a searc
   await expect(page.locator('#results-heading')).toHaveText('Showing 1–10 of 6,280 tenders');
 });
 
-test('T13: the scope counts add up with the overlap, and say when they were counted', async ({ page }) => {
+test('T13: the scope counts add up with the overlap, and say when they were counted', { tag: '@fake-api' }, async ({ page }) => {
   await visit(page, '/tenders', { title: /tenders/i, h1: 'Tenders' });
   const body = await text(page, '/tenders');
   expect(body).toContain('(1,522)');
@@ -67,19 +67,48 @@ test('T13: the scope counts add up with the overlap, and say when they were coun
   expect(body).toContain('Military goods and works and Other purchases by armed forces add up to 46 more than All defence: 46 notices are in both (the national copy of a notice of military goods and works)');
 });
 
-test('T10: the Atom feed holds the whole window, and says so when a cap cuts it', async ({ request }) => {
-  const feed = await (await request.get('/changes.atom')).text();
-  expect((feed.match(/<entry>/g) ?? []).length).toBe(2311);
-  expect(feed).not.toContain('This feed holds the newest');
-  expect(new Set([...feed.matchAll(/<id>(.*?)<\/id>/g)].map((m) => m[1])).size, 'ids are unique').toBe(2312);
-  const poland = await (await request.get('/changes.atom?country=PL')).text();
-  expect((poland.match(/<entry>/g) ?? []).length).toBe(2400);
-  expect(poland).toContain('This feed holds the newest 2,400 of the 3,100 changes; the page lists them all.');
+// WP-128: since WP-100 the feed is paged (RFC 5005): 400 entries a page, `rel="next"` to the older ones. The window is still whole:
+// read through the next links, every change of it is there once. (Was: one document of 2,311 entries, and Poland's cut at 2,400.)
+async function readFeed(request: APIRequestContext, path: string) {
+  const pages: string[] = [];
+  const ids: string[] = [];
+  for (let next: string | null = path; next; ) {
+    const r = await request.get(next);
+    expect(r.status(), next).toBe(200);
+    const body = await r.text();
+    pages.push(body);
+    const entries = [...body.matchAll(/<entry>[\s\S]*?<id>(.*?)<\/id>/g)].map((m) => m[1]);
+    expect(entries.length, `${next}: at most 400 entries a page`).toBeLessThanOrEqual(400);
+    ids.push(...entries);
+    const href = /<link rel="next" type="application\/atom\+xml" href="([^"]+)"\/>/.exec(body)?.[1];
+    next = href ? (({ pathname, search }) => pathname + search)(new URL(href.replace(/&amp;/g, '&'))) : null;
+    expect(pages.length, 'the next links end').toBeLessThanOrEqual(50);
+  }
+  return { pages, ids };
+}
+
+test('T10: the Atom feed holds the whole window, paged, and its first page says where the rest is', { tag: '@fake-api' }, async ({ request }) => {
+  const all = await readFeed(request, '/changes.atom');
+  expect(all.pages.length).toBe(6);                                  // 2,311 changes, 400 a page
+  expect(all.ids.length, 'every change of the window').toBe(2311);
+  expect(new Set(all.ids).size, 'ids are unique').toBe(2311);
+  const [feed] = all.pages;
+  expect((feed.match(/<entry>/g) ?? []).length).toBe(400);
+  expect(feed).toContain('This feed holds the newest 400 of the 2,311 changes; the page lists them all. The older ones are on the next pages of this feed (400 a page).');
+  expect(all.pages[5]).toContain('Page 6 of 6 of this feed: changes 2,001 to 2,311 of 2,311, newest first.');
+  expect(all.pages[5]).not.toContain('rel="next"');
+  // Past the last page is not a page.
+  expect((await request.get('/changes.atom?page=7')).status()).toBe(404);
+  const poland = await readFeed(request, '/changes.atom?country=PL');
+  expect(poland.pages.length).toBe(8);
+  expect(poland.ids.length, 'every change of Poland\'s window').toBe(3100);
+  expect(new Set(poland.ids).size, 'ids are unique').toBe(3100);
+  expect(poland.pages[0]).toContain('This feed holds the newest 400 of the 3,100 changes; the page lists them all.');
   // A digest week or a kind in the address is not a feed.
   expect(await (await request.get('/changes.atom?week=2026-W42&kind=new')).text()).toBe(feed);
 });
 
-test('T10: the digest lists identical notices once with their number, and its "has the rest" link works', async ({ page }) => {
+test('T10: the digest lists identical notices once with their number, and its "has the rest" link works', { tag: '@fake-api' }, async ({ page }) => {
   await visit(page, '/digest/2026-W42', { title: /weekly digest/i, h1: 'Weekly digest' });
   const section = page.locator('#tenders-new');
   await expect(section.getByText('×13').first()).toBeVisible();
@@ -91,12 +120,18 @@ test('T10: the digest lists identical notices once with their number, and its "h
   await rest.click();
   await expect(page).toHaveURL(/\/changes\?week=2026-W42&kind=new/);
   await expect(page.locator('section[aria-labelledby="entries"] h2').first()).toHaveText('Showing 1–25 of 873 changes');
-  await expect(page.getByText(/Week 42: 12 to 18 October 2026/).first()).toBeVisible();
+  // WP-128: the week is chosen in the Period list, which names the archive's week 42 by its option (WP-106); that option is the first
+  // text match and an <option> is never visible (was: getByText(/Week 42: 12 to 18 October 2026/).first() visible). The list's
+  // heading names the week too: the pinned clock (12 October, WP-90) is inside week 42, so it is the week so far.
+  const period = page.getByRole('combobox', { name: 'Period' });
+  await expect(period).toHaveValue('2026-W42');
+  await expect(period.getByRole('option', { name: 'Week 42: 12 to 18 October 2026', exact: true })).toBeAttached();
+  await expect(page.locator('h2#window')).toHaveText('This week so far: 12 to 12 October 2026');
   await page.goto('/changes?week=2026-W42&kind=amended');
   await expect(page.locator('section[aria-labelledby="entries"] h2').first()).toHaveText('Showing 1–25 of 79 changes');
 });
 
-test('T16 / T18 / T11: sources by their rhythm, a partial run with its reason, and the stamp of a notice', async ({ page }) => {
+test('T16 / T18 / T11: sources by their rhythm, a partial run with its reason, and the stamp of a notice', { tag: '@fake-api' }, async ({ page }) => {
   // /data is built once with the demo data and refreshed after 60 s: wait for the fake's numbers.
   await expect.poll(async () => (await text(page, '/data')).includes('A daily source that missed its runs'), { timeout: 150_000, intervals: [5_000] }).toBe(true);
   await visit(page, '/data', { title: /source status/i, h1: 'Source status' });

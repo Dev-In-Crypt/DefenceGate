@@ -61,8 +61,8 @@ test('/alerts and /privacy: no "no date", no bracketed placeholder for the mail 
  * A list the data service cannot answer is a server error, never a 200 page (re-audit N2). The framework answers 500; the edge
  * (infra/Caddyfile) turns it into 503 with Retry-After and no-store, which the lab of the self-check shows. Needs the fake API.
  */
-test.describe('against the fake API', () => {
-  test.skip(!process.env.E2E_FAKE_API, 'needs the fake API: E2E_FAKE_API=1 and a site started with DG_API_URL=http://127.0.0.1:4010');
+// WP-128: tagged @fake-api, run in the fake-api-* projects of playwright.config.ts (was skipped unless E2E_FAKE_API=1)
+test.describe('against the fake API', { tag: '@fake-api' }, () => {
   for (const path of ['/tenders?q=unavailable', '/organisations', '/networks/ukraine-partners']) {
     test(`${path}: a failed list answers 5xx and is not indexed`, async ({ request }) => {
       const r = await request.get(path);

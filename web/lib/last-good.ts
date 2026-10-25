@@ -9,6 +9,7 @@
  * Pure of Next.js: lib/last-good.check.ts runs it on its own.
  */
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -24,8 +25,21 @@ const memory = new Map<string, Kept>();
 function dir(): string {
   return process.env.DG_LAST_GOOD_DIR || join(tmpdir(), 'dg-last-good');
 }
+let buildId: string | undefined;
+/**
+ * WP-128: a copy on disk belongs to the build that wrote it and the data service it read (DG_API_URL, or the demo data). A copy of
+ * another build or service (an older deploy's feed page, a second server of the same machine on another API: the e2e run's
+ * fake-API site) is another file, never offered: served as a stale page it gave /changes.atom one body and ETag on the first
+ * request and another on the next, so a reader holding the first never got its 304.
+ */
+export function storeScope(): string {
+  if (buildId === undefined) {
+    try { buildId = readFileSync(join(process.cwd(), '.next', 'BUILD_ID'), 'utf8').trim(); } catch { buildId = ''; }
+  }
+  return `${buildId}|${process.env.DG_API_URL || 'demo'}`;
+}
 function file(key: string): string {
-  return join(dir(), `${createHash('sha256').update(key).digest('hex').slice(0, 40)}.json`);
+  return join(dir(), `${createHash('sha256').update(`${storeScope()}\n${key}`).digest('hex').slice(0, 40)}.json`);
 }
 
 /** Keep a good answer. `persist`: also write it to disk (default lists and counters only). */
