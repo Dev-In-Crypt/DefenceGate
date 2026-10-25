@@ -164,7 +164,8 @@ test('the supplier profile’s controls are at least 24 px', async ({ page }) =>
 
 test('the footer says its collection run is of any source, and links the source status', async ({ page }) => {
   await visit(page, '/tenders', { title: /tenders/i, h1: 'Tenders' });
-  const link = page.locator('footer').getByRole('link', { name: 'Last collection run (any source)' });
+  // WP-131: the newest run that brought data (a refused run of no records was shown as the last update)
+  const link = page.locator('footer').getByRole('link', { name: 'Last run that brought data (any source)' });
   await expect(link).toHaveAttribute('href', '/data');
-  await expect(page.locator('footer')).not.toContainText(/Last collection run \d/);
+  await expect(page.locator('footer')).not.toContainText(/Last run that brought data \d/);
 });

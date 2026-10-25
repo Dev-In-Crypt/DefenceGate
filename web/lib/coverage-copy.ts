@@ -44,7 +44,7 @@ export function portalWords(sources: PortalSource[]): PortalWords {
  * the supplier map reads (only PLACSP's, WP-61); every other country's winners are TED's.
  */
 export const NATIONAL_COVERAGE: Record<string, { portal: string; since?: string; note?: string; awards?: boolean }> = {
-  DE: { portal: 'the federal notice service', since: '25 October 2023', note: 'state and municipal portals are not collected' },
+  DE: { portal: 'the federal notice service', since: 'October 2023', note: 'state and municipal portals are not collected' },
   ES: { portal: 'PLACSP', awards: true },
   FR: { portal: 'BOAMP' },
   NL: { portal: 'TenderNed', since: 'January 2026', note: 'in practice chiefly one buyer, the Ministry of Defence' },

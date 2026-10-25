@@ -44,6 +44,19 @@ export function newestFirst(entries: RegulationEntry[]): RegulationEntry[] {
   return [...entries].sort((a, b) => (a.eventDate < b.eventDate ? 1 : a.eventDate > b.eventDate ? -1 : a.code.localeCompare(b.code)));
 }
 
+/**
+ * WP-131 (round 7: "last checked 18 Oct 2026" read as the whole tracker's date, the newest of the entries'): when the entries' sources were
+ * last checked, from their own dates. `say` formats a YYYY-MM-DD day. null for no entry.
+ */
+export function checkedLine(entries: readonly { checkedOn: string }[], say: (day: string) => string): string | null {
+  const days = entries.map((e) => e.checkedOn).filter(Boolean).sort();
+  if (days.length === 0) return null;
+  const [first, last] = [days[0], days[days.length - 1]];
+  return first === last
+    ? `Every entry’s source was last checked on ${say(first)}, none since.`
+    : `The entries’ sources were last checked between ${say(first)} and ${say(last)}; each entry gives its own date.`;
+}
+
 /** The address of one entry: the page and the anchor of its code. */
 export const entryUrl = (origin: string, code: string): string => `${origin}/regulation#${code}`;
 

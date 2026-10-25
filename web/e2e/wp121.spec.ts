@@ -82,7 +82,8 @@ test('3: the check tile says the questions it asks, not "five short sets"', asyn
   await visit(page, '/', HOME);
   const tile = page.locator('[data-tile]').nth(2);
   await expect(tile).toContainText('five steps of 24 to 35 questions');
-  await expect(tile).toContainText('To supply defence buyers, one page of 18 to 35 questions.');
+  // WP-131: the range counted on every route of the form (e2e/wp131.spec.ts 4, lib/question-counts.ts)
+  await expect(tile).toContainText('To supply defence buyers, one page of 17 to 53 questions.');
   await expect(tile).not.toContainText(/Five short sets/i);
   // the readiness check says the same of itself; the chooser page too
   await visit(page, '/readiness', { title: /readiness/i, h1: /readiness/i, text: [/24 to 35 in all/] });
@@ -98,7 +99,7 @@ const countQuestions = (form: Locator) => form.evaluate((f) => {
   return groups.length + fields.length;
 });
 
-test('3: the supplier profile asks 19 to 35 questions on one page (the tile says so)', async ({ page }) => {
+test('3: the supplier profile asks 19, 23 and 35 questions on these routes, within the tile\'s range', async ({ page }) => {
   await visit(page, '/readiness/supplier', { title: /supplier/i, h1: /supplier/i });
   const form = page.locator('main form').first();
   await page.getByLabel('Country where your company is established').selectOption('DE');

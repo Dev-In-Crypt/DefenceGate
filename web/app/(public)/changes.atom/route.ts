@@ -58,7 +58,7 @@ export async function GET(request: Request): Promise<Response> {
     selfPath: at(asked),
     pagePath: `/changes${query}`,
     title: search ? `DefenceGate: ${search}` : 'DefenceGate: what changed',
-    subtitle: feedSubtitle(data.windowDays, data.total, data.held, { page: asked, pages: data.feedPages, size: FEED_PAGE_ENTRIES }),
+    subtitle: feedSubtitle(data.windowDays, data.total, data.held, { page: asked, pages: data.feedPages, size: FEED_PAGE_ENTRIES }, funding.length),
     generatedAt: data.windowTo,
     ...(data.feedPages > 1 ? { first: at(1) } : {}),
     ...(asked > 1 ? { prev: at(asked - 1) } : {}),

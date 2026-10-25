@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ExternalLink, Link2, Rss } from 'lucide-react';
 import { getRegulation } from '@/lib/regulation-api';
-import { STATUS_MEANING, STATUS_WORD, citation, linkHref, newestFirst, type RegulationStatus } from '@/lib/regulation';
+import { STATUS_MEANING, STATUS_WORD, checkedLine, citation, linkHref, newestFirst, type RegulationStatus } from '@/lib/regulation';
 import { formatDateUtc } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { SITE, buildMetadata } from '@/lib/seo';
@@ -29,6 +29,7 @@ const STATUS_ORDER: RegulationStatus[] = ['in_force', 'adopted', 'agreed', 'prop
 export default async function RegulationPage() {
   const feed = await getRegulation();
   const entries = newestFirst(feed.entries);
+  const checked = checkedLine(entries, formatDateUtc);
   const chips = STATUS_ORDER
     .map((s) => ({ status: s as string, label: STATUS_WORD[s], count: entries.filter((e) => e.status === s).length }))
     .filter((c) => c.count > 0);
@@ -98,7 +99,7 @@ export default async function RegulationPage() {
     >
       <div className="flex max-w-prose flex-col gap-2">
         {/* WP-88: what the tracker is and is not (the feed's notice) is collapsed under one line. */}
-        <p className="m-0 text-small text-ink-muted">Newest event first{feed.lastChecked ? `; last checked ${formatDateUtc(feed.lastChecked)}` : ''}.</p>
+        <p className="m-0 text-small text-ink-muted" data-checked-line>Newest event first.{checked ? ` ${checked}` : ''}</p>
         <AboutData>
           <p className="m-0">{feed.notice}</p>
           <p className="m-0">Each entry has a link to itself and a line you can copy into a note.</p>

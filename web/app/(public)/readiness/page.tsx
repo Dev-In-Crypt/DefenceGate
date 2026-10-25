@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { getRequirements } from '@/lib/readiness-api';
 import { buildMetadata } from '@/lib/seo';
+import { WHAT_IS_SENT } from '@/lib/sent-copy';
+import { STEPS_QUESTIONS, SUPPLIER_QUESTIONS, rangeWords } from '@/lib/question-counts';
 import { Callout } from '@/components/dg/blocks';
 import { AboutData } from '@/components/dg/about-data';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
@@ -30,13 +32,14 @@ export default async function ReadinessPage() {
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Check my company', href: '/check' }, { label: 'Readiness check', href: '/readiness' }]}
       title="Readiness check"
-      lead="Answer five sets of questions (24 to 35 in all, depending on your answers) to see, programme by programme, whether your company can take part in EU defence funding and what to obtain first."
+      lead={`Answer five sets of questions (${rangeWords(STEPS_QUESTIONS)} in all, depending on your answers) to see, programme by programme, whether your company can take part in EU defence funding and what to obtain first.`}
     >
       {/* WP-88: the heading says what is true of the whole flow (the next paragraph says what is sent once); the detail is collapsed. */}
       <Callout title="Your answers are not stored on our server">
         <AboutData summary="What is kept and what is sent">
         <p className="m-0">They are saved in this browser, on this device. There is no account and no copy on our server. The verdict, each rule with its reason and the text of its source, and an ordered list of what to obtain, who issues it and what it costs, are worked out from them.</p>
-        <p className="m-0">The only thing that leaves your browser is the request that computes the verdict: your answers to the questions the rules read, sent to the rules engine. The server does not store or log them. The company name and size you may enter below are never sent. If you choose CPV codes on the supplier page, those codes alone are also sent, for the map of who buys what you make.</p>
+        {/* WP-131: the list is made from the two request builders (lib/sent-copy.ts), so it cannot drift from what is sent */}
+        <p className="m-0" data-what-is-sent>{WHAT_IS_SENT}</p>
         </AboutData>
       </Callout>
 
@@ -44,7 +47,7 @@ export default async function ReadinessPage() {
       <nav aria-label="Which check" className="flex flex-col gap-1 rounded-lg border border-edge bg-surface p-5">
         <p className="m-0 text-body">The questions below are for EU defence funding (the European Defence Fund, EDIP and SAFE). Something else?</p>
         <Link href="/readiness/supplier" className="inline-flex min-h-11 items-center gap-2 text-body font-bold">
-          I make parts or materials and want to supply defence buyers<ArrowRight size={18} aria-hidden="true" className="shrink-0" />
+          I make parts or materials and want to supply defence buyers (one page, {rangeWords(SUPPLIER_QUESTIONS)} questions)<ArrowRight size={18} aria-hidden="true" className="shrink-0" />
         </Link>
         <Link href="/readiness/spain-automotive" className="inline-flex min-h-11 items-center gap-2 text-body font-bold">
           A civilian manufacturer in Spain, such as an automotive supplier: what the check gives you<ArrowRight size={18} aria-hidden="true" className="shrink-0" />

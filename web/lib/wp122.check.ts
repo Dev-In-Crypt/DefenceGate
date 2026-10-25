@@ -24,9 +24,12 @@ assert.ok(PLANS[0].features.every((f) => !f.coming), 'Free has nothing coming');
 // Every feature that is not live carries "coming", and only those (alerts, saved searches, workspace, exports beyond the CSV,
 // gap analysis as a paid feature, branded PDF, client profiles, members' access, co-branded digest, white-label, API)
 const coming = [...PLANS, ...ON_REQUEST].flatMap((p) => p.features.filter((f) => f.coming).map((f) => f.text));
-assert.deepEqual(coming, ['Saved searches', 'E-mail alerts', 'Export of the eligibility check', 'Shared workspace', 'Consortium gap analysis',
+// WP-131 (round 7): saved searches and alerts are built and open with sign-in (/alerts says so), so they carry `signin`, not `coming`;
+// consortium gap analysis is live and free (Partners > Consortium gaps), so it is not "coming"
+assert.deepEqual(coming, ['Export of the eligibility check', 'Shared workspace',
   'Supplier-map export', 'Up to 15 client profiles', 'Branded PDF reports', 'Access for members, up to 50 companies', 'A co-branded digest',
   'White-label', 'API (offered only here)']);
+assert.deepEqual([...PLANS, ...ON_REQUEST].flatMap((p) => p.features.filter((f) => f.signin).map((f) => f.text)), ['Saved searches', 'E-mail alerts']);
 // Sign-up links: plan id and billing period; billing is off unless the setting says so
 assert.equal(signupHref('pro', 'monthly'), '/signup?plan=pro&billing=monthly');
 assert.equal(signupHref('founding', 'yearly'), '/signup?plan=founding&billing=yearly');

@@ -25,6 +25,7 @@ function Features({ items }: { items: Feature[] }) {
         <li key={f.text}>
           {f.text}
           {f.coming && <> <span data-coming><Tag>Coming</Tag></span></>}
+          {f.signin && <> <span data-signin><Tag>Opens with sign-in</Tag></span></>}
         </li>
       ))}
     </ul>

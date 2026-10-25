@@ -196,7 +196,7 @@ export const GLOSSARY: GlossaryEntry[] = [
   },
   {
     id: 'source-status', term: 'Source status',
-    body: 'The result of a source’s last collection run, shown on the source status page as OK, partial, failed or never run. Partial means the run fetched less than we expected. Check it before concluding that a notice does not exist.',
+    body: 'The result of a source’s last collection run on the source status page: OK, stale, partial, failed, never run or a one-off load. OK means the last run fetched at least the minimum we expect and was not late for how often the source is collected; a late run is shown as stale, and so is a daily source whose every run of the last day fetched nothing, and a run that finished with a problem is partial, also when it fetched the minimum. Check it before concluding that a notice does not exist.',
     see: { label: 'Source status', href: '/data' },
   },
   {
