@@ -1909,6 +1909,14 @@ def _id_of(slug: str, what: str) -> int:
     return int(m.group(1))
 
 
+def live_id_of(conn, slug: str, what: str) -> int:
+    """WP-133: the id of a slug as the organisation it stands for now, followed through `merged_into` to the end of the
+    chain (`dgate_live_org`, migration 0068). A buyer, supplier or organisation page of a row merged into another answered
+    404 (/buyers/7504, merged into 29523 on 25 October 2026); the endpoints answer the head under the head's slug, and the
+    web page permanently redirects to it. A row that is not merged is its own id."""
+    return conn.execute("SELECT dgate_live_org(%s) AS id", (_id_of(slug, what),)).fetchone()["id"]
+
+
 @router.get("/v1/tenders/{slug}/moved")
 def tender_moved(slug: str, conn=Depends(get_conn)) -> dict[str, Any]:
     """WP-121 (p10: a link cited in an earlier round, /tenders/267780, answered 404): where an old notice address leads when
@@ -2907,7 +2915,8 @@ def buyer_slugs(conn=Depends(get_conn)):
     wanted = wanted[:BUYER_SLUG_LIMIT]
     ids = [org_ids[i] for i in wanted]
     canonical = {r["id"]: r["canonical_name"] for r in conn.execute(
-        "SELECT id, canonical_name FROM organisation WHERE id = ANY(%s)", (ids,)).fetchall()} if ids else {}
+        "SELECT id, canonical_name FROM organisation WHERE id = ANY(%s) AND merged_into IS NULL",   # WP-133: heads only
+        (ids,)).fetchall()} if ids else {}
     names = _buyer_names(conn, ids)
     now = datetime.now(timezone.utc)
     return [{"slug": make_slug(org_ids[i], names.get(org_ids[i]) or canonical.get(org_ids[i]) or ""),
@@ -2916,7 +2925,7 @@ def buyer_slugs(conn=Depends(get_conn)):
 
 @router.get("/v1/buyers/{slug}", response_model=Buyer)
 def get_buyer(slug: str, conn=Depends(get_conn)):
-    org_id = _id_of(slug, "buyer")
+    org_id = live_id_of(conn, slug, "buyer")
     # An old link to a member of a family shows the family (migration 0055).
     head = conn.execute("SELECT dgate_buyer_head(%s) AS head", (org_id,)).fetchone()["head"]
     org_ids, counts, open_n, last_published, variants = buyer_base(conn)

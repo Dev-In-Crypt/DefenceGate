@@ -1420,9 +1420,9 @@ def _buyers_by_id(conn, ids: list[int]) -> dict[str, dict[str, Any]]:
 
     if not ids:
         return {}
-    # A followed buyer may be a member of a family: it shows the family (migration 0055).
+    # A followed buyer may be a member of a family: it shows the family (migration 0055); WP-133: or merged into another row
     heads = {r["id"]: r["h"] for r in conn.execute(
-        "SELECT i AS id, dgate_buyer_head(i) AS h FROM unnest(%s::bigint[]) AS i", (ids,)).fetchall()}
+        "SELECT i AS id, dgate_buyer_head(dgate_live_org(i)) AS h FROM unnest(%s::bigint[]) AS i", (ids,)).fetchall()}
     # The counts are the buyer list's (kept and shared: the aggregate is a pass over every core notice).
     org_ids, totals, open_n, last_published, variants = buyer_base(conn)
     at = {org: i for i, org in enumerate(org_ids)}

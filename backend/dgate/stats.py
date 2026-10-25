@@ -52,8 +52,8 @@ from .tenders import (
     PLACEHOLDER_VALUE_MAX,
     TIMELINE_SQL,
     _api,
-    _id_of,
     collapse_clauses,
+    live_id_of,
     timeline,
 )
 
@@ -723,7 +723,8 @@ class BuyerProfile(BaseModel):
 
 @router.get("/v1/buyers/{slug}/profile", response_model=BuyerProfile)
 def get_buyer_profile(slug: str):
-    org_id = _id_of(slug, "buyer")
+    with _connection() as conn:
+        org_id = live_id_of(conn, slug, "buyer")      # WP-133: a merged row's profile is its head's
 
     def build():
         with _connection() as conn:

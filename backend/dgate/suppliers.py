@@ -82,7 +82,7 @@ from .normalise import (
 )
 from .ops.company_groups import GROUPS
 from .suppress import not_published, removed
-from .tenders import _buyer_names, _day, _id_of, _split, search_words, time_boxed
+from .tenders import _buyer_names, _day, _id_of, _split, live_id_of, search_words, time_boxed
 
 router = APIRouter()
 
@@ -826,14 +826,12 @@ def supplier_summary(conn=Depends(get_conn)):
 def _resolve(conn, org_id: int) -> tuple[dict[str, Any], int, str, dict[str, Any]]:
     """The supplier behind an id (the one it is merged into): refused when removed on request or a natural person, 404
     when there is none; with the FROM ... WHERE of its award rows (`base`) and their parameters."""
+    # WP-133: followed to the end of a merge chain (`dgate_live_org`), not one step
     org = conn.execute(
-        "SELECT id, canonical_name, display_name, country, suppressed, merged_into, individual_reason FROM organisation WHERE id = %s",
-        (org_id,)).fetchone()
-    if org and org["merged_into"] is not None:
-        org_id = org["merged_into"]
-        org = conn.execute(
-            "SELECT id, canonical_name, display_name, country, suppressed, merged_into, individual_reason FROM organisation "
-            "WHERE id = %s", (org_id,)).fetchone()
+        "SELECT id, canonical_name, display_name, country, suppressed, merged_into, individual_reason FROM organisation "
+        "WHERE id = dgate_live_org(%s)", (org_id,)).fetchone()
+    if org:
+        org_id = org["id"]
     if org and org["suppressed"]:
         raise removed()
     if org and org["individual_reason"]:
@@ -1158,7 +1156,7 @@ def buyer_suppliers(slug: str, cpv: str | None = Query(None, max_length=200), co
     WP-105 (persona round of 24 October 2026, p01, p03, p06): `cpv` narrows it as the buyer page's tender filter does (any
     code of a notice under a prefix), and each supplier carries the contract values of its contracts with this buyer, with
     their sum over every supplier, by the supplier pages' rule (`contract_values_sql`: contract values only)."""
-    org_id = _id_of(slug, "buyer")
+    org_id = live_id_of(conn, slug, "buyer")      # WP-133: a merged row's suppliers are its head's
     where, fp = _filters(None, None, cpv)
     ids = conn.execute("SELECT dgate_family_ids(%s) AS ids", (org_id,)).fetchone()["ids"] or [org_id]
     p = {**fp, "since": since(), "ids": list(ids), "limit": BUYER_TOP}
