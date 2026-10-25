@@ -16,6 +16,17 @@ logged in `organisation_repair` with what it replaced, and `--undo FROM TO` reve
               only, never values; not logged with the old value (personal data), so this step has no undo.
   winners     Current awards whose winner is the notice's own buyer (same name, same organisation or one family):
               `excluded_reason = 'buyer_as_winner'` (the row stays; every supplier query skips it).
+  WP-119 (verification of 25 October 2026), the rules narrowed and the rows written that day repaired:
+  winners-check  an award excluded as its buyer's that today's rules no longer exclude is counted again (TED
+              109763-2024 SPIE FACILITIES, 841870-2025 DEF OUEST)
+  namesakes   the rejoin groups under a name two public bodies bear (`ambiguous_name`: 'powiat tomaszowski', a unit's
+              name without a place) are undone, exactly those rows
+  pics        what a rejoined row holds that its head lacks goes to the head (`db.carry_to_head`: PIC and VAT number;
+              Universitat de Girona, URV, NCBR, IRB Barcelona); participations are read through the merge (WP-41)
+  restore-ids the numbers cleared on 25 October that today's rules keep, from the log: Polish NIP+REGON pairs, a REGON
+              without its leading zeros, a foreign VAT number on a company row
+  twice       a live winner named twice on one notice: two companies a supplier merge joined are taken apart (Sign
+              Polska / Sign 4 Security), spellings of one company counted once (`same_winner_twice`)
   unlinked    Report: live organisations nothing references (no notice, award or participation), by source, role
               and creation path, and how many pending merge candidates involve one or two (a pair of two is
               skipped by `ops.accept_merge_candidates`). Writes nothing.
@@ -34,13 +45,22 @@ import logging
 import re
 import sys
 from collections import Counter, defaultdict
+from datetime import timedelta
 from typing import Any
 
 from .. import db, networks
 from ..awards import is_buyer_body, same_name_as_buyer
+from ..buyer_family import is_public_body
 from ..config import settings
-from ..normalise import normalise_identifier, normalise_org_name, strip_name_contacts
-from . import undo_merges
+from ..normalise import (
+    normalise_identifier,
+    normalise_org_name,
+    pl_number_pair,
+    pl_unpadded_regon,
+    strip_name_contacts,
+)
+from ..supplier_identity import foreign_vat
+from . import supplier_dedupe, undo_merges
 
 log = logging.getLogger("org_repair")
 
@@ -50,7 +70,8 @@ CONF_REJOIN = db.CONF_EXACT_NAME
 COUNTRIES = ("PL", "ES")
 COMMIT_EVERY = 100
 UNNAMED = "unnamed organisation"
-STEPS = ("false-ids", "chains", "contacts", "winners", "unlinked")
+STEPS = ("false-ids", "chains", "contacts", "winners", "winners-check", "namesakes", "pics", "restore-ids", "twice",
+         "unlinked")
 
 
 def _shape(number: str | None) -> str:
@@ -71,17 +92,69 @@ def _personal_number(country: str, number: str) -> bool:
     return bool(re.fullmatch(r"(?:ES)?[XYZ]?\d{7,8}[A-Z]", number))       # a DNI or NIE, mistyped
 
 
+# WP-119: names two public bodies share, never joined by name alone. The Polish powiat names that two counties carry
+# ('powiat tomaszowski': Tomaszow Mazowiecki and Tomaszow Lubelski, 36 rows joined on 25 October 2026), and a unit's
+# name with no place in it ('miejskie przedsiebiorstwo oczyszczania', 'zaklad remontow i konserwacji drog'): every word
+# of three letters or more is one of the words such units are named with.
+# ponytail: a vocabulary, not a register; a generic name with a word it lacks is still joined.
+_PL_TWIN_POWIATS = frozenset(f"powiat {n}" for n in (
+    "bielski", "brzeski", "grodziski", "krosnienski", "nowodworski", "opolski", "ostrowski", "sredzki", "swidnicki",
+    "tomaszowski"))
+_UNIT_WORDS = frozenset("""
+    powiat powiatu powiatowy powiatowe powiatowa powiatowego powiatowej powiatowych gmina gminy gminny gminne gminna
+    gminnego gminnej miasto miasta miejski miejskie miejska miejskiego miejskiej miejskich zaklad zakladu zaklady zarzad
+    zarzadu osrodek osrodka przedsiebiorstwo przedsiebiorstwa centrum zespol zespolu szkol szkola szkoly przedszkole
+    publiczne publiczny publiczna publicznej publicznego samodzielny samodzielne samodzielna pomocy spolecznej kultury
+    sportu rekreacji oczyszczania remontow konserwacji drog drogowy drogowe drogowych dokumentacji geodezyjnej
+    kartograficznej zdrowia restrukturyzacji opieki zdrowotnej gospodarki komunalnej komunalne komunalny komunalnego
+    mieszkaniowej mieszkaniowa wodociagow kanalizacji wodociagi energetyki cieplnej transportu komunikacji inwestycji
+    nieruchomosci nieruchomosciami gospodarowania urzad urzedu starostwo biblioteka przychodnia straz pozarna
+    komenda policji administracji obslugi jednostek oswiatowych oswiaty edukacji spolka spoldzielnia wydzial biuro
+    zieleni utrzymania domu dom
+    junta gobierno local alcaldia presidencia pleno ayuntamiento organo contratacion mesa servicio servicios departamento
+    direccion general gerencia consejeria secretaria unidad seccion comision consejo administracion municipal
+    """.split())
+
+
+def ambiguous_name(country: str, name: str) -> bool:
+    """WP-119: a name more than one public body bears (`_PL_TWIN_POWIATS`, or a unit's name with no place)."""
+    n = (name or "").lower()
+    if country == "PL" and n in _PL_TWIN_POWIATS:
+        return True
+    words = {w for w in re.split(r"[\s\-]+", n) if len(w) >= 3} - {"del", "los", "las"}     # Sax, Ibi and Ełk are places
+    return bool(words) and words <= _UNIT_WORDS
+
+
 # ----------------------------------------------------------------------------- 1. false identifiers
+
+def register_form(number: str | None, country: str) -> str | None:
+    """A number in its register's form (`normalise_identifier`), or (WP-119) a Polish REGON written without its leading
+    zeros in its 9-digit form (`pl_unpadded_regon`); None when it is neither."""
+    n = normalise_identifier(number, country)
+    if n is None and country == "PL":
+        n = pl_unpadded_regon((number or "").strip())
+    return n
+
+
+def vat_of(row: dict[str, Any]) -> str | None:
+    """WP-119: the foreign VAT number a company row (not a public body) holds as its registration number, or None."""
+    v = foreign_vat(row["national_reg_no"], row["country"])
+    return (v if v and not row.get("individual_reason") and not is_public_body(row["canonical_name"], row["country"])
+            else None)
+
 
 def plan_false_ids(rows: list[dict[str, Any]], siblings: dict[tuple[str, str], list[dict[str, Any]]]
                    ) -> tuple[list[dict[str, Any]], list[tuple[int, str, str]]]:
     """The groups (one per country and name holding a false number) and the re-spellings (id, old, new).
 
-    `rows` are live rows with a number; `siblings` the live rows of each (country, lower name)."""
+    `rows` are live rows with a number; `siblings` the live rows of each (country, lower name).
+    WP-119: a Polish NIP and REGON written together is re-spelt to the NIP, a REGON without its leading zeros to its
+    9-digit form (`register_form`); a foreign VAT number on a company row moves to `vat_number` (the group's "vat",
+    not cleared as false, not merged); and a group whose name more than one public body bears (`ambiguous_name`) is never merged."""
     respell: list[tuple[int, str, str]] = []
     false_keys: set[tuple[str, str]] = set()
     for r in rows:
-        n = normalise_identifier(r["national_reg_no"], r["country"])
+        n = register_form(r["national_reg_no"], r["country"])
         if n is None:
             false_keys.add((r["country"], r["canonical_name"].lower()))
         elif n != r["national_reg_no"]:
@@ -89,43 +162,48 @@ def plan_false_ids(rows: list[dict[str, Any]], siblings: dict[tuple[str, str], l
     groups = []
     for key in sorted(false_keys):
         members = sorted(siblings.get(key, []), key=lambda m: m["id"])
-        bad = [m for m in members
-               if m["national_reg_no"] and normalise_identifier(m["national_reg_no"], m["country"]) is None]
-        valid = {normalise_identifier(m["national_reg_no"], m["country"]) for m in members
+        vat = [m for m in members if m["national_reg_no"] and register_form(m["national_reg_no"], m["country"]) is None
+               and vat_of(m)]
+        bad = [m for m in members if m["national_reg_no"] and m not in vat
+               and register_form(m["national_reg_no"], m["country"]) is None]
+        valid = {register_form(m["national_reg_no"], m["country"]) for m in members
                  if m["national_reg_no"]} - {None}
         g = {"country": key[0], "name": key[1], "first": members[0]["id"] if members else None,
-             "rows": len(members), "clear": [m["id"] for m in bad],
+             "rows": len(members), "clear": [m["id"] for m in bad], "vat": [(m["id"], vat_of(m)) for m in vat],
              "shapes": Counter(_shape(m["national_reg_no"]) for m in bad), "target": None, "merge": []}
         # two numbers of one register are two bodies; a NIP beside a REGON (a 340-row hospital holds both) is not
         kinds = Counter(_kind(key[0], v) for v in valid)
         if any(n > 1 for n in kinds.values()):
             g["decision"] = "held_two_numbers"
+        elif ambiguous_name(key[0], key[1]):
+            g["decision"] = "namesake"
         else:
-            target = (next((m for m in members if m["national_reg_no"] and m["id"] not in g["clear"]), None)
+            target = (next((m for m in members if m["national_reg_no"] and m["id"] not in g["clear"]
+                            and m not in vat), None)
                       or next((m for m in members if not m["national_reg_no"]), None)
                       or members[0])
             g["target"] = target["id"]
             g["merge"] = [m["id"] for m in bad if m["id"] != target["id"]]
-            g["decision"] = "rejoin" if g["merge"] else "clear_only"
+            g["decision"] = "rejoin" if g["merge"] else "clear_only" if bad else "vat_only"
         groups.append(g)
     return groups, respell
 
 
 def false_ids(conn, *, apply: bool, out=print) -> dict[str, Any]:
     rows = [dict(r) for r in conn.execute(
-        """SELECT id, country, canonical_name, national_reg_no FROM organisation
+        """SELECT id, country, canonical_name, national_reg_no, individual_reason FROM organisation
             WHERE merged_into IS NULL AND country = ANY(%s) AND national_reg_no IS NOT NULL""",
         (list(COUNTRIES),)).fetchall()]
     keys: dict[str, set[str]] = defaultdict(set)
     for r in rows:
-        if normalise_identifier(r["national_reg_no"], r["country"]) is None:
+        if register_form(r["national_reg_no"], r["country"]) is None:
             keys[r["country"]].add(r["canonical_name"].lower())
     siblings: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for country, names in keys.items():
         names_l = sorted(names)
         for i in range(0, len(names_l), 1000):
             for m in conn.execute(
-                    """SELECT id, country, canonical_name, national_reg_no FROM organisation
+                    """SELECT id, country, canonical_name, national_reg_no, individual_reason FROM organisation
                         WHERE country = %s AND lower(canonical_name) = ANY(%s) AND merged_into IS NULL""",
                     (country, names_l[i:i + 1000])).fetchall():
                 siblings[(country, m["canonical_name"].lower())].append(dict(m))
@@ -134,6 +212,7 @@ def false_ids(conn, *, apply: bool, out=print) -> dict[str, Any]:
     res = {"rows_with_number": len(rows), "groups": len(groups), "by_decision": dict(by_decision),
            "numbers_cleared": sum(len(g["clear"]) for g in groups),
            "rows_rejoined": sum(len(g["merge"]) for g in groups), "respelt": len(respell),
+           "to_vat_number": sum(len(g["vat"]) for g in groups),
            "by_country": dict(Counter(g["country"] for g in groups))}
     out(f"false identifiers: {res}")
     # one line per group, by ids (a Spanish supplier row may carry a sole trader's name: names are not printed)
@@ -153,6 +232,13 @@ def false_ids(conn, *, apply: bool, out=print) -> dict[str, Any]:
             db.log_repair(conn, oid, "clear_false_identifier",
                           old_value=None if _personal_number(g["country"], old) else old, new_value=None,
                           method="wp115_register_check", detected_by=DETECTED_BY)
+        for oid, vat in g["vat"]:
+            old = by_id[oid]["national_reg_no"]
+            conn.execute("""UPDATE organisation SET vat_number = COALESCE(vat_number, %s), national_reg_no = NULL,
+                                   identifier_method = NULL, identifier_confidence = NULL
+                             WHERE id = %s AND national_reg_no = %s""", (vat, oid, old))
+            db.log_repair(conn, oid, "move_to_vat_number", old_value=old, new_value=vat,
+                          method="wp119_foreign_vat", detected_by=DETECTED_BY)
         for oid in g["merge"]:
             db.merge_organisations(
                 conn, g["target"], oid, method=REJOIN, confidence=CONF_REJOIN,
@@ -276,6 +362,197 @@ def winners(conn, *, apply: bool, out=print) -> dict[str, Any]:
     return res
 
 
+# ----------------------------------------------------------------------------- WP-119 repairs of the 25 October writes
+
+def winners_check(conn, *, apply: bool, out=print) -> dict[str, Any]:
+    """WP-119: an award excluded as its buyer's that today's rules no longer exclude (`same_name_as_buyer` needs more
+    than one shared word; a twin-notice buyer family no longer counts) is counted again; logged for the undo."""
+    rows = [dict(r) for r in conn.execute(
+        """SELECT a.id, a.organisation_id, a.name_as_stated, o.buyer_org_id, o.buyer_name_raw, o.native_id
+             FROM award a JOIN opportunity o ON o.id = a.opportunity_id
+            WHERE a.excluded_reason = 'buyer_as_winner' ORDER BY a.id""").fetchall()]
+    lift = [r for r in rows if not same_name_as_buyer(r["name_as_stated"], r["buyer_name_raw"])
+            and not is_buyer_body(conn, r["buyer_org_id"], r["organisation_id"])]
+    res = {"excluded_as_buyer": len(rows), "counted_again": len(lift),
+           "awards": [(r["id"], r["native_id"]) for r in lift]}
+    out(f"awards excluded as the buyer's, checked again: {res}")
+    if not apply:
+        conn.rollback()
+        return res
+    for r in lift:
+        conn.execute("UPDATE award SET excluded_reason = NULL WHERE id = %s AND excluded_reason = 'buyer_as_winner'",
+                     (r["id"],))
+        db.log_repair(conn, r["organisation_id"], "award_buyer_as_winner_lifted", old_value=str(r["id"]),
+                      new_value=None, method="wp119_winners", detected_by=DETECTED_BY)
+    conn.commit()
+    return res
+
+
+def namesakes(conn, *, apply: bool, out=print) -> dict[str, Any]:
+    """WP-119: the rejoin groups whose name more than one public body bears (`ambiguous_name`) are undone, exactly
+    those rows (`ops.undo_merges` with `only`); the false numbers stay cleared. Every group is listed."""
+    rows = [dict(r) for r in conn.execute(
+        """SELECT m.id, m.merged_into AS head, m.merged_at, t.country, t.canonical_name
+             FROM organisation m JOIN organisation t ON t.id = m.merged_into
+            WHERE m.merge_method = %s ORDER BY m.id""", (REJOIN,)).fetchall()]
+    hit = [r for r in rows if ambiguous_name(r["country"], r["canonical_name"])]
+    groups = Counter((r["head"], r["country"], r["canonical_name"]) for r in hit)
+    res: dict[str, Any] = {"rejoined_rows": len(rows), "groups": len(groups), "rows": len(hit)}
+    out(f"rejoin groups under a name two public bodies bear: {res['groups']} groups, {res['rows']} rows")
+    for (head, country, name), n in groups.most_common():
+        out(f"  {country} head {head} {name[:70]!r}: {n} rows")
+    if not hit:
+        conn.rollback()
+        return res
+    times = [r["merged_at"] for r in hit]
+    res["undo"] = undo_merges.run(conn, apply=apply, start=min(times).isoformat(),
+                                  end=(max(times) + timedelta(seconds=1)).isoformat(), methods=(REJOIN,),
+                                  expected=None, detected_by=DETECTED_BY, out=out, only=[r["id"] for r in hit],
+                                  refresh=False)
+    return res
+
+
+def pics(conn, *, apply: bool, out=print) -> dict[str, Any]:
+    """WP-119: what a rejoined row held that its head lacks goes to the head (`db.carry_to_head`: the EU PIC, the VAT
+    number; an award twice on one notice counted once), as every merge does from now on. The participations stay on
+    the rejoined row and are read through the merge (WP-41); the report counts them."""
+    rows = [dict(r) for r in conn.execute(
+        """SELECT m.id, m.merged_into AS head FROM organisation m
+            WHERE m.merge_method = %s AND (m.eu_pic IS NOT NULL OR m.vat_number IS NOT NULL
+                  OR EXISTS (SELECT 1 FROM participation p WHERE p.organisation_id = m.id)
+                  OR EXISTS (SELECT 1 FROM award a WHERE a.organisation_id = m.id))
+            ORDER BY m.id""", (REJOIN,)).fetchall()]
+    moved: Counter = Counter()
+    heads: set[int] = set()
+    for r in rows:
+        k, a = (conn.execute("SELECT id, eu_pic, pic_method, pic_confidence, vat_number FROM organisation "
+                             "WHERE id = %s", (x,)).fetchone() for x in (r["head"], r["id"]))
+        got = db.carry_to_head(conn, k, a, False, REJOIN)
+        moved.update(got)
+        if any(got.values()):
+            heads.add(r["head"])
+    parts = conn.execute("""SELECT count(*) AS n FROM participation p JOIN organisation m ON m.id = p.organisation_id
+                                 WHERE m.merge_method = %s""", (REJOIN,)).fetchone()["n"]
+    res = {"rejoined_rows_holding_something": len(rows), "heads": len(heads), **moved,
+           "participations_read_through_the_merge": parts}
+    out(f"rejoined rows: what their heads lacked: {res}")
+    if apply:
+        conn.commit()
+    else:
+        conn.rollback()
+    return res
+
+
+def restore_ids(conn, *, apply: bool, out=print) -> dict[str, Any]:
+    """WP-119: the numbers the false-ids step of 25 October cleared that today's rules keep, from its log
+    (`old_value`): a Polish NIP and REGON written together (the NIP), a REGON written without its leading zeros (its
+    9-digit form) and a foreign VAT number on a company row (as `vat_number`). Each goes to the live row when it holds
+    none, else back to its own row when that holds none; never when another row of the country holds it."""
+    rows = [dict(r) for r in conn.execute(
+        """SELECT r.organisation_id AS id, r.old_value, g.country, g.canonical_name, g.merged_into, g.individual_reason
+             FROM organisation_repair r JOIN organisation g ON g.id = r.organisation_id
+            WHERE r.action = 'clear_false_identifier' AND r.old_value IS NOT NULL
+            ORDER BY r.id""").fetchall()]
+    c: Counter = Counter()
+    plan: list[tuple[int, str, str, str]] = []       # (target, column, value, kind)
+    planned: set[str] = set()
+    for r in rows:
+        old, country = r["old_value"], r["country"]
+        pair = pl_number_pair(old) if country == "PL" else None
+        number = pair[0] if pair else (pl_unpadded_regon(old) if country == "PL" else None)
+        kind = "nip_regon_pair" if pair else "unpadded_regon" if number else None
+        column = "national_reg_no"
+        if number is None:
+            number = vat_of({**r, "national_reg_no": old})
+            kind, column = ("foreign_vat", "vat_number") if number else (None, column)
+        if number is None:
+            continue
+        c[kind] += 1
+        live = r["merged_into"] or r["id"]
+        own = {x["id"]: x[column] for x in conn.execute(
+            f"SELECT id, {column} FROM organisation WHERE id = ANY(%s)", ([live, r["id"]],)).fetchall()}
+        if number in own.values():
+            c[f"{kind}_already_there"] += 1
+            continue
+        if column == "national_reg_no" and (number in planned or conn.execute(
+                "SELECT 1 FROM organisation WHERE country = %s AND national_reg_no = %s", (country, number)).fetchone()):
+            c[f"{kind}_held_by_another_row"] += 1         # the register number is unique per country
+            continue
+        target = next((x for x in dict.fromkeys((live, r["id"])) if own.get(x) is None), None)
+        if target is None:
+            c[f"{kind}_rows_hold_another"] += 1
+            continue
+        planned.add(number)
+        c[f"{kind}_restored"] += 1
+        c[f"{kind}_restored_on_{'live' if target == live else 'own'}_row"] += 1
+        plan.append((target, column, number, kind))
+    res = {"logged_values": len(rows), **c}
+    out(f"cleared numbers today's rules keep: {res}")
+    if not apply:
+        conn.rollback()
+        return res
+    for target, column, number, kind in plan:
+        extra = ", identifier_method = 'identifier'" if column == "national_reg_no" else ""
+        if conn.execute(f"UPDATE organisation SET {column} = %s{extra} WHERE id = %s AND {column} IS NULL",
+                        (number, target)).rowcount:
+            db.log_repair(conn, target, "restore_identifier" if column == "national_reg_no" else "restore_vat_number",
+                          old_value=None, new_value=number, method=f"wp119_{kind}", detected_by=DETECTED_BY)
+    conn.commit()
+    return res
+
+
+def twice(conn, *, apply: bool, out=print) -> dict[str, Any]:
+    """WP-119: one notice whose current awards name one live company twice. Two rows the supplier merge joined although
+    the notice names them side by side under two names (`supplier_dedupe.spelling_variants`, a person's review aside:
+    Sign Polska / Sign 4 Security) are taken apart (`ops.undo_merges` for that row); spellings of one company (Works 11,
+    Vogtmann-Herold, Norrenbrock, Magtel) are one award: the row on the live row itself stays (else the lowest id), the
+    others get `excluded_reason = 'same_winner_twice'`, logged for the undo."""
+    rows = [dict(r) for r in conn.execute(
+        """WITH d AS (SELECT a.opportunity_id, COALESCE(g.merged_into, g.id) AS live
+                        FROM award a JOIN organisation g ON g.id = a.organisation_id
+                       WHERE a.superseded_at IS NULL AND a.excluded_reason IS NULL
+                       GROUP BY 1, 2 HAVING count(*) > 1)
+           SELECT a.id, a.opportunity_id, a.organisation_id, a.name_as_stated, g.merge_method, g.merged_at, d.live
+             FROM d JOIN award a ON a.opportunity_id = d.opportunity_id
+             JOIN organisation g ON g.id = a.organisation_id AND COALESCE(g.merged_into, g.id) = d.live
+            WHERE a.superseded_at IS NULL AND a.excluded_reason IS NULL
+            ORDER BY a.opportunity_id, a.id""").fetchall()]
+    by: dict[tuple[int, int], list[dict[str, Any]]] = defaultdict(list)
+    for r in rows:
+        by[(r["opportunity_id"], r["live"])].append(r)
+    apart: dict[int, dict[str, Any]] = {}
+    exclude: list[dict[str, Any]] = []
+    for (_, live), rs in by.items():
+        head = next((r for r in rs if r["organisation_id"] == live), rs[0])
+        others = [r for r in rs if r is not head]
+        wrong = [r for r in others if r["organisation_id"] != head["organisation_id"]
+                 and r["merge_method"] in supplier_dedupe.METHODS and r["merge_method"] != supplier_dedupe.CURATED_REVIEW
+                 and not supplier_dedupe.spelling_variants(r["name_as_stated"], head["name_as_stated"])]
+        for r in wrong:
+            apart[r["organisation_id"]] = r
+        exclude += [r for r in others if r not in wrong and r["organisation_id"] not in apart]
+    res: dict[str, Any] = {"notices": len(by), "rows_taken_apart": sorted(apart),
+                           "awards_counted_once": [r["id"] for r in exclude]}
+    out(f"notices naming one live winner twice: {res}")
+    if apart:
+        times = [r["merged_at"] for r in apart.values()]
+        res["undo"] = undo_merges.run(conn, apply=apply, start=min(times).isoformat(),
+                                      end=(max(times) + timedelta(seconds=1)).isoformat(),
+                                      methods=tuple(supplier_dedupe.METHODS), expected=None,
+                                      detected_by=supplier_dedupe.DETECTED_BY, out=out, only=sorted(apart),
+                                      refresh=False)
+    if not apply:
+        conn.rollback()
+        return res
+    for r in exclude:
+        if conn.execute("UPDATE award SET excluded_reason = %s WHERE id = %s AND excluded_reason IS NULL",
+                        (db.SAME_WINNER_TWICE, r["id"])).rowcount:
+            db.log_repair(conn, r["organisation_id"], "award_same_winner_twice", old_value=str(r["id"]),
+                          new_value=None, method="wp119_twice", detected_by=DETECTED_BY)
+    conn.commit()
+    return res
+
+
 # ----------------------------------------------------------------------------- 4. unlinked organisations
 
 def unlinked(conn, *, out=print, step: int = 20000) -> dict[str, Any]:
@@ -317,16 +594,29 @@ def unlinked(conn, *, out=print, step: int = 20000) -> dict[str, Any]:
 # ----------------------------------------------------------------------------- undo
 
 def undo(conn, start: str, end: str, *, apply: bool, out=print) -> dict[str, Any]:
-    """Reverse steps 1, 2 and 5 of [start, end): the rejoin merges (`ops.undo_merges`), then the logged values."""
+    """Reverse steps 1, 2 and 5 of [start, end): the rejoin merges (`ops.undo_merges`), then the logged values.
+    WP-119: and the WP-119 steps' writes: the numbers restored or moved to `vat_number`, the awards counted again or
+    counted once, and what `pics` moved to a head whose row stays merged. The rows `namesakes` and `twice` took apart
+    stay apart (their merges were wrong)."""
     res: dict[str, Any] = {"merges": undo_merges.run(conn, apply=apply, start=start, end=end, methods=(REJOIN,),
                                                        expected=None, detected_by=DETECTED_BY, out=out)}
     logged = [dict(r) for r in conn.execute(
         """SELECT id, organisation_id, action, old_value, new_value FROM organisation_repair
             WHERE detected_by = %s AND created_at >= %s AND created_at < %s
               AND action IN ('clear_false_identifier', 'respell_identifier', 'repoint_merged_into',
-                             'award_buyer_as_winner')
+                             'award_buyer_as_winner', 'move_to_vat_number', 'restore_identifier',
+                             'restore_vat_number', 'award_buyer_as_winner_lifted', 'award_same_winner_twice')
             ORDER BY id DESC""", (DETECTED_BY, start, end)).fetchall()]
+    moves = [dict(r) for r in conn.execute(
+        """SELECT DISTINCT ON (r.organisation_id, r.action) r.organisation_id AS member, r.action, r.old_value,
+                  r.new_value::bigint AS head
+             FROM organisation_repair r JOIN organisation g ON g.id = r.organisation_id
+            WHERE r.detected_by = 'db.merge_organisations' AND r.method = %s AND r.action = ANY(%s)
+              AND r.created_at >= %s AND r.created_at < %s AND g.merged_into::text = r.new_value
+            ORDER BY r.organisation_id, r.action, r.id DESC""",
+        (REJOIN, list(db.MERGE_MOVES), start, end)).fetchall()]
     res["logged"] = dict(Counter(r["action"] for r in logged))
+    res["moved_back"] = len(moves)
     out(f"undo {start} .. {end}: {res['logged']}")
     if not apply:
         conn.rollback()
@@ -344,6 +634,24 @@ def undo(conn, start: str, end: str, *, apply: bool, out=print) -> dict[str, Any
         elif r["action"] == "award_buyer_as_winner":
             conn.execute("UPDATE award SET excluded_reason = NULL WHERE id = %s AND excluded_reason = 'buyer_as_winner'",
                          (int(r["old_value"]),))
+        elif r["action"] == "move_to_vat_number":
+            conn.execute("""UPDATE organisation SET national_reg_no = %s, identifier_method = 'identifier',
+                                   vat_number = NULLIF(vat_number, %s)
+                             WHERE id = %s AND national_reg_no IS NULL""",
+                         (r["old_value"], r["new_value"], r["organisation_id"]))
+        elif r["action"] == "restore_identifier":
+            conn.execute("UPDATE organisation SET national_reg_no = NULL WHERE id = %s AND national_reg_no = %s",
+                         (r["organisation_id"], r["new_value"]))
+        elif r["action"] == "restore_vat_number":
+            conn.execute("UPDATE organisation SET vat_number = NULL WHERE id = %s AND vat_number = %s",
+                         (r["organisation_id"], r["new_value"]))
+        elif r["action"] == "award_buyer_as_winner_lifted":
+            conn.execute("UPDATE award SET excluded_reason = 'buyer_as_winner' WHERE id = %s AND excluded_reason IS NULL",
+                         (int(r["old_value"]),))
+        elif r["action"] == "award_same_winner_twice":
+            conn.execute("UPDATE award SET excluded_reason = NULL WHERE id = %s AND excluded_reason = %s",
+                         (int(r["old_value"]), db.SAME_WINNER_TWICE))
+    undo_merges.move_back(conn, moves)
     conn.commit()
     return res
 
@@ -353,12 +661,14 @@ def run(conn, steps: tuple[str, ...] = STEPS, *, apply: bool = False, out=print)
     started = conn.execute("SELECT now() AS t").fetchone()["t"]
     conn.commit()
     res: dict[str, Any] = {}
-    for name, fn in (("false-ids", false_ids), ("chains", chains), ("contacts", contacts), ("winners", winners)):
+    for name, fn in (("false-ids", false_ids), ("chains", chains), ("contacts", contacts), ("winners", winners),
+                     ("winners-check", winners_check), ("namesakes", namesakes), ("pics", pics),
+                     ("restore-ids", restore_ids), ("twice", twice)):
         if name in steps:
             res[name] = fn(conn, apply=apply, out=out)
     if "unlinked" in steps:
         res["unlinked"] = unlinked(conn, out=out)
-    if apply and {"false-ids", "chains"} & set(steps):
+    if apply and {"false-ids", "chains", "namesakes", "pics", "twice"} & set(steps):
         conn.execute("SET statement_timeout = 0")
         res["directory_rows"] = networks.refresh_organisation_network(conn)["organisations"]
         conn.execute("SET statement_timeout = '30s'")

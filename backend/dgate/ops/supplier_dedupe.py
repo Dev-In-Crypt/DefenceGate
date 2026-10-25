@@ -66,7 +66,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .. import db, networks
-from ..awards import numbers_conflict
+from ..awards import _distance, numbers_conflict
 from ..buyer_family import is_public_body
 from ..config import settings
 from ..resolution.names import fold_key, key_of, legal_form_of
@@ -118,6 +118,7 @@ class Row:
     public: bool
     stated: dict[str, set[str]] = field(default_factory=dict)   # stated name (folded) -> numbers stated with it
     own: set[str] = field(default_factory=set)                   # WP-104: the row's own numbers (not the stated ones)
+    notices: set[int] = field(default_factory=set)               # WP-119: the notices it is a current winner of
 
     @property
     def key(self) -> str:
@@ -151,12 +152,13 @@ def load(conn) -> list[Row]:
         """WITH w AS (
                SELECT COALESCE(org.merged_into, org.id) AS id, count(*) AS n,
                       array_agg(DISTINCT a.identifier_as_stated) FILTER (WHERE a.identifier_as_stated IS NOT NULL) AS ids,
-                      array_agg(DISTINCT a.name_as_stated || chr(1) || COALESCE(a.identifier_as_stated, '')) AS stated
+                      array_agg(DISTINCT a.name_as_stated || chr(1) || COALESCE(a.identifier_as_stated, '')) AS stated,
+                      array_agg(DISTINCT a.opportunity_id) AS notices
                  FROM award a JOIN organisation org ON org.id = a.organisation_id
                 WHERE a.superseded_at IS NULL AND a.excluded_reason IS NULL
                 GROUP BY 1)
            SELECT g.id, g.country, COALESCE(g.display_name, g.canonical_name) AS name, g.national_reg_no, g.vat_number,
-                  g.suppressed, g.individual_reason, g.is_defence_buyer, g.org_role, w.n, w.ids, w.stated,
+                  g.suppressed, g.individual_reason, g.is_defence_buyer, g.org_role, w.n, w.ids, w.stated, w.notices,
                   ARRAY(SELECT x.raw_name FROM organisation_alias x WHERE x.organisation_id = g.id
                          ORDER BY x.id LIMIT 8) AS aliases
              FROM w JOIN organisation g ON g.id = w.id
@@ -177,7 +179,8 @@ def load(conn) -> list[Row]:
                        is_public_body(r["name"], country, defence_buyer=bool(r["is_defence_buyer"]),
                                       org_role=r["org_role"]),
                        dict(stated),
-                       {n for n in (own_number(x, country) for x in (r["national_reg_no"], r["vat_number"])) if n}))
+                       {n for n in (own_number(x, country) for x in (r["national_reg_no"], r["vat_number"])) if n},
+                       set(r["notices"] or ())))
     return out
 
 
@@ -270,14 +273,32 @@ _TAIL_STOP = _FORM_WORDS | {"s", "ute", "sp", "spolka", "sociedad", "soc", "coop
 _JOINING = re.compile(r"\s(?:y|e|i|und|and|et|en)\s")
 
 
+def spelling_variants(a: str, b: str) -> bool:
+    """WP-119: two names that are one name typed differently: the same name key (`core_key`), the same once spaces are
+    removed, or keys two characters apart at most ("Magtel Opertaciones" / "Magtel Operaciones", "WORKSS - 11" /
+    "WORKS 11-")."""
+    ka, kb = core_key(a), core_key(b)
+    return bool(ka) and (ka == kb or fold_key(ka) == fold_key(kb) or _distance(ka, kb) <= 2)
+
+
+def _reviewed_pair(a: Row, b: Row) -> bool:
+    return any(rv.country == x.country and rv.number in x.numbers and stated_key(y.name) in rv.names
+               for rv in REVIEWED for x, y in ((a, b), (b, a)))
+
+
 def _pair_conflict(a: Row, b: Row, it_keys: set[tuple[int, int]]) -> str | None:
     """Why two rows cannot be one company, or None: two numbers that cannot be one company's (the owner's rule: other
     numbers, other companies), or two legal-form classes (RENK AG / RENK GmbH). An Italian tax pair one stated name
-    carries is not a conflict of numbers."""
+    carries is not a conflict of numbers.
+    WP-119: or two winners named side by side in one notice, unless their names are one name typed differently
+    (`spelling_variants`) or a person read them as one (`REVIEWED`): Sign Polska and Sign 4 Security, both winners of
+    TED 262623-2024 and 224193-2025, were merged by a shared company number."""
     if _conflict(a.numbers, b.numbers) and (min(a.id, b.id), max(a.id, b.id)) not in it_keys:
         return "different_company_numbers"
     if a.forms and b.forms and not a.forms & b.forms:
         return "different_legal_forms"
+    if a.notices & b.notices and not spelling_variants(a.name, b.name) and not _reviewed_pair(a, b):
+        return "winners_of_one_notice"
     return None
 
 

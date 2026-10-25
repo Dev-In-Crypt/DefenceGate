@@ -61,13 +61,16 @@ class BatchMismatch(RuntimeError):
     pass
 
 
-def batch(conn, start: str, end: str, methods: tuple[str, ...]) -> list[dict[str, Any]]:
+def batch(conn, start: str, end: str, methods: tuple[str, ...], only: list[int] | None = None) -> list[dict[str, Any]]:
+    """The rows merged by `methods` in [start, end); WP-119: only the rows `only` names, when given (one wrong group of
+    a run is undone, the rest of the run stays)."""
     return [dict(r) for r in conn.execute(
         """SELECT o.id, o.merged_into AS head, o.merged_at, o.identifier_method,
                   o.national_reg_no, o.is_defence_buyer
              FROM organisation o
             WHERE o.merge_method = ANY(%s) AND o.merged_at >= %s AND o.merged_at < %s
-            ORDER BY o.id""", (list(methods), start, end)).fetchall()]
+              AND (%s::bigint[] IS NULL OR o.id = ANY(%s::bigint[]))
+            ORDER BY o.id""", (list(methods), start, end, only, only)).fetchall()]
 
 
 def _with_candidate(conn, rows: list[dict[str, Any]], start: str, end: str,
@@ -183,9 +186,42 @@ def plan(conn, rows: list[dict[str, Any]], methods: tuple[str, ...] = (METHOD,))
              and h["id"] in flagged_members
              and (h["country"], h["canonical_name"]) not in seeded]
 
+    # WP-119: what the merge moved to the head (`db.MERGE_MOVES`: the PIC, the VAT number) and the
+    # awards it counted once (`same_winner_twice`), each logged on the member with its head's id
+    moves = [dict(r) for r in conn.execute(
+        """SELECT DISTINCT ON (r.organisation_id, r.action) r.organisation_id AS member, r.action, r.old_value,
+                  r.new_value::bigint AS head
+             FROM organisation_repair r
+            WHERE r.organisation_id = ANY(%s) AND r.action = ANY(%s) AND r.created_at >= %s
+            ORDER BY r.organisation_id, r.action, r.id DESC""",
+        (sorted(members), list(db.MERGE_MOVES), batch_start)).fetchall()
+        if head_of.get(r["member"]) == int(r["head"])]
+
     return {"members": sorted(members), "heads": heads, "aliases": aliases, "notices": notices,
             "notices_kept": kept, "numbers": numbers, "flags": flags, "head_rows": hrows,
-            "repointed": repointed}
+            "repointed": repointed, "moves": moves}
+
+
+def move_back(conn, moves: list[dict[str, Any]]) -> None:
+    """WP-119: undo what `db.carry_to_head` moved: the PIC and the VAT number back to the member (the head's cleared
+    first, the PIC being unique), and its awards counted again."""
+    for m in moves:
+        member, head, old, action = m["member"], m["head"], m["old_value"], m["action"]
+        if action == "merge_moved_pic":
+            had = conn.execute("SELECT pic_method, pic_confidence FROM organisation WHERE id = %s AND eu_pic = %s",
+                               (head, old)).fetchone()
+            if had:
+                conn.execute("UPDATE organisation SET eu_pic = NULL, pic_method = NULL, pic_confidence = NULL "
+                             "WHERE id = %s", (head,))
+                conn.execute("UPDATE organisation SET eu_pic = %s, pic_method = %s, pic_confidence = %s WHERE id = %s",
+                             (old, had["pic_method"], had["pic_confidence"], member))
+        elif action == "merge_moved_vat":
+            if conn.execute("UPDATE organisation SET vat_number = NULL WHERE id = %s AND vat_number = %s",
+                            (head, old)).rowcount:
+                conn.execute("UPDATE organisation SET vat_number = %s WHERE id = %s", (old, member))
+        elif action == "merge_award_twice":
+            conn.execute("UPDATE award SET excluded_reason = NULL WHERE id = ANY(%s) AND excluded_reason = %s",
+                         ([int(x) for x in old.split(",")], db.SAME_WINNER_TWICE))
 
 
 def sample_notices(conn, notices: list[tuple[int, int, int]], n: int = 20) -> list[dict[str, Any]]:
@@ -199,8 +235,8 @@ def sample_notices(conn, notices: list[tuple[int, int, int]], n: int = 20) -> li
 def run(conn, *, apply: bool = False, start: str = START, end: str = END,
         methods: tuple[str, ...] = (METHOD,),
         expected: int | None = EXPECTED, detected_by: str = DETECTED_BY, sample: int = 20,
-        refresh: bool = True, out=print) -> dict[str, Any]:
-    rows = batch(conn, start, end, methods)
+        refresh: bool = True, out=print, only: list[int] | None = None) -> dict[str, Any]:
+    rows = batch(conn, start, end, methods, only)
     result: dict[str, Any] = {"rows": len(rows), "applied": False}
     if not rows:
         conn.rollback()
@@ -212,21 +248,27 @@ def run(conn, *, apply: bool = False, start: str = START, end: str = END,
     if proved != len(rows):
         raise BatchMismatch(f"{len(rows) - proved} rows of the window have no merged candidate pair")
     p = plan(conn, rows, methods)
+    # WP-119: with `only`, the candidate rows of those pairs alone
+    pairs = (None, None) if only is None else ([min(r["id"], r["head"]) for r in rows],
+                                               [max(r["id"], r["head"]) for r in rows])
+    in_pairs = """ AND (%s::bigint[] IS NULL OR (organisation_id, candidate_org_id) IN
+                        (SELECT a, b FROM unnest(%s::bigint[], %s::bigint[]) AS p(a, b)))"""
     cands = conn.execute(
         """SELECT count(*) FILTER (WHERE detected_by <> %s OR created_at < %s) AS to_pending,
                   count(*) FILTER (WHERE detected_by = %s AND created_at >= %s) AS to_undone
              FROM organisation_merge_candidate
-            WHERE match_method = ANY(%s) AND status = 'merged' AND decided_at >= %s AND decided_at < %s""",
-        (detected_by, start, detected_by, start, list(methods), start, end)).fetchone()
+            WHERE match_method = ANY(%s) AND status = 'merged' AND decided_at >= %s AND decided_at < %s""" + in_pairs,
+        (detected_by, start, detected_by, start, list(methods), start, end, pairs[0], *pairs)).fetchone()
     result.update({
         "heads": len(p["heads"]), "aliases": len(p["aliases"]), "notices": len(p["notices"]),
         "notices_kept_on_head": p["notices_kept"], "numbers_restored": len(p["numbers"]),
-        "flags_cleared": len(p["flags"]), "candidates_pending": cands["to_pending"],
+        "flags_cleared": len(p["flags"]), "moved_back": len(p["moves"]), "candidates_pending": cands["to_pending"],
         "candidates_undone": cands["to_undone"]})
     out(f"batch {start} .. {end}: {len(rows)} rows under {len(p['heads'])} heads (every one with its "
         f"candidate pair); aliases back {len(p['aliases'])}; notices back {len(p['notices'])} "
         f"(kept on the head: {p['notices_kept']}); numbers back to their row {len(p['numbers'])}; "
-        f"defence-buyer flags cleared {len(p['flags'])} {p['flags']}; candidates to pending "
+        f"defence-buyer flags cleared {len(p['flags'])} {p['flags']}; PICs, VAT numbers and "
+        f"awards moved back {len(p['moves'])}; candidates to pending "
         f"{cands['to_pending']}, audit rows to undone {cands['to_undone']}")
     result["sample"] = sample_notices(conn, p["notices"], sample)
     for s in result["sample"]:
@@ -255,13 +297,14 @@ def run(conn, *, apply: bool = False, start: str = START, end: str = END,
     if p["flags"]:
         conn.execute("UPDATE organisation SET is_defence_buyer = FALSE WHERE id = ANY(%s)",
                      (p["flags"],))
+    move_back(conn, p["moves"])
     conn.execute(
         """UPDATE organisation_merge_candidate
               SET status = CASE WHEN detected_by = %s AND created_at >= %s THEN 'undone'
                                 ELSE 'pending' END,
                   decided_at = CASE WHEN detected_by = %s AND created_at >= %s THEN now() END
-            WHERE match_method = ANY(%s) AND status = 'merged' AND decided_at >= %s AND decided_at < %s""",
-        (detected_by, start, detected_by, start, list(methods), start, end))
+            WHERE match_method = ANY(%s) AND status = 'merged' AND decided_at >= %s AND decided_at < %s""" + in_pairs,
+        (detected_by, start, detected_by, start, list(methods), start, end, pairs[0], *pairs))
     conn.commit()
     result["applied"] = True
     out(f"undone: {len(rows)} rows unmerged")

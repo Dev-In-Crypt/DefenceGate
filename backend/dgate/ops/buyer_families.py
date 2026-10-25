@@ -24,7 +24,14 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 
 from .. import db
-from ..buyer_family import CURATED_RENAME, RULE, SHARED_TAX_ID, family_of, is_sub_unit
+from ..buyer_family import (
+    CURATED_RENAME,
+    RULE,
+    SHARED_TAX_ID,
+    family_of,
+    is_public_body,
+    is_sub_unit,
+)
 from ..config import settings
 
 log = logging.getLogger("buyer_families")
@@ -219,7 +226,16 @@ def all_groups(conn, extra_pairs: list[tuple[int, int]] = ()) -> list[Group]:
     placed = {m.org_id for g in groups for m in (g.head, *g.members)}
     buyers = {r[0]: Member(r[0], r[2], r[3], SHARED_TAX_ID, RULE, r[4]) for r in rows}
     groups += tax_id_groups(conn, tax_id_pairs(conn) + list(extra_pairs), buyers, placed)
-    groups += twin_groups(groups, twin_pairs(conn), buyers)
+    pairs = twin_pairs(conn)
+    # WP-119: a company is never put into a buyer's family by a twin notice: a copy's buyer row that wins contracts (an
+    # award row) and whose name is no public body's is the winner the national copy named as its buyer (BOAMP 24-21330:
+    # SPIE FACILITIES, its TED twin 109763-2024 under ESID Rennes, SPIE the winner)
+    winners = {r["organisation_id"] for r in conn.execute(
+        "SELECT DISTINCT organisation_id FROM award WHERE organisation_id = ANY(%s)",
+        (sorted({c for c, _ in pairs}),)).fetchall()}
+    country = {r[0]: r[1] for r in rows}
+    companies = {c for c in winners if c in buyers and not is_public_body(buyers[c].name, country.get(c))}
+    groups += twin_groups(groups, [(c, t) for c, t in pairs if c not in companies], buyers)
     groups.sort(key=lambda g: (-g.notices, g.key))
     return groups
 

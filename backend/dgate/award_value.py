@@ -169,22 +169,36 @@ def contradicted(amount: float | None, opp: dict[str, Any]) -> bool:
 # EUR 1,450,000.
 SET_ASIDE_ESTIMATE, SET_ASIDE_LOTS, SET_ASIDE_PROCEDURE = "estimate", "lots", "procedure"
 SET_ASIDE_REASONS = (SET_ASIDE_ESTIMATE, SET_ASIDE_LOTS, SET_ASIDE_PROCEDURE)
-# Over CONTRADICTED_RATIO times the other figure from ten million (in the notice's currency), or exactly a thousand times
-# it from a million (the amount typed in thousands): 107790-2025 states EUR 690,000,000 for a procedure of EUR 690,000.
-# ponytail: below ten million a hundredfold gap stands (a framework's estimate may be one year of several); the floor is
-# in the notice's own currency, so HUF and CZK figures reach it sooner.
-IMPLAUSIBLE_FROM = 1e7
+# A clean unit error from a million (the amount typed in thousands: 107790-2025 states EUR 690,000,000 for a procedure of
+# EUR 690,000; or the cents read as units), and against the procedure also over CONTRADICTED_RATIO times it from a billion
+# (WP-119; it was from ten million, which set aside plausible totals for absurd lot sums and one odd estimate).
+# ponytail: the floors are in the notice's own currency, so HUF and CZK figures reach them sooner.
 THOUSANDFOLD_FROM = 1e6
 
 
+def unit_error_of(amount: float | None, other: float | None) -> bool:
+    """WP-119: whether `amount` is `other` typed in the wrong unit, digit for digit, from THOUSANDFOLD_FROM: a thousand
+    times it (typed in thousands: FASER 394720-2025, PLN 7,247,040,000 for tenders of 7,247,040), or a hundred times it
+    with the cents read as units (313429-2026, PLN 741,576,016.16 for 7,415,760.16; 142545-2026, PLN 120,969,785 for a
+    lot of 1,209,697). A round hundredfold (5,000,000 against 50,000) is no such slip and stands."""
+    if amount is None or amount < THOUSANDFOLD_FROM or not _usable(other):
+        return False
+    if abs(amount / 1000 - other) < 0.01:
+        return True
+    return amount % 100 != 0 and abs(amount / 100 - other) < 1
+
+
 def implausible_against(amount: float | None, other: float | None) -> bool:
-    """WP-108: whether `amount` is a wrong-unit entry measured against `other`, a smaller figure of the same notice or
-    procedure: over CONTRADICTED_RATIO times it from IMPLAUSIBLE_FROM, or a clean thousand times it from THOUSANDFOLD_FROM."""
+    """WP-108: whether `amount` is a wrong-unit entry measured against `other`, a smaller figure of the same procedure:
+    a clean unit error of it (`unit_error_of`), or (WP-119) a billion or more (CONTRADICTED_FROM) and over
+    CONTRADICTED_RATIO times it (INCM 499753-2026, EUR 1,159,000,000 for a procedure estimated at 1,450,000).
+    WP-119: below a billion a hundredfold gap is no proof: 451107-2025 states a framework of EUR 22,922,861 whose 2023
+    contract notice estimated EUR 23,918.70 (x958), and the estimate, not the framework, was the odd figure."""
     if amount is None or not _usable(other):
         return False
-    if amount >= IMPLAUSIBLE_FROM and amount > CONTRADICTED_RATIO * other:
+    if amount >= CONTRADICTED_FROM and amount > CONTRADICTED_RATIO * other:
         return True
-    return amount >= THOUSANDFOLD_FROM and abs(amount / 1000 - other) < 0.01
+    return unit_error_of(amount, other)
 
 
 def procedure_set_aside(amount: float | None, opp: dict[str, Any], cur: str | None = None) -> tuple[float, str] | None:
@@ -226,7 +240,9 @@ def _checked(amount: float, cur: str | None, kind: str, parts: float | None, opp
     (WP-103), the sum of its parts or the procedure's estimate (WP-108)."""
     if contradicted(amount, opp):
         return (*estimate, round(amount, 2), SET_ASIDE_ESTIMATE)
-    if implausible_against(amount, parts):
+    # WP-119: the sum of the lots replaces the total only when the total is a clean unit error of it; a lot sum of a few
+    # units is a placeholder, not a value (Marine Alutech 676175-2026: EUR 2 for a total of 76,000,000)
+    if unit_error_of(amount, parts):
         return round(parts, 2), cur, kind, round(amount, 2), SET_ASIDE_LOTS
     proc = procedure_set_aside(amount, opp, cur)
     if proc:
@@ -256,11 +272,15 @@ def _ted_value(rec: dict[str, Any] | None, opp: dict[str, Any]) -> tuple:
             if not _usable(amount):
                 continue
             out = _checked(amount, cur, kind, parts, opp, estimate)
-            if (out[3] is None and parts is None and opp.get("value_kind") == "total"
-                    and implausible_against(stored, amount)):
-                # WP-108: the value read from the parts stands, and the notice's own total, a wrong-unit entry of their
-                # sum (FASER 394720-2025 when TED answers its tenders and no notice value), is said and not used
-                return (*out[:3], round(stored, 2), SET_ASIDE_LOTS)
+            if out[3] is None and parts is None and opp.get("value_kind") == "total" and _usable(stored):
+                if unit_error_of(stored, amount):
+                    # WP-108: the value read from the parts stands, and the notice's own total, a wrong-unit entry of
+                    # their sum (FASER 394720-2025 when TED answers its tenders and no notice value), is said and not used
+                    return (*out[:3], round(stored, 2), SET_ASIDE_LOTS)
+                if stored > CONTRADICTED_RATIO * amount:
+                    # WP-119: parts that sum to a placeholder against the notice's own total (Marine Alutech 676175-2026:
+                    # EUR 2 for 76,000,000; Surcom 436610-2026: SEK 13 for 13,107,317) are no value: the total stands
+                    return _checked(stored, cur, kind, None, opp, estimate)
             return out
         # the award states its values as placeholders (712069-2026: -1): what TED filled `total-value` with is the
         # procedure's estimate
