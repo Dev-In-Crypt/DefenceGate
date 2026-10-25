@@ -220,7 +220,7 @@ def test_the_env_example_names_every_setting_and_holds_no_value():
 
 
 def test_caddy_lets_the_webhook_through_to_the_site_with_its_own_size_cap():
-    text = (ROOT / "infra" / "Caddyfile").read_text(encoding="utf-8")
+    text = (ROOT / "infra" / "caddy" / "Caddyfile").read_text(encoding="utf-8")
     assert re.search(r"@billing_webhook path /api/billing/webhook\s+request_body @billing_webhook \{\s+max_size 64KB", text)
     assert re.search(r"@not_billing_webhook not path /api/billing/webhook\s+request_body @not_billing_webhook \{\s+max_size 4KB", text)
     public = re.search(r"@public path (.+)", text).group(1)

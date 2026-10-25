@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_both_upstreams_are_held_and_retried_while_they_restart():
-    text = (ROOT / "infra" / "Caddyfile").read_text(encoding="utf8")
+    text = (ROOT / "infra" / "caddy" / "Caddyfile").read_text(encoding="utf8")
     blocks = re.findall(r"reverse_proxy (\S+) \{(.*?)\n\t\t\}", text, re.S)
     assert {name for name, _ in blocks} == {"api-edge:8000", "web:3000"}
     for name, body in blocks:
