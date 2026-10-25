@@ -163,6 +163,12 @@ export function yearsLabel(first: number | null, last: number | null): string {
   return `${first} to ${last}`;
 }
 
+/** WP-130: the same years inside a sentence: "between 2021 and 2025", "in 2024" (a description said "between 2021 to 2025"). */
+export function yearsPhrase(first: number | null, last: number | null): string {
+  if (first === null && last === null) return '';
+  return first === null || last === null || first === last ? `in ${first ?? last}` : `between ${first} and ${last}`;
+}
+
 export function formatEur(n: number | null): string {
   return n === null ? 'Not stated' : `EUR ${Math.round(n).toLocaleString('en-GB')}`;
 }

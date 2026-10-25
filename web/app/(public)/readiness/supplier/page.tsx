@@ -8,7 +8,8 @@ import { SupplierForm } from '@/components/readiness/supplier';
 
 export const metadata: Metadata = buildMetadata({
   title: 'Supplier profile: who to approach in defence',
-  description: 'Say what you make (CPV codes) and what you hold: see who wins defence contracts for it in five countries, who buys it, and which rules of the Spanish MoD route, NATO supply and the EU programmes apply to you, each with its source.',
+  // WP-130: under 160 characters, so the search snippet is the whole sentence (the trim kept only the 48 before the colon)
+  description: 'Say what you make (CPV codes) and what you hold: see who wins defence contracts for it in five countries, who buys it and which rules apply to you.',
   path: '/readiness/supplier',
 });
 

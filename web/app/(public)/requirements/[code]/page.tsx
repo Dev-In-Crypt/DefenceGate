@@ -6,7 +6,7 @@ import { getRequirement, getRequirements } from '@/lib/readiness-api';
 import { NSPA_NCAGE_URL, CATEGORY_WORD, OBLIGATION_WORD, costStatement, faqOf, formatDays, groupIssuers, originWords, publicPassage, publicRef, requirementCode, requirementSlug, ruleSentence, siteDay, statusWords } from '@/lib/readiness';
 import { countryName } from '@/lib/taxonomy';
 import { plural } from '@/lib/format';
-import { absoluteUrl, buildMetadata } from '@/lib/seo';
+import { PUBLISHER, absoluteUrl, buildMetadata } from '@/lib/seo';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { Button } from '@/components/dg/button';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
@@ -68,7 +68,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
   const article = {
     '@context': 'https://schema.org', '@type': 'Article', headline: r.name, description: r.summary,
     url: absoluteUrl(path), dateModified: r.lastReviewed, inLanguage: 'en',
-    publisher: { '@type': 'Organization', name: 'DefenceGate' },
+    author: PUBLISHER, publisher: PUBLISHER,
     ...(sourceUrl ? { isBasedOn: sourceUrl } : {}),
   };
 

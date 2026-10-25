@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ChevronRight, CircleAlert, Clock, Inbox, Lock, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { breadcrumbJsonLd, type Crumb } from '@/lib/seo';
+import { breadcrumbJsonLd, crumbLinks, type Crumb } from '@/lib/seo';
 import { Icon } from './icon';
 import { Button } from './button';
 
@@ -10,6 +10,8 @@ export function JsonLd({ data }: { data: object }) {
 }
 
 export function Breadcrumbs({ items }: { items: Crumb[] }) {
+  // WP-130: a group with no page, or a crumb whose page the next one opens too, is text, not a second link to the same place
+  const linked = crumbLinks(items);
   return (
     <nav aria-label="Breadcrumb">
       <JsonLd data={breadcrumbJsonLd(items)} />
@@ -17,11 +19,11 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
         {items.map((c, i) => {
           const last = i === items.length - 1;
           return (
-            <li key={`${i}-${c.href}`} className="inline-flex min-w-0 items-center gap-1">
+            <li key={`${i}-${c.href ?? c.label}`} className="inline-flex min-w-0 items-center gap-1">
               {last ? (
                 <span aria-current="page" lang={c.lang} className="max-w-[40ch] truncate text-ink-muted">{c.label}</span>
               ) : (
-                <><Link href={c.href} lang={c.lang} className="inline-flex min-h-8 items-center font-semibold">{c.label}</Link><Icon icon={ChevronRight} size="inline" className="text-ink-muted" /></>
+                <>{linked[i] ? <Link href={c.href!} lang={c.lang} className="inline-flex min-h-8 items-center font-semibold">{c.label}</Link> : <span lang={c.lang} className="inline-flex min-h-8 items-center">{c.label}</span>}<Icon icon={ChevronRight} size="inline" className="text-ink-muted" /></>
               )}
             </li>
           );

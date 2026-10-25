@@ -4,7 +4,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { formatDateUtc, formatNumber } from '@/lib/format';
-import { DEFENCE_PROGRAMMES, PARTNER_PAGE_SIZE, PROGRAMME_CHOICES, PROJECT_PAGE_SIZE, contributionMissing, formatEur, isNetworkSlug, methodWord, programmeName, yearsLabel } from '@/lib/networks';
+import { DEFENCE_PROGRAMMES, PARTNER_PAGE_SIZE, PROGRAMME_CHOICES, PROJECT_PAGE_SIZE, contributionMissing, formatEur, isNetworkSlug, methodWord, programmeName, yearsLabel, yearsPhrase } from '@/lib/networks';
 import { AboutData, InfoLink } from '@/components/dg/about-data';
 import { getOrganisation, getOrganisationFunding, getOrganisationProjects, getPartners } from '@/lib/networks-api';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
@@ -51,7 +51,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const name = nameOf(org.name);
   return buildMetadata({
     title: `${name}: projects, partners and EU funding`,
-    description: `${name}: ${org.counts.projects} funded ${org.counts.projects === 1 ? 'project' : 'projects'}${org.counts.firstYear ? ` between ${yearsLabel(org.counts.firstYear, org.counts.lastYear)}` : ''}. From CORDIS and the EDF project factsheets.`,
+    description: `${name}: ${org.counts.projects} funded ${org.counts.projects === 1 ? 'project' : 'projects'}${org.counts.firstYear ? ` ${yearsPhrase(org.counts.firstYear, org.counts.lastYear)}` : ''}. From CORDIS and the EDF project factsheets.`,
     path: `/organisations/${org.slug}`,
     noindex: tabOf(sp) !== 'overview' || pageOf(sp) > 1 || Boolean(one(sp.country) || one(sp.programme)),
   });

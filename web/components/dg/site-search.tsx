@@ -17,7 +17,8 @@ export function SiteSearchForm({ id, compact = false, defaultValue, className }:
 }) {
   const label = 'Search tenders, funding, buyers and companies';
   return (
-    <form method="get" action="/search" role="search" aria-label="Site search" className={cn('flex min-w-0 items-end gap-2', !compact && 'flex-wrap', className)}>
+    // WP-130: the header's search has a name of its own: on /search two landmarks were both "Site search"
+    <form method="get" action="/search" role="search" aria-label={compact ? 'Header search' : 'Site search'}className={cn('flex min-w-0 items-end gap-2', !compact && 'flex-wrap', className)}>
       {/* The full form: the button goes under the field when both do not fit (a phone). */}
       <div className={cn('flex min-w-0 flex-1 flex-col gap-1', !compact && 'basis-64')}>
         <label htmlFor={id} className={compact ? 'sr-only' : 'text-label text-ink'}>{label}</label>

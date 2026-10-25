@@ -7,7 +7,7 @@ import { formatStamp } from '@/lib/account-format';
 import { getTenderDeadline } from '@/lib/deadline';
 import { formatDateUtc, formatMoney, isPlaceholderAmount, noticeDateLabel } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
-import { absoluteUrl, buildMetadata } from '@/lib/seo';
+import { absoluteUrl, buildMetadata, tenderTitle } from '@/lib/seo';
 import { TENDER_CHECKED_LABEL, anomalyNotes, tenderChangedLabel, tenderStatusView, valueKindLabel } from '@/lib/tender-status';
 import { cpvName } from '@/lib/cpv';
 import { TENDER_SCOPES, countryName, isNonEnglish, languageName, legalBasisLabel, procedureLabel } from '@/lib/taxonomy';
@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (tender === REMOVED) return { title: 'Removed on request', robots: { index: false } };
   if (!tender) return { title: 'Tender not found', robots: { index: false } };
   return buildMetadata({
-    title: `Evidence record: ${tender.title} (${tender.noticeId})`,
+    title: tenderTitle(tender, 'Evidence: '),
     description: 'A printable record of what DefenceGate holds for this notice, its source and its version history.',
     path: `/tenders/${tender.slug}/evidence`,
     noindex: true,

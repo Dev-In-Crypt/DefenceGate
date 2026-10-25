@@ -26,7 +26,9 @@ export function trimAtPhrase(text: string, max: number, min: number, end = ''): 
   const t = text.trim();
   if (t.length <= max) return t;
   const room = t.slice(0, max + 1);
-  const sentence = Math.max(...['. ', '? ', '! '].map((m) => room.lastIndexOf(m))) + 1;
+  // WP-130: the dot of an abbreviation ends no sentence ("Akademia Marynarki Wojennej im. Bohaterów ..." was titled "... im.").
+  const ends = [...room.matchAll(/[.?!](?= )/g)].map((m) => m.index ?? -1).filter((i) => room[i] !== '.' || !ABBREVIATION.test(room.slice(0, i)));
+  const sentence = Math.max(-1, ...ends) + 1;
   if (sentence >= min) return t.slice(0, sentence);
   // A colon, semicolon or dash ends a phrase before a bracket does ("... supply: each requirement, who issues it (in ..."). A quoted
   // search after the mark ("Tenders, page 2: “drone ...”") is what the view is: it is cut at a word, not dropped.
@@ -35,4 +37,19 @@ export function trimAtPhrase(text: string, max: number, min: number, end = ''): 
     if (clause >= min) return `${t.slice(0, clause).replace(/[\s,]+$/, '')}${end}`;
   }
   return trimAtWord(t, max);
+}
+
+/** The word before a dot that makes it an abbreviation: one letter ("S.A.", "J."), a legal form or a title of a name ("im.", "Ltd."). */
+const ABBREVIATION = /(?:^|[\s(.])(?:\p{L}|im|ul|al|nr|no|st|sp|co|ltd|inc|corp|cie|dr|mr|mrs|ms|prof|ing|mgr|jr|sr|vs|e\.g|i\.e)$/iu;
+
+/**
+ * WP-130: a title of a subject and its reference ("Microwave tubes and equipment (40702-2026)"). The subject comes first: the reference
+ * is added when both fit, and left out rather than cutting the subject ("Framework agreement for… (561204-2026)" lost what is bought).
+ * Before, the subject was the TED place prefix and the reference was always cut away.
+ */
+export function titleWithRef(subject: string, ref: string | null | undefined): string {
+  const s = subject.trim();
+  const tail = ref?.trim() ? ` (${ref.trim()})` : '';
+  // ponytail: two long subjects that start alike can still share a title; their addresses and descriptions differ
+  return s.length + tail.length <= TITLE_MAX ? `${s}${tail}` : trimAtPhrase(s, TITLE_MAX, 12);
 }

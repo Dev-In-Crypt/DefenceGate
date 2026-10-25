@@ -1,4 +1,4 @@
-import { getAllBuyerSlugs, getAllCallSlugs, getAllSupplierSlugs, getDigestWeeks, getHealth, getTenderSitemapPage, isBuyerSlug, isCallSlug, isSupplierSlug, isTenderSlug } from '@/lib/api';
+import { getAllBuyerSlugs, getAllCallSlugs, getAllSupplierSlugs, getDigestWeeks, getTenderSitemapPage, isBuyerSlug, isCallSlug, isSupplierSlug, isTenderSlug } from '@/lib/api';
 import { withEtag } from '@/lib/etag';
 import { getNetworkSlugs } from '@/lib/networks-api';
 import { requirementSlug } from '@/lib/readiness';
@@ -22,17 +22,18 @@ async function pages(): Promise<SitemapEntry[]> {
   const requirements = await getRequirements().then((r) => r.items).catch(() => []);
   // The organisations with the most projects and the EDF projects (WP-28); the 80,000 CORDIS projects are reachable but not listed.
   const [orgSlugs, projectSlugs] = await getNetworkSlugs().catch(() => [[], []]);
-  const [calls, buyers, health, weeks] = await Promise.all([
-    getAllCallSlugs(), getAllBuyerSlugs().catch(() => []), getHealth(), getDigestWeeks().catch(() => []),
+  const [calls, buyers, weeks] = await Promise.all([
+    getAllCallSlugs(), getAllBuyerSlugs().catch(() => []), getDigestWeeks().catch(() => []),
   ]);
-  const lastModified = new Date(health.generatedAt);
+  // WP-130: a fixed page has no lastmod. It carried the time of the request (the health report's), new on every fetch, which search
+  // engines learn to ignore; we hold no date of a fixed page's last change.
   return [
-    ...STATIC_PATHS.map((p) => ({ url: absoluteUrl(p), lastModified })),
+    ...STATIC_PATHS.map((p) => ({ url: absoluteUrl(p) })),
     // An issue never changes once its week has ended: its last change is the end of the week.
     ...weeks.map((w) => ({ url: absoluteUrl(`/digest/${w.week}`), lastModified: new Date(w.weekTo) })),
     // The readiness check and the requirements catalogue (WP-29). /readiness/results and /readiness/roadmap are private to the visitor and noindex.
     // WP-86: /check is the entry to them; /companies is a redirect to /suppliers and /search a noindex page, so neither is listed.
-    ...['/check', '/readiness', '/readiness/supplier', '/readiness/spain-automotive', '/requirements'].map((p) => ({ url: absoluteUrl(p), lastModified })),
+    ...['/check', '/readiness', '/readiness/supplier', '/readiness/spain-automotive', '/requirements'].map((p) => ({ url: absoluteUrl(p) })),
     ...requirements.map((r) => ({ url: absoluteUrl(`/requirements/${requirementSlug(r.code)}`), lastModified: new Date(r.lastReviewed) })),
     ...calls.filter((c) => isCallSlug(c.slug)).map((c) => ({ url: absoluteUrl(`/funding/${c.slug}`), lastModified: new Date(c.updatedAt) })),
     ...orgSlugs.filter((o) => isBuyerSlug(o.slug)).map((o) => ({ url: absoluteUrl(`/organisations/${o.slug}`), lastModified: new Date(o.updatedAt) })),

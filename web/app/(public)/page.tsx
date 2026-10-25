@@ -46,13 +46,15 @@ function Figure({ value, label }: { value: number | null | undefined; label: str
 }
 
 /**
- * One of the three questions (WP-117, owner's option A): the whole tile is one link, named by its question and its title (the
- * rest is read as its description). The question is the heading, so the three stand in the page's outline.
+ * One of the three questions (WP-117, owner's option A): the whole tile is one link. The question is the heading, so the three stand
+ * in the page's outline. WP-130 (WCAG 2.5.3 Label in Name): the link is named by its own text, question first, so its name holds
+ * every word it shows, "Find partners" and "Start the check" too (it was named by the question and title only, and a voice-control
+ * user saying the words on the tile could not open it).
  */
 function Tile({ id, href, question, title, body, go, children }: { id: string; href: string; question: string; title: string; body: string; go: string; children?: React.ReactNode }) {
   return (
     <li className="min-w-0">
-      <Link href={href} data-tile="" aria-labelledby={`${id}-q ${id}-t`} aria-describedby={children ? `${id}-b ${id}-n` : `${id}-b`}
+      <Link href={href} data-tile=""
         className={`group flex h-full flex-col gap-3 border-strong text-ink no-underline transition-colors duration-dg hover:border-ink-muted focus-visible:border-ink-muted ${CARD_SURFACE} ${CARD_PADDING}`}>
         <h2 id={`${id}-q`} className="m-0 text-h4 text-accent-text">{question}</h2>
         <span id={`${id}-t`} className="text-h3 font-bold">{title}</span>
