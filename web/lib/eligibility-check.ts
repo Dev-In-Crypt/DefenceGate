@@ -431,6 +431,8 @@ export const SIZE_WORDS = /\bsmes?\b|small and medium|mid-?\s?caps?|micro|employ
 
 /** WP-102: the label of a designated-bodies line that leaves others a route as partners; the badge names it (lib/fit.ts fitLabel). */
 export const PARTNER_ONLY = 'Only as a partner';
+/** WP-137: the start of the control line of a restriction with a way round (guarantees); the badge names it (lib/fit.ts CONTROL_WORD, backend/dgate/verdict.py). */
+export const CONTROL_WAY_ROUND = 'The call restricts entities controlled from outside the eligible countries, but the document';
 
 export function check(facts: EligibilityFacts, p: Profile, ctx?: CallContext): Result {
   const lines: Line[] = [];
@@ -548,7 +550,7 @@ export function check(facts: EligibilityFacts, p: Profile, ctx?: CallContext): R
       // WP-102: "an EEA EFTA state" where only some of them are eligible (Horizon Europe: Liechtenstein is not associated)
       else if (fromEligible === 'some') lines.push(line('check', 'The call restricts control from outside the eligible countries, and only some of the EEA EFTA states are eligible under it: check which one controls your company.'));
       else lines.push(EXCEPTION.test(way)
-        ? line('check', `The call restricts entities controlled from outside the eligible countries, but the document allows a way round or narrows the restriction${ownNote(own) ? `: ${ownNote(own)}` : ''}. Read it before you decide.`)
+        ? line('check', `${CONTROL_WAY_ROUND} allows a way round or narrows the restriction${ownNote(own) ? `: ${ownNote(own)}` : ''}. Read it before you decide.`)
         : line('no', 'Entities controlled from outside the eligible countries are excluded, and the document names no exception.'));
     }
     else if (p.controlledAbroad === 'unsure') lines.push({ key: 'control', label: 'Ownership control', verdict: 'check', reason: 'Entities controlled from outside the eligible countries are excluded. Find out who controls your company.', quote: own.quote });

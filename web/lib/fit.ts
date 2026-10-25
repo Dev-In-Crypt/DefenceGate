@@ -15,7 +15,7 @@
  * (a legal entity established in Ukraine, a SEAP): a condition of exactly those two kinds is met by the answer, and only then is the
  * line "yes". Without the answer, or with another condition on partners, it stays "check".
  */
-import { BAND_RANGE, EU27, PARTNER_ONLY, check, consortiumUnclear, partnerLine, unclearConsortiumText, type CallContext, type Controller, type EligibilityFacts, type Headcount, type Line, type OrgKind, type OrgType, type Profile as CheckProfile, type Result, type Tri, type Verdict } from './eligibility-check';
+import { BAND_RANGE, CONTROL_WAY_ROUND, EU27, PARTNER_ONLY, check, consortiumUnclear, partnerLine, unclearConsortiumText, type CallContext, type Controller, type EligibilityFacts, type Headcount, type Line, type OrgKind, type OrgType, type Profile as CheckProfile, type Result, type Tri, type Verdict } from './eligibility-check';
 import { controlCountryOf, managementCountryOf, type ApplicantKind, type Profile } from './profile';
 import type { Assessment, ProgrammeAssessment, RoadmapStep } from './readiness-types';
 import type { RulesApply } from './types';
@@ -225,6 +225,13 @@ export function nationalityWord(reason: string): string {
 /** WP-102 (p05, 149): a call only designated bodies may apply to, others joining them as partners (backend/dgate/verdict.py PARTNER_ONLY_WORD). */
 export const PARTNER_ONLY_WORD = 'Only as a partner of the bodies the call names';
 
+/**
+ * WP-137 (EuroHPC JU 138-143): a company controlled from outside the eligible countries is excluded unless the call's way round
+ * (guarantees approved by the country of establishment) applies: the badge names that, never "nothing known blocks you"
+ * (backend/dgate/verdict.py CONTROL_WORD).
+ */
+export const CONTROL_WORD = 'Controlled from outside: only on the exception the call allows';
+
 function oneProgramme(a: ProgrammeAssessment, steps: RoadmapStep[]): ProgrammeFit {
   const fixable = new Set(steps.filter((s) => s.blockingFor.includes(a.programme)).map((s) => s.code));
   const blocking = a.rules.filter((r) => a.blocking.includes(r.rule));
@@ -326,6 +333,8 @@ export function fitLabel(r: FitResult): { word: string; detail: string } {
     // WP-109 (owner, 24 Oct: the Cyber Defense Factory stays in "Fits" with its condition): the word names the condition
     const nationality = r.result?.lines.find((l) => l.key === 'nationality' && l.verdict === 'check');
     if (nationality) return { word: nationalityWord(nationality.reason), detail: [FIT_MEANING.check, nationality.reason, ...r.conditions].join(' ') };
+    const control = r.result?.lines.find((l) => l.key === 'control' && l.verdict === 'check' && l.reason.startsWith(CONTROL_WAY_ROUND));
+    if (control) return { word: CONTROL_WORD, detail: [FIT_MEANING.check, control.reason, ...r.conditions].join(' ') };
     const n = conditionCount(r);
     const word = n > 0 ? `Nothing known blocks you, ${n} ${n === 1 ? 'condition' : 'conditions'} to check` : 'Nothing known blocks you';
     return { word, detail: [FIT_MEANING.check, ...r.conditions].join(' ') };
@@ -367,7 +376,7 @@ export function boxLines(r: FitResult): { lines: Line[]; asked: string[] } {
 export function fitOrder(r: FitResult, matched: number): number {
   const word = fitLabel(r).word;
   // WP-109: a condition on the staff's nationality ranks with them (owner, 24 Oct: after the calls that match the visitor's topics)
-  const weak = word === NO_UA_PARTNER || word === PARTNER_ONLY_WORD || word.startsWith(NATIONALITY_PREFIX);
+  const weak = word === NO_UA_PARTNER || word === PARTNER_ONLY_WORD || word.startsWith(NATIONALITY_PREFIX) || word === CONTROL_WORD;
   if (matched > 0) return -(matched * 10 + (shownFit(r) === 'yes' ? 2 : weak ? 0 : 1));
   return weak ? 1 : 0;
 }
