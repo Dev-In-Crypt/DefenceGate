@@ -27,14 +27,17 @@ test('NEW-5: no title or description of these pages is cut, and each fits its li
   }
 });
 
-test('/pricing says the site is free and lists only what exists, with no placeholder', async ({ page }) => {
-  await visit(page, '/pricing', { title: /pricing/i, h1: 'Pricing', text: ['DefenceGate is free to use.'] });
-  const table = page.getByRole('table', { name: 'What is offered and what it costs' });
-  await expect(table.getByRole('row')).toHaveCount(7);
-  for (const name of ['Browsing', 'CSV export', 'Atom feeds', 'Calendar feed', 'Readiness check']) {
-    await expect(table.getByRole('row', { name: new RegExp(name) })).toContainText('Free');
+// WP-122 (owner, 25 October 2026): browsing stays free and the Free plan lists only what exists; the account and alerts, built but not
+// open, are "coming" in a paid plan instead of a "Not open yet" row. Still no placeholder.
+test('/pricing says browsing stays free and the Free plan lists only what exists, with no placeholder', async ({ page }) => {
+  await visit(page, '/pricing', { title: /pricing/i, h1: 'Pricing', text: ['Browsing stays free, and no paid plan is on sale yet'] });
+  const free = page.getByRole('list', { name: 'Plans' }).locator(':scope > li').filter({ has: page.getByRole('heading', { name: 'Free', exact: true }) });
+  for (const name of ['Browse tenders, funding calls, buyers and companies', 'CSV export', 'Atom and calendar feeds', 'Readiness check']) {
+    await expect(free).toContainText(name);
   }
-  await expect(table.getByRole('row', { name: /Account and e-mail alerts/ })).toContainText('Not open yet');
+  await expect(free.locator('[data-coming]')).toHaveCount(0);
+  const pro = page.getByRole('list', { name: 'Plans' }).locator(':scope > li').filter({ has: page.getByRole('heading', { name: 'Pro', exact: true }) });
+  await expect(pro.getByRole('listitem').filter({ hasText: 'E-mail alerts' })).toContainText('Coming');
   await expect(page.locator('main')).not.toContainText(/Not announced|Not available yet|Scope is not defined|Pro archive/);
 });
 

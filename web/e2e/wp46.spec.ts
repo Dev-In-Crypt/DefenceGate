@@ -49,12 +49,14 @@ test('/alerts has no form: the waitlist stored nothing and was removed', async (
   await expect(page.getByText(/not open yet/i).first()).toBeVisible();
 });
 
-// The rows and headings follow the copy of WP-63 (owner decision of 21 October 2026: what exists today, no planned plans).
-test('/pricing is one table of what is offered, and /pack one block', async ({ page }) => {
+// WP-122 (owner, 25 October 2026): the plans and prices replace WP-63's table of what exists today. One list of five plan cards,
+// the Free one first at €0; the copy of the plans is checked in wp122.spec.ts.
+test('/pricing is one list of the five plans, and /pack one block', async ({ page }) => {
   await visit(page, '/pricing', { title: /pricing/i, h1: 'Pricing' });
-  const table = page.getByRole('table', { name: 'What is offered and what it costs' });
-  await expect(table.getByRole('row')).toHaveCount(7);
-  await expect(table.getByRole('row', { name: /Browsing/ })).toContainText('Free');
+  const plans = page.getByRole('list', { name: 'Plans' }).locator(':scope > li');
+  await expect(plans).toHaveCount(5);
+  await expect(plans.first().getByRole('heading')).toHaveText('Free');
+  await expect(plans.first()).toContainText('€0');
   await visit(page, '/pack', { title: /opportunity pack/i, h1: 'Opportunity pack', text: ['Put it together yourself', 'What it is not'] });
   await expect(page.locator('main section')).toHaveCount(1);
 });

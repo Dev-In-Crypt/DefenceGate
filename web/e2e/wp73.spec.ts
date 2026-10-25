@@ -116,12 +116,17 @@ test('the not-found pages of the detail routes have an h1', async ({ page }) => 
   }
 });
 
+// WP-122: the table became a list of plan cards; each card (not only the page) fits without scrolling sideways, and the account's
+// alerts, built but not open, are still said to be not open ("Coming").
 test('/pricing fits a phone without scrolling sideways', async ({ page }) => {
   await visit(page, '/pricing', { title: /pricing/i, h1: 'Pricing' });
-  const box = page.getByRole('region', { name: 'What is offered and what it costs' });
-  const { scroll, client } = await box.evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }));
-  expect(scroll).toBeLessThanOrEqual(client + 1);
-  await expect(page.getByRole('table', { name: 'What is offered and what it costs' }).getByRole('row', { name: /Account and e-mail alerts/ })).toContainText('Not open yet');
+  const cards = page.getByRole('list', { name: 'Plans' }).locator(':scope > li');
+  await expect(cards).toHaveCount(5);
+  for (const card of await cards.all()) {
+    const { scroll, client } = await card.evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }));
+    expect(scroll).toBeLessThanOrEqual(client + 1);
+  }
+  await expect(cards.getByRole('listitem').filter({ hasText: 'E-mail alerts' })).toContainText('Coming');
 });
 
 test('a funding call opens its disclosures when printed', async ({ page }) => {
