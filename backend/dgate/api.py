@@ -542,6 +542,22 @@ def public_snapshot(payload: dict[str, Any] | None, *, buyer_withheld: bool = Fa
     return redact_emails(kept)
 
 
+# WP-119: the main CPV code is the serving row's (its first code). A CPV list is a set to the archive (`db.same_value`), so
+# a corrected main code (TenderNed's flagged one, WP-113: 145 of 481 notices) is no new version and the stored versions
+# keep the order they were read in; a snapshot that holds the serving row's main code lists it first, with this note.
+MAIN_CODE_NOTE = {"kind": "main_code", "note": "Main CPV code as the notice page states it, listed first; the archive "
+                                               "stores the codes of a version as a set, in the order first read."}
+
+
+def main_code_first(snapshot: dict[str, Any], main: str | None) -> bool:
+    """Put `main` first in the snapshot's CPV list when the list holds it elsewhere; whether it moved."""
+    codes = snapshot.get("cpv_codes")
+    if not main or not isinstance(codes, list) or not codes or codes[0] == main or main not in codes:
+        return False
+    snapshot["cpv_codes"] = [main, *(c for c in codes if c != main)]
+    return True
+
+
 @app.get("/v1/opportunities/{opp_id}/versions")
 def get_versions(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)):
     """The archive: full observation timeline for one notice.
@@ -550,11 +566,12 @@ def get_versions(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)
     observation timestamp and the list of fields that changed. Not available
     from any upstream source.
     """
-    gone = conn.execute("SELECT suppressed, buyer_withheld FROM opportunity "
+    gone = conn.execute("SELECT suppressed, buyer_withheld, cpv_codes[1] AS main FROM opportunity "
                         "WHERE id = %s AND is_defence", (opp_id,)).fetchone()
     if gone and gone["suppressed"]:
         raise removed()
     withheld = bool(gone and gone["buyer_withheld"])
+    main = gone["main"] if gone else None
     rows = conn.execute(
         """SELECT v.version, v.observed_at, v.valid_from, v.valid_to,
                   v.changed_fields, v.payload,
@@ -570,6 +587,24 @@ def get_versions(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)
     ).fetchall()
     if not rows:
         raise HTTPException(404, "not found")
+    versions = []
+    for r in rows:
+        snapshot = public_snapshot(r["payload"], buyer_withheld=withheld)
+        notes = redact_emails(r["notes"])
+        if main_code_first(snapshot, main):
+            notes = [*notes, MAIN_CODE_NOTE]
+        versions.append({
+            "version": r["version"],
+            "observed_at": r["observed_at"],
+            "valid_from": r["valid_from"],
+            "valid_to": r["valid_to"],
+            "changed_fields": r["changed_fields"] or [],
+            "snapshot": snapshot,
+            # A version the archive recorded wrongly is annotated, never
+            # removed: see migration 0006. Clients should not present a
+            # `reread`, `out_of_order` or `remapped` version as a real amendment.
+            "notes": notes,
+        })
     return {
         "opportunity_id": opp_id,
         "version_count": len(rows),
@@ -582,21 +617,7 @@ def get_versions(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)
              "changed_fields": r["changed_fields"], "payload": r["payload"],
              "kinds": [n["kind"] for n in (r["notes"] or [])]}
             for r in rows])[1:]),
-        "versions": [
-            {
-                "version": r["version"],
-                "observed_at": r["observed_at"],
-                "valid_from": r["valid_from"],
-                "valid_to": r["valid_to"],
-                "changed_fields": r["changed_fields"] or [],
-                "snapshot": public_snapshot(r["payload"], buyer_withheld=withheld),
-                # A version the archive recorded wrongly is annotated, never
-                # removed: see migration 0006. Clients should not present a
-                # `reread`, `out_of_order` or `remapped` version as a real amendment.
-                "notes": redact_emails(r["notes"]),
-            }
-            for r in rows
-        ],
+        "versions": versions,
     }
 
 

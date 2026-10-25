@@ -831,7 +831,8 @@ def merge_organisations(
     if keep == absorbed:
         raise ValueError("an organisation cannot be merged into itself")
     rows = {r["id"]: r for r in conn.execute(
-        """SELECT id, country, national_reg_no, is_defence_buyer, merged_into
+        """SELECT id, country, national_reg_no, is_defence_buyer, merged_into, eu_pic, pic_method, pic_confidence,
+                  vat_number
              FROM organisation WHERE id = ANY(%s) FOR UPDATE""",
         ([keep, absorbed],)).fetchall()}
     k, a = rows.get(keep), rows.get(absorbed)
@@ -863,6 +864,7 @@ def merge_organisations(
             (a["national_reg_no"], method, confidence, keep))
     if a["is_defence_buyer"] and not k["is_defence_buyer"]:
         conn.execute("UPDATE organisation SET is_defence_buyer = TRUE WHERE id = %s", (keep,))
+    carry_to_head(conn, k, a, other_country, method)
     # WP-115: rows merged into `absorbed` earlier now point at `keep`, so merged_into never forms a chain
     # (3 chains A->B->C held 7 awards on 24 October 2026). Each re-point is logged with the pointer it had,
     # which is how `ops.undo_merges` puts it back.
@@ -883,6 +885,55 @@ def merge_organisations(
         (keep, absorbed, keep, absorbed, method, round(confidence, 2), evidence[:500],
          detected_by))
     return {"aliases": len(aliases), "notices": len(notices)}
+
+
+# WP-119: what a merge moves to the head besides aliases and notices, each logged on the absorbed row with the head's id
+# as `new_value` (`ops.undo_merges` moves it back)
+MERGE_MOVES = ("merge_moved_pic", "merge_moved_vat", "merge_award_twice")
+SAME_WINNER_TWICE = "same_winner_twice"
+
+
+def carry_to_head(conn: psycopg.Connection, k: dict[str, Any], a: dict[str, Any], other_country: bool,
+                  method: str) -> dict[str, int]:
+    """WP-119: the head takes what it lacks from the absorbed row.
+
+    The EU PIC (with how it was found) and the VAT number, where the head has none: the false-identifier rejoin of 25
+    October 2026 chose the row with a national number as head, and in 24 groups the absorbed row held the PIC (and the
+    participations: Universitat de Girona 138, NCBR 95). Participations stay on the absorbed row and are read through
+    `merged_into` (WP-41: a merge re-points nothing of the networks, `test_wp41_networks`), and with the PIC on the head
+    the CORDIS loader finds the head directly. And an award of the absorbed row on a notice where the head already won
+    is the same award twice (two spellings of one company in one notice: Vogtmann-Herold, TED 492709-2023):
+    `excluded_reason = 'same_winner_twice'`, counted once. Returns what moved.
+    `k` and `a` are the two rows (id, eu_pic, pic_method, pic_confidence, vat_number)."""
+    keep, absorbed, head = k["id"], a["id"], str(k["id"])
+    moved = {"pic": 0, "vat": 0, "awards_twice": 0}
+    if a["eu_pic"] and not k["eu_pic"]:
+        conn.execute("UPDATE organisation SET eu_pic = NULL, pic_method = NULL, pic_confidence = NULL WHERE id = %s",
+                     (absorbed,))
+        conn.execute("UPDATE organisation SET eu_pic = %s, pic_method = %s, pic_confidence = %s WHERE id = %s",
+                     (a["eu_pic"], a["pic_method"], a["pic_confidence"], keep))
+        log_repair(conn, absorbed, "merge_moved_pic", old_value=a["eu_pic"], new_value=head, method=method,
+                   detected_by="db.merge_organisations")
+        moved["pic"] = 1
+    if a["vat_number"] and not k["vat_number"] and not other_country:
+        conn.execute("UPDATE organisation SET vat_number = NULL WHERE id = %s", (absorbed,))
+        conn.execute("UPDATE organisation SET vat_number = %s WHERE id = %s", (a["vat_number"], keep))
+        log_repair(conn, absorbed, "merge_moved_vat", old_value=a["vat_number"], new_value=head, method=method,
+                   detected_by="db.merge_organisations")
+        moved["vat"] = 1
+    twice = [r["id"] for r in conn.execute(
+        """UPDATE award a SET excluded_reason = %s
+            WHERE a.organisation_id = %s AND a.superseded_at IS NULL AND a.excluded_reason IS NULL
+              AND EXISTS (SELECT 1 FROM award b JOIN organisation g ON g.id = b.organisation_id
+                           WHERE b.opportunity_id = a.opportunity_id AND b.organisation_id <> %s
+                             AND b.superseded_at IS NULL AND b.excluded_reason IS NULL
+                             AND (g.id = %s OR g.merged_into = %s))
+           RETURNING a.id""", (SAME_WINNER_TWICE, absorbed, absorbed, keep, keep)).fetchall()]
+    if twice:
+        log_repair(conn, absorbed, "merge_award_twice", old_value=",".join(map(str, sorted(twice))), new_value=head,
+                   method=method, detected_by="db.merge_organisations")
+    moved["awards_twice"] = len(twice)
+    return moved
 
 
 def repoint_merged(conn: psycopg.Connection, old_head: int, new_head: int, *, method: str) -> int:

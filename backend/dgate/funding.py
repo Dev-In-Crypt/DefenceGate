@@ -1055,13 +1055,16 @@ def run_reason(status: str | None, fetched: int, floor: int | None,
 
 def run_signals(conn, now: datetime | None = None) -> dict[str, dict[str, Any]]:
     """WP-114, per source code, from its finished runs of the last 30 days, newest first:
-      - `refusedSince`: the start of the unbroken row of newest runs whose message says the source refused access
+      - `refusedSince`: the start of the unbroken row of newest runs whose message says the source refused access.
+        WP-119: the row goes on back over the runs before it that fetched nothing and did not succeed, as the refusal
+        began before the runs said so (pl_ezam: refused from 24 October 06:45, the last success 23 October 10:27, the
+        message written only from 25 October 06:51, when the check was deployed)
       - `zeroRuns`: how many newest runs in a row fetched nothing although the source has a minimum (a floor)
       - `zeroDay`: every run of the last 24 hours (one at least) was such a run
     (pl_ezam on 24 October 2026: eight runs, every one 0 records, health "ok" and the stale flag 72 hours away)."""
     now = now or datetime.now(timezone.utc)
     rows = conn.execute(
-        """SELECT s.code, r.started_at, r.finished_at, r.records_fetched, r.expected_min, r.error_message
+        """SELECT s.code, r.started_at, r.finished_at, r.records_fetched, r.expected_min, r.error_message, r.status
              FROM ingest_run r JOIN source s ON s.id = r.source_id
             WHERE r.finished_at IS NOT NULL AND r.started_at > %s
             ORDER BY s.code, r.started_at DESC""", (now - timedelta(days=30),)).fetchall()
@@ -1069,11 +1072,12 @@ def run_signals(conn, now: datetime | None = None) -> dict[str, dict[str, Any]]:
     for r in rows:
         sig = out.setdefault(r["code"], {"refusedSince": None, "zeroRuns": 0, "zeroDay": None,
                                          "_refusing": True, "_zero": True})
-        if sig["_refusing"] and _REFUSED.search(r["error_message"] or ""):
+        empty = (r["expected_min"] or 0) > 0 and not r["records_fetched"]
+        if sig["_refusing"] and (_REFUSED.search(r["error_message"] or "")
+                                 or (sig["refusedSince"] and not r["records_fetched"] and r["status"] != "success")):
             sig["refusedSince"] = r["started_at"]
         else:
             sig["_refusing"] = False
-        empty = (r["expected_min"] or 0) > 0 and not r["records_fetched"]
         if sig["_zero"] and empty:
             sig["zeroRuns"] += 1
         else:

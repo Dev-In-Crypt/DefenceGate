@@ -56,7 +56,7 @@ from .resolution import Resolution, resolve
 from .resolution.cascade import add_review
 from .resolution.names import key_of
 from .sources import USER_AGENT, new_client, ted
-from .supplier_identity import stated_country_check
+from .supplier_identity import foreign_vat, stated_country_check
 
 log = logging.getLogger(__name__)
 
@@ -576,6 +576,10 @@ def _attach_reg(conn: psycopg.Connection, org_id: int, ident: str | None, countr
     else of the country holds that number. The cascade's stage 1 finds it from then on."""
     reg = normalise_identifier(ident, country) if ident else None
     if not reg:
+        # WP-119: a winner filed under one country that states another country's VAT number keeps it as its VAT number
+        # (the Spanish register check refuses CZ/DE/GB numbers as NIFs: Ceska Zbrojovka, Bruggemann, FlightSafety)
+        if vat := foreign_vat(ident, country):
+            conn.execute("UPDATE organisation SET vat_number = %s WHERE id = %s AND vat_number IS NULL", (vat, org_id))
         return
     conn.execute(
         """UPDATE organisation
@@ -649,14 +653,20 @@ def _namesake_guard(conn: psycopg.Connection, res: Resolution, w: Winner) -> Res
 def same_name_as_buyer(winner: str | None, buyer: str | None) -> bool:
     """The winner's name is the buyer's: the same words of four letters or more ("Het Ministerie van Defensie" and
     "Ministerie van Defensie"). A notice's award section that names the buyer itself (TED 624641-2025: the Dutch
-    Ministry of Defence as the winner of its own award, filed as a Swedish supplier) is not a contract won."""
-    ta, tb = db._tokens(normalise_org_name(winner or "")), db._tokens(normalise_org_name(buyer or ""))
-    return bool(ta) and ta == tb
+    Ministry of Defence as the winner of its own award, filed as a Swedish supplier) is not a contract won.
+    WP-119: more than one such word, or the whole name: "DEF OUEST" and "PFC Ouest" share only "ouest" (TED
+    841870-2025, a contract of EUR 442,000 excluded as its buyer's)."""
+    na, nb = normalise_org_name(winner or ""), normalise_org_name(buyer or "")
+    ta, tb = db._tokens(na), db._tokens(nb)
+    return bool(ta) and ta == tb and (len(ta) > 1 or na == nb)
 
 
 def is_buyer_body(conn: psycopg.Connection, buyer_org_id: int | None, org_id: int | None) -> bool:
     """`org_id` is the notice's buyer: the same organisation once merges are followed, or one buyer family or
-    directory family with it (`buyer_family_member`, `organisation_family_member`)."""
+    directory family with it (`buyer_family_member`, `organisation_family_member`).
+    WP-119: a buyer family made by twin notices (`ops.buyer_families.TWIN_NOTICE`) does not count: it says a national
+    copy's buyer is the TED twin's, and BOAMP 24-21330 names the winner SPIE FACILITIES where TED 109763-2024 names ESID
+    Rennes, which excluded SPIE's EUR 4 m contract as its buyer's."""
     if buyer_org_id is None or org_id is None:
         return False
     a, b = db._live(conn, buyer_org_id), db._live(conn, org_id)
@@ -666,7 +676,7 @@ def is_buyer_body(conn: psycopg.Connection, buyer_org_id: int | None, org_id: in
         """WITH h AS (
                SELECT x.id, COALESCE(bfm.head_org_id, x.id) AS bhead, COALESCE(ofm.head_org_id, x.id) AS ohead
                  FROM unnest(%s::bigint[]) AS x(id)
-                 LEFT JOIN buyer_family_member bfm ON bfm.org_id = x.id
+                 LEFT JOIN buyer_family_member bfm ON bfm.org_id = x.id AND bfm.method <> 'twin_notice'
                  LEFT JOIN organisation_family_member ofm ON ofm.org_id = x.id)
            SELECT (count(DISTINCT bhead) = 1 OR count(DISTINCT ohead) = 1) AS one FROM h""",
         ([a, b],)).fetchone()["one"]

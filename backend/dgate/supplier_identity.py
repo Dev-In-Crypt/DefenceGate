@@ -58,6 +58,15 @@ def vat_country(raw: str | None) -> str | None:
     return None
 
 
+def foreign_vat(raw: str | None, country: str | None) -> str | None:
+    """WP-119: a VAT number of another country than `country` (an EU one by `vat_country`, or a British GB + 9 or 12
+    digits), compact (DE119356818), or None. A Spanish supplier row of a Czech, German or British company holds its VAT
+    number, which the Spanish register check refuses as a NIF (10 cleared on 25 October 2026, 6 of them winners)."""
+    s = re.sub(r"[^0-9A-Za-z]", "", raw or "").upper()
+    c = vat_country(s) or ("GB" if re.fullmatch(r"GB(?:\d{9}|\d{12})", s) else None)
+    return s if c and c != ("GB" if (country or "").upper() == "UK" else (country or "").upper()) else None
+
+
 # A country named in a company's own name: "LEONARDO Germany GmbH", "Saab Finland Oy", "KNDS Ammo France". English and
 # the country's own name; words that are also common names elsewhere are left out.
 _NAME_COUNTRY = {

@@ -31,6 +31,13 @@ WP-103 (persona round of 24 October 2026):
      kept in `award_notice.value_set_aside`.
   4. (no TED request) PLACSP award rows held as a framework ceiling whose title reads as a call-off under the widened
      rule ("CB Cuarto AM", "5º Basado AM", "CB Nº2 Acuerdo Marco"): a contract.
+  5. (WP-119, no TED request) every figure set aside by the lots or the procedure check is checked again under the
+     narrowed rules (`award_value.unit_error_of`: a lot sum replaces a total only when the total is a clean unit
+     error of it; a procedure's estimate below a billion only so too): where they no longer choose the standing
+     value, the set-aside original (`award_notice.value_set_aside`) stands again. Expected on production (25 October
+     2026, read-only): 12 notices, 12 award rows (Marine Alutech 676175-2026 and 639939-2025 EUR 76 m / 35 m again,
+     Surcom, Embraer, PIT-RADWAR, CONCEPT, WIL, DSA, 494823-2026, 175814-2025, 542411-2026, and 451107-2025 the
+     framework of EUR 22,922,861); FASER, 107790-2025, 677494-2026, 313429-2026, 142545-2026 and INCM stay set aside.
   After a write the supplier value orders are renewed (`awards.refresh_award_twins`).
 
 Expected on production (read-only counts of 24 October 2026, docs/verification/round3/wp103-selfcheck.md): step 3
@@ -55,9 +62,12 @@ from ..award_value import (
     ESTIMATE,
     FRAMEWORK,
     SET_ASIDE_ESTIMATE,
+    SET_ASIDE_LOTS,
     SET_ASIDE_PROCEDURE,
     TED_VALUE_FIELDS,
     THOUSANDFOLD_FROM,
+    _checked,
+    _usable,
     contradicted,
     kind_of_title,
     placsp_kind,
@@ -174,6 +184,39 @@ def run_set_aside(conn, *, write: bool, examples: list[str] | None = None) -> Co
     return c
 
 
+def run_recheck(conn, *, write: bool, examples: list[str] | None = None) -> Counter:
+    """WP-119, step 5 (no TED request): every figure set aside by the lots or the procedure check is checked again under
+    today's rules from what the row holds (the set-aside figure is the notice's original; for `lots` the value standing
+    is the sum of the parts). Where the rules no longer choose the standing value, the original stands again (or what the
+    other checks now choose for it), and the award row of a one-winner notice with it. A kind the procedure check
+    replaced by `estimate` is read again from the title (`kind_of_title`), as for a notice without eForms fields."""
+    c: Counter = Counter()
+    rows = conn.execute(f"""{_TED_ROWS} AND n.value_set_aside_reason IN ('{SET_ASIDE_LOTS}', '{SET_ASIDE_PROCEDURE}')
+                             ORDER BY n.opportunity_id""").fetchall()
+    for r in rows:
+        held, cur = float(r["n_sa"]), r["n_vc"]
+        stored = float(r["value_amount"]) if r["value_amount"] is not None else None
+        estimate = (stored, cur, ESTIMATE) if _usable(stored) and cur else (None, None, None)
+        if r["n_sr"] == SET_ASIDE_LOTS:
+            parts, kind = float(r["n_va"]), r["n_vk"]
+        else:
+            parts, kind = None, kind_of_title(r["title_original"], r["title_en"]) or CONTRACT
+        out = _checked(held, cur, kind, parts, r, estimate)
+        c[f"recheck_{r['n_sr']}"] += 1
+        if (out[3], out[4]) == (held, r["n_sr"]):
+            continue
+        c[f"recheck_{r['n_sr']}_restored"] += 1
+        if examples is not None:
+            examples.append(f"{r['native_id']}: {r['n_va']} {r['n_vc']} {r['n_vk']} ({r['n_sr']}) -> {out[0]} {out[1]} "
+                            f"{out[2]}" + (f", {out[3]} set aside ({out[4]})" if out[3] is not None else ""))
+        w: Counter = Counter()
+        _write_ted(conn, r, out[:3], w, write, out[3], out[4])
+        c["recheck_award_rows"] += w["ted_award_rows"]
+    if write:
+        conn.commit()
+    return c
+
+
 def run_placsp(conn, *, write: bool, examples: list[str] | None = None) -> Counter:
     c: Counter = Counter()
     rows = conn.execute(
@@ -229,8 +272,10 @@ def main(argv: list[str] | None = None) -> int:
     examples: list[str] = []
     links: list[str] = []
     set_aside: list[str] = []
+    rechecked: list[str] = []
     with db.connect(settings().dsn) as conn:
         c = run_ted(conn, fetch=not a.no_fetch, write=a.yes, examples=examples, every=a.all)
+        c.update(run_recheck(conn, write=a.yes, examples=rechecked))
         c.update(run_set_aside(conn, write=a.yes, examples=set_aside))
         c.update(run_placsp(conn, write=a.yes, examples=links))
         if a.yes:
@@ -244,6 +289,10 @@ def main(argv: list[str] | None = None) -> int:
     if examples:
         print("TED ceilings and estimates (first 15):")
         for e in examples:
+            print("  " + e)
+    if rechecked:
+        print("TED set-asides the rules of WP-119 no longer choose (every one):")
+        for e in rechecked:
             print("  " + e)
     if set_aside:
         print("TED figures set aside as implausible (first 40):")

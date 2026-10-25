@@ -678,7 +678,37 @@ def normalise_identifier(raw: Any, country: str | None = None) -> str | None:
     for cand in (s, s[len(cc):] if s.startswith(cc) else None):     # ESA28015865 is the CIF A28015865
         if cand and valid(cand):
             return cand
+    if cc == "PL" and (pair := pl_number_pair(s)):
+        return pair[0]
     return None
+
+
+def pl_number_pair(s: str) -> tuple[str, str] | None:
+    """WP-119: (NIP, REGON) of a Polish NIP and REGON written together in one field, either way round, each by its own
+    check digit (167 buyer rows held such 19-digit values on 25 October 2026; the register check cleared them whole)."""
+    if len(s) != 19 or not s.isdigit():
+        return None
+    for nip, regon in ((s[:10], s[10:]), (s[9:], s[:9])):
+        if not nip.startswith("000") and _pl_register_number(nip) and _pl_register_number(regon):
+            return nip, regon
+    return None
+
+
+# A Polish TERYT code of a gmina (7 digits: voivodeship 02-32 even, powiat, gmina, type 1-5), which buyers' forms carry
+# where a number is asked (3024022 for Gmina Duszniki): no register number, even when zero-padded it passes a check digit.
+_PL_TERYT = re.compile(r"(0[2468]|[12][02468]|3[02])\d{4}[1-5]")
+# a case number with its year (17/2020 stored as 172020, 431/2021 as 4312021), which passes a check digit by chance
+_PL_CASE_YEAR = re.compile(r"(?:19[89]\d|20[0-3]\d)$")
+
+
+def pl_unpadded_regon(s: str) -> str | None:
+    """WP-119: a Polish REGON written without its leading zeros (6 to 8 digits; 000177916 of a ministry stored as
+    177916), in its 9-digit form when that form passes the REGON check digit and the value is not a TERYT code. A KRS
+    number has no check digit, so one written short cannot be told from a case number and is never restored."""
+    if not (s.isdigit() and 6 <= len(s) <= 8) or _PL_TERYT.fullmatch(s) or _PL_CASE_YEAR.search(s):
+        return None
+    padded = s.zfill(9)
+    return padded if _pl_register_number(padded) else None
 
 
 def _pl_register_number(s: str) -> bool:
