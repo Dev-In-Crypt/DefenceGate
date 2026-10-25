@@ -29,6 +29,7 @@ Decisions that shape it:
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from concurrent.futures import Future
@@ -106,9 +107,22 @@ _inflight: dict[Any, Future] = {}
 _ABSENT = object()
 
 
+# WP-120: the notices a text search matches (`tenders.search_ids`), and the buyers' shown names (`tenders._buyer_names`)
+_search_cache: dict[Any, tuple[float, Any]] = {}
+SEARCH_CACHED = 50
+_name_cache: dict[int, tuple[float, str | None]] = {}
+NAMES_CACHED = 20_000
+# WP-120: pages over LIST_MAX_PAGE that an endpoint asks to keep (`cache_list(large=...)`: the export's 500 to 2,000 notices)
+_large_cache: dict[Any, tuple[float, Any]] = {}
+LARGE_CACHED = 8
+
+
 def reset_cache() -> None:
     _cache.clear()
     _list_cache.clear()
+    _name_cache.clear()
+    _large_cache.clear()
+    _search_cache.clear()
 
 
 def _get(key: Any, store: dict | None = None) -> Any:
@@ -164,6 +178,51 @@ def cached(key: Any, compute, ttl: float = CACHE_SECONDS, *,
         _inflight.pop(key, None)
     flight.set_result(value)
     return value
+
+
+log = logging.getLogger("dgate.stats")
+_refreshing: set[Any] = set()
+
+
+RENEWALS = 2                   # background renewals at once (each holds a connection of the API's pool)
+_renewal_gate = threading.BoundedSemaphore(RENEWALS)
+
+
+def cached_stale(key: Any, compute, conn: Any, ttl: float, stale: float, *,
+                 store: dict | None = None, limit: int | None = None) -> Any:
+    """WP-120: `cached(key, compute(conn), ttl)`, except that for `stale` seconds after the value expired it is answered at
+    once while one background thread renews it with a connection of its own (`compute(c)`): no request waits for a
+    renewal. At most RENEWALS run at once; one that cannot start now is tried by the next request. Older than that (or
+    never computed, or evicted), the caller computes it as `cached` does. A renewal that fails leaves the old value."""
+    hit = (_cache if store is None else store).get(key)
+    now = time.monotonic()
+    if hit is not None and now < hit[0]:
+        return hit[1]
+    if hit is not None and now < hit[0] + stale:
+        with _lock:
+            start = key not in _refreshing and key not in _inflight and _renewal_gate.acquire(blocking=False)
+            if start:
+                _refreshing.add(key)
+        if start:
+            threading.Thread(target=_renew, args=(key, compute, ttl, store, limit), daemon=True,
+                             name="renew").start()
+        return hit[1]
+    return cached(key, lambda: compute(conn), ttl, store=store, limit=limit)
+
+
+def _renew(key: Any, compute, ttl: float, store: dict | None, limit: int | None) -> None:
+    try:
+        with _connection() as c:
+            value = compute(c)
+        if value is not None:
+            with _lock:
+                _put(key, value, ttl, store, limit)
+    except Exception:  # noqa: BLE001 - the old value stays; a background renewal never fails a request
+        log.exception("background renewal of %r failed", key[0] if isinstance(key, tuple) else key)
+    finally:
+        with _lock:
+            _refreshing.discard(key)
+        _renewal_gate.release()
 
 
 @contextmanager

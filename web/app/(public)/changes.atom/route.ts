@@ -1,5 +1,6 @@
 import { ApiError, FEED_MAX_PAGE, FEED_PAGE_ENTRIES, getChangesForFeed } from '@/lib/api';
 import { buildAtom, etagOf, feedSubtitle } from '@/lib/atom';
+import { notModified } from '@/lib/etag';
 import { searchSummary } from '@/lib/feed-name';
 import { CHANGE_PARAMS, parseChangeFilters, toChangeQuery, unknownParams } from '@/lib/filters';
 import { searchParamsOf } from '@/lib/export';
@@ -70,11 +71,7 @@ export async function GET(request: Request): Promise<Response> {
     'last-modified': lastModified.toUTCString(),
     'cache-control': 'public, max-age=300',
   };
-  const sent = request.headers.get('if-none-match');
-  const since = request.headers.get('if-modified-since');
-  const notModified = sent !== null
-    ? sent.split(',').some((t) => t.trim() === etag || t.trim() === `W/${etag}`)
-    : since !== null && !Number.isNaN(Date.parse(since)) && Date.parse(since) >= lastModified.getTime();
-  if (notModified) return new Response(null, { status: 304, headers });
+  // WP-120: If-Modified-Since at the header's whole second (the feed's own Last-Modified got 200 and the whole body)
+  if (notModified(request, etag, lastModified)) return new Response(null, { status: 304, headers });
   return new Response(body, { headers: { ...headers, 'content-type': 'application/atom+xml; charset=utf-8' } });
 }

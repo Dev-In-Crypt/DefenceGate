@@ -452,6 +452,11 @@ class Settings:
     # (listcache.py). 0 turns it off.
     list_cache_seconds: int = field(
         default_factory=lambda: _env_int("DGATE_LIST_CACHE_SECONDS", 60))
+    # WP-120: the time box of a text search's one read of its matches (`tenders.search_ids`); 0 (the default) leaves every
+    # statement to test the text per row, as before. Off until measured on production: on the synthetic archive the read
+    # cost more than it saved for every word tried (docs/verification/round6/wp120-selfcheck.md, item 3).
+    search_ids_ms: int = field(
+        default_factory=lambda: _env_int("DGATE_SEARCH_IDS_MS", 0))
     backup_keep_days_local: int = field(
         default_factory=lambda: _env_int("DGATE_BACKUP_KEEP_DAYS_LOCAL", 7))
     # Past this age of its newest dump (on the host, and in the store) the backup is

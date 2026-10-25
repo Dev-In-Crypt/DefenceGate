@@ -1,4 +1,4 @@
-import { withEtag } from '@/lib/etag';
+import { withCachedEtag } from '@/lib/etag';
 import { filterEntries, loadCalendar, parseCalendarParams } from '@/lib/calendar';
 import { searchParamsOf } from '@/lib/export';
 import { feedName } from '@/lib/feed-name';
@@ -11,10 +11,13 @@ import { ICS_MAX_EVENTS, buildIcs } from '@/lib/ics';
  * every event the filters give (ICS_MAX_EVENTS is a ceiling the description names when it cuts). `kind` (all, tenders, funding),
  * `country` and the tender list's filters (WP-87) narrow it like the page; any other parameter is a 422. Cached for an hour.
  */
-/** WP-114: with an ETag, and 304 for a reader who holds the same file (`lib/etag.ts`). */
+/** WP-114: with an ETag, and 304 for a reader who holds the same file (`lib/etag.ts`). WP-120: the built file is kept for
+ * its own max-age, so a revalidation (304) or a repeated download costs no build (304 took 1.36 s on 25 October 2026). */
 export async function GET(request: Request): Promise<Response> {
-  return withEtag(request, await build(request));
+  return withCachedEtag(request, CALENDAR_MAX_AGE_S * 1000, () => build(request));
 }
+
+const CALENDAR_MAX_AGE_S = 3600;
 
 async function build(request: Request): Promise<Response> {
   const sp = searchParamsOf(new URL(request.url));
@@ -51,7 +54,7 @@ async function build(request: Request): Promise<Response> {
     headers: {
       'content-type': 'text/calendar; charset=utf-8',
       'content-disposition': 'inline; filename="defencegate-deadlines.ics"',
-      'cache-control': 'public, max-age=3600',
+      'cache-control': `public, max-age=${CALENDAR_MAX_AGE_S}`,
       // how many events the file holds of how many the filters give: equal unless a cap cut it (the description says so too)
       'x-dg-events': `${Math.min(chosen.length, ICS_MAX_EVENTS)} of ${chosen.length}`,
     },

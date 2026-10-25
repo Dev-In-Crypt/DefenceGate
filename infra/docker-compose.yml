@@ -77,6 +77,10 @@ services:
       - max_parallel_workers=2
       - -c
       - jit=off
+      # WP-120: the application name in every log line, so a planned time box ("dgate-timebox", tenders.time_boxed) is told
+      # from a real statement timeout: `docker logs dgate-postgres-1 | grep 'statement timeout' | grep -v app=dgate-timebox`
+      - -c
+      - "log_line_prefix=%m [%p] app=%a "
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-dgate}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in infra/.env}

@@ -1,5 +1,6 @@
 import { getDigest, getDigestWeeks } from '@/lib/api';
 import { etagOf } from '@/lib/atom';
+import { notModified } from '@/lib/etag';
 import { buildDigestAtom, parseDigestFilters, unknownDigestCountry } from '@/lib/digest';
 import { searchParamsOf } from '@/lib/export';
 import { SITE } from '@/lib/seo';
@@ -33,12 +34,7 @@ export async function GET(request: Request): Promise<Response> {
   const lastModified = new Date(issues.reduce((m, d) => (d.weekTo > m ? d.weekTo : m), '1970-01-01T00:00:00Z'));
   const etag = etagOf(body);
   const headers = { etag, 'last-modified': lastModified.toUTCString(), 'cache-control': 'public, max-age=3600' };
-  const sent = request.headers.get('if-none-match');
-  const since = request.headers.get('if-modified-since');
-  const notModified = sent !== null
-    ? sent.split(',').some((t) => t.trim() === etag || t.trim() === `W/${etag}`)
-    : since !== null && !Number.isNaN(Date.parse(since)) && Date.parse(since) >= lastModified.getTime();
-  if (notModified) return new Response(null, { status: 304, headers });
+  if (notModified(request, etag, lastModified)) return new Response(null, { status: 304, headers });
   return new Response(body, { headers: { ...headers, 'content-type': 'application/atom+xml; charset=utf-8' } });
 }
 

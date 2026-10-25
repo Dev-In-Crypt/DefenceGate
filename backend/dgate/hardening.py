@@ -432,6 +432,7 @@ class SecurityHeaders(BaseHTTPMiddleware):
         response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
         response.headers["Referrer-Policy"] = "no-referrer"
         if "cache-control" not in response.headers:
-            ok = request.method == "GET" and 200 <= response.status_code < 300
+            # WP-120: a 304 confirms the 200 the caller holds, and repeats its Cache-Control (RFC 9111 4.3.4): it said no-store
+            ok = request.method == "GET" and (200 <= response.status_code < 300 or response.status_code == 304)
             response.headers["Cache-Control"] = "public, max-age=60" if ok else "no-store"
         return response

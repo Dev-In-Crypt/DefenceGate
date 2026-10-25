@@ -72,8 +72,8 @@ from .award_set import (
 from .award_value import CONTRACT, ESTIMATE, FRAMEWORK
 from .config import settings
 from .countries import to_iso2
-from .funding import get_conn, make_slug
-from .listcache import cache_list
+from .funding import get_conn, known_params, make_slug
+from .listcache import LIST_STALE_SECONDS, cache_list
 from .normalise import (
     PLACEHOLDER_AMOUNT_MAX,
     looks_like_contact,
@@ -82,7 +82,7 @@ from .normalise import (
 )
 from .ops.company_groups import GROUPS
 from .suppress import not_published, removed
-from .tenders import _buyer_names, _day, _id_of, _split, search_words
+from .tenders import _buyer_names, _day, _id_of, _split, search_words, time_boxed
 
 router = APIRouter()
 
@@ -265,28 +265,49 @@ def compute_value_order(conn, ted_only: bool) -> dict[str, Any]:
     return {"placspPublic": settings().placsp_awards_public, "byCurrency": by}
 
 
-def stored_value_order(conn, ted_only: bool) -> tuple[dict[str, Any], datetime] | None:
+# WP-120: the time box of the order summed by the API when none is stored (once per VALUE_ORDER_SECONDS, one computation
+# shared by concurrent callers), instead of the 5 s statement timeout of the single list statement it was a part of.
+LIVE_ORDER_MS = 20_000
+
+
+def _live_value_order(conn, ted_only: bool) -> tuple[dict[str, Any], None] | None:
+    """`compute_value_order` run now in a planned time box of its own (`tenders.time_boxed`: a savepoint, a failure loses
+    nothing else), with no time (None: summed now), or None when even that did not finish."""
+    import psycopg
+
+    try:
+        with time_boxed(conn, LIVE_ORDER_MS):
+            body = compute_value_order(conn, ted_only)
+    except psycopg.Error:
+        return None
+    return body, None
+
+
+def stored_value_order(conn, ted_only: bool, *, live: bool = False) -> tuple[dict[str, Any], datetime | None] | None:
     """The stored order (at most `listcache.SNAPSHOT_HOURS` old, computed under today's PLACSP switch) with its time, or
-    None: then the order is summed live. Kept `VALUE_ORDER_SECONDS` in memory, one read shared by concurrent callers."""
+    None: then the order is summed live. Kept `VALUE_ORDER_SECONDS` in memory, one read shared by concurrent callers.
+
+    WP-120: with `live`, when none is stored the order is summed now (`_live_value_order`, time None) and kept the same way:
+    the sums were a part of the list's one statement, which ran past the 5 s timeout (503 at 5.6 s on 25 October 2026, when
+    the worker's orders were refused). Kept in the store of the hourly aggregates, which a flood of list pages cannot evict."""
     from . import stats
     from .listcache import SNAPSHOT_HOURS
 
-    def read() -> tuple[dict[str, Any], datetime] | None:
+    def read() -> tuple[dict[str, Any], datetime | None] | None:
         try:
             with conn.transaction():        # a savepoint: a role that may not read the table loses nothing else
                 row = conn.execute("SELECT body, computed_at FROM list_snapshot WHERE key = %s "
                                    "AND computed_at > now() - make_interval(hours => %s)",
                                    (value_order_key(ted_only), SNAPSHOT_HOURS)).fetchone()
         except Exception:  # noqa: BLE001 - a snapshot is a shortcut, never a failure
-            return None
+            row = None
         if not row or row["body"].get("placspPublic") != settings().placsp_awards_public:
-            return None
+            return _live_value_order(conn, ted_only) if live else None
         return row["body"], row["computed_at"]
 
     if settings().list_cache_seconds <= 0:
         return read()
-    return stats.cached(("supplier-values", ted_only), read, VALUE_ORDER_SECONDS, store=stats._list_cache,
-                        limit=stats.LIST_CACHED)
+    return stats.cached(("supplier-values", ted_only), read, VALUE_ORDER_SECONDS, store=stats._cache)
 
 
 def store_value_orders(conn) -> int:
@@ -640,8 +661,8 @@ def _item(r: dict[str, Any]) -> dict[str, Any]:
             "cpvDivisions": sorted(d for d in (r["divisions"] or []) if d)[:6]}
 
 
-@router.get("/v1/suppliers", response_model=SupplierPage)
-@cache_list("suppliers", ttl=5 * 60)
+@router.get("/v1/suppliers", response_model=SupplierPage, dependencies=[Depends(known_params)])
+@cache_list("suppliers", ttl=5 * 60, stale=LIST_STALE_SECONDS)
 def list_suppliers(
     q: str | None = Query(None, max_length=100),
     country: str | None = Query(None, max_length=200),
@@ -674,7 +695,7 @@ def list_suppliers(
     if sort.startswith("value-"):
         currency = sort.removeprefix("value-")
         # WP-98c: without a filter, the stored order (`stored_value_order`); with one, or none stored, summed now
-        stored = None if where else stored_value_order(conn, ted_only)
+        stored = None if where else stored_value_order(conn, ted_only, live=True)
         if stored:
             params["vx_org"], params["vx_amount"] = stored[0]["byCurrency"].get(currency, [[], []])
             as_of = stored[1]

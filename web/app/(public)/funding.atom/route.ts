@@ -1,5 +1,5 @@
 import { getCalls } from '@/lib/api';
-import { etagOf } from '@/lib/atom';
+import { withCachedEtag } from '@/lib/etag';
 import { searchParamsOf } from '@/lib/export';
 import { describeCallFilters, ignoredFilters, parseCallFilters, toQuery, unknownParams } from '@/lib/filters';
 import { FUNDING_SEARCH_PARAMS, buildFundingAtom } from '@/lib/funding-feed';
@@ -13,6 +13,13 @@ const ALL_CALLS = 500;          // the API's page ceiling: the feed holds the ne
  * or a value it cannot use, is refused (as /funding.ics). It answers conditional requests and is kept for an hour, as the list is.
  */
 export async function GET(request: Request): Promise<Response> {
+  // WP-120: the built feed is kept for its own max-age, so a revalidation (304) costs no build (1.45 s on 25 October 2026)
+  return withCachedEtag(request, MAX_AGE_S * 1000, () => build(request));
+}
+
+const MAX_AGE_S = 3600;
+
+async function build(request: Request): Promise<Response> {
   const { page: _p, view: _v, ...sp } = searchParamsOf(new URL(request.url));
   const notices = [...unknownParams(sp, FUNDING_SEARCH_PARAMS), ...ignoredFilters(sp, 'funding')];
   if (notices.length > 0) {
@@ -28,9 +35,5 @@ export async function GET(request: Request): Promise<Response> {
     origin: SITE.url.replace(/\/$/, ''), query: toQuery({ ...f, page: 1, sort: undefined }), describe: describeCallFilters(f).join(', '),
     total: data.total, generatedAt: new Date().toISOString(),
   });
-  const etag = etagOf(body);
-  const headers = { etag, 'cache-control': 'public, max-age=3600' };
-  const sent = request.headers.get('if-none-match');
-  if (sent !== null && sent.split(',').some((t) => t.trim() === etag || t.trim() === `W/${etag}`)) return new Response(null, { status: 304, headers });
-  return new Response(body, { headers: { ...headers, 'content-type': 'application/atom+xml; charset=utf-8' } });
+  return new Response(body, { headers: { 'cache-control': `public, max-age=${MAX_AGE_S}`, 'content-type': 'application/atom+xml; charset=utf-8' } });
 }
