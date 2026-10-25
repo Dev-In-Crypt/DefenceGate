@@ -22,7 +22,9 @@ dependencies = [
     "boto3>=1.34",
     # Encrypted backups (dgate.ops.backup): AES-GCM with an RSA-wrapped key. It was
     # only present as paramiko's dependency; the backup path must not rest on that.
-    "cryptography>=42",
+    # Since WP-79 also the account passwords (Argon2id with PHC strings: 45 and later, measured) and the
+    # sealed TOTP keys (AES-GCM): no second crypto library (argon2-cffi) for one function.
+    "cryptography>=45",
     # SFTP client for the Hetzner Storage Box store. Pure Python: nothing to install
     # on the host, and it can say what it is doing when the network misbehaves.
     "paramiko>=3.4",

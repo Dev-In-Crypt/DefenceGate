@@ -1,35 +1,23 @@
 'use server';
 
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { authVerify, BIND_COOKIE, clearCookie, isTokenShaped, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS, setCookie } from '@/lib/account';
-import { readBind } from '@/lib/safe-url';
+import { authVerify, isTokenShaped } from '@/lib/account';
+import type { PlanChoice } from '@/lib/plans';
 
 export interface ConfirmState {
-  /** `invalid` covers every refusal (wrong, used, expired, other browser): one message, no detail. */
-  status: 'idle' | 'invalid' | 'unavailable';
+  /** `invalid` covers every refusal (wrong, used, expired): one message, no detail. */
+  status: 'idle' | 'done' | 'invalid' | 'unavailable';
+  /** WP-123: the plan chosen on the pricing page before registering, said again once the address is confirmed. */
+  choice?: PlanChoice | null;
 }
 
 /**
- * The only place a sign-in token is spent. It is called by the button on /auth/verify, never by a page render,
- * so a mail scanner that opens the link cannot use it up.
+ * The only place a confirmation token is spent. It is called by the button on /auth/verify, never by a page render,
+ * so a mail scanner that opens the link cannot use it up. It opens no session: the password does.
  */
-export async function confirmSignIn(_prev: ConfirmState, form: FormData): Promise<ConfirmState> {
+export async function confirmAddress(_prev: ConfirmState, form: FormData): Promise<ConfirmState> {
   const token = form.get('token');
-  const jar = await cookies();
-  // WP-116: the cookie may carry the /app page the visitor asked for (lib/safe-url.ts readBind checks it again)
-  const { binder, next } = readBind(jar.get(BIND_COOKIE)?.value);
-  if (!isTokenShaped(token) || !isTokenShaped(binder)) return { status: 'invalid' };
-
-  const r = await authVerify(token, binder);
-  if (!r.ok) return { status: r.status === 400 ? 'invalid' : 'unavailable' };
-
-  // Life of the cookie follows the session's own expiry, never longer than the contract's 30 days.
-  const left = Math.floor((Date.parse(r.data.expiresAt) - Date.now()) / 1000);
-  const maxAge = Number.isFinite(left) && left > 0 ? Math.min(left, SESSION_MAX_AGE_SECONDS) : SESSION_MAX_AGE_SECONDS;
-  await setCookie(SESSION_COOKIE, r.data.session, maxAge);
-  await clearCookie(BIND_COOKIE);
-
-  // A new account sees the welcome page first; a returning one the page it asked for
-  redirect(r.data.isNew ? '/app/welcome' : next ?? '/app');
+  if (!isTokenShaped(token)) return { status: 'invalid' };
+  const r = await authVerify(token);
+  if (r.ok) return { status: 'done', choice: r.data };
+  return { status: r.status === 400 ? 'invalid' : 'unavailable' };
 }

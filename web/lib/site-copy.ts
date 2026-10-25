@@ -21,7 +21,7 @@ export const STEPS = [
 
 export interface QA { q: string; a: string }
 
-const ACCOUNT_ANSWER_OPEN = 'Not to browse. An account, opened with a one-time link sent to your e-mail, lets you save searches, follow buyers and programmes and keep a shortlist.';
+const ACCOUNT_ANSWER_OPEN = 'Not to browse. An account, with your e-mail address and a password, lets you save searches, follow buyers and programmes and keep a shortlist.';
 
 /** Every question, in the order /about shows them. The account answer follows whether sign-in is open. */
 export function faqItems(portals: { count: string; names: string }, accountsOpen: boolean): QA[] {

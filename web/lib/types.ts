@@ -869,6 +869,12 @@ export interface Me {
   lastVisitAt: IsoDateTime | null;
   /** False when the account accepted an older version of the terms or the privacy notice (or none). */
   termsCurrent: boolean;
+  /** False for an account made by the old sign-in link that has not set a password yet. */
+  hasPassword: boolean;
+  /** Two-step sign-in (TOTP) is on. */
+  totp: boolean;
+  /** WP-123: the plan picked on the pricing page before registering, remembered; the plan in force is Free until payment opens. */
+  planChoice: import('./plans').PlanChoice | null;
 }
 
 /** GET /v1/account/sessions */

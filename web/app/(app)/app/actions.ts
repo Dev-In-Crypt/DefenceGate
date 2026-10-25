@@ -7,8 +7,9 @@
  */
 import { redirect } from 'next/navigation';
 import {
-  acceptTerms, authLogout, BIND_COOKIE, CADENCES, clearCookie, deleteFollow, deleteMe, deleteSearch, deleteShortlist, revokeOtherSessions,
-  revokeSession, ROLES, SCOPES, SESSION_COOKIE, SHORTLIST_STATUSES, updateMe, updateSearch, putShortlist, type AccountResult,
+  acceptTerms, authLogout, CADENCES, changePassword, clearCookie, deleteFollow, deleteMe, deleteSearch, deleteShortlist,
+  revokeOtherSessions, revokeSession, ROLES, SCOPES, SESSION_COOKIE, SHORTLIST_STATUSES, totpDisable, totpEnable, totpSetup,
+  updateMe, updateSearch, putShortlist, type AccountResult,
 } from '@/lib/account';
 import { followRef, isUuid, numericRef } from '@/lib/refs';
 import type { Cadence, FollowKind, Profile, ProfileScope, Role, ShortlistKind, ShortlistStatus, Track } from '@/lib/types';
@@ -130,16 +131,71 @@ export async function endOtherSessions(): Promise<void> {
   back('/app/settings', await revokeOtherSessions(), 'revoked');
 }
 
-/** The API checks the typed address against the account's own; here it is only passed on. */
+/** Every other session first, then this one: the account is signed out everywhere. */
+export async function signOutEverywhere(): Promise<void> {
+  const r = await revokeOtherSessions();
+  if (!r.ok && r.status !== 401) redirect('/app/settings?n=error');
+  await signOut();
+}
+
+/* ---- password and two-step sign-in ---- */
+
+const PASSWORD_MAX = 1024;
+
+/** The code of a refused password or code, as `?n=` of the settings page. */
+function securityCode(r: Extract<AccountResult<unknown>, { ok: false }>): string {
+  if (r.status === 401) redirect('/auth/expired');
+  if (r.status === 403) return 'wrong_password';
+  if (r.status === 429) return 'rate_limited';
+  if (r.status === 422 && r.error.startsWith('password_')) return 'weak';
+  return 'error';
+}
+
+export async function changeMyPassword(form: FormData): Promise<void> {
+  const r = await changePassword(field(form, 'currentPassword', PASSWORD_MAX), field(form, 'newPassword', PASSWORD_MAX));
+  redirect(`/app/settings?n=${r.ok ? 'password' : securityCode(r)}#password`);
+}
+
+export interface TotpState {
+  status: 'idle' | 'setup' | 'on' | 'wrong_password' | 'invalid_code' | 'rate_limited' | 'error';
+  /** The key to type into an authenticator app, and the same as an otpauth:// link. Only in the answer to `startTotp`. */
+  secret?: string;
+  uri?: string;
+  /** Shown once, in the answer to `confirmTotp`. */
+  codes?: string[];
+}
+
+export async function startTotp(_prev: TotpState, form: FormData): Promise<TotpState> {
+  const r = await totpSetup(field(form, 'password', PASSWORD_MAX));
+  if (r.ok) return { status: 'setup', secret: r.data.secret, uri: r.data.uri };
+  const code = securityCode(r);
+  return { status: code === 'wrong_password' || code === 'rate_limited' ? code : 'error' };
+}
+
+export async function confirmTotp(_prev: TotpState, form: FormData): Promise<TotpState> {
+  const r = await totpEnable(field(form, 'code', 32));
+  if (r.ok) return { status: 'on', codes: r.data };
+  const code = securityCode(r);
+  if (r.status === 422) return { status: 'invalid_code' };
+  return { status: code === 'rate_limited' ? code : 'error' };
+}
+
+export async function stopTotp(form: FormData): Promise<void> {
+  const r = await totpDisable(field(form, 'password', PASSWORD_MAX));
+  redirect(`/app/settings?n=${r.ok ? 'totp_off' : securityCode(r)}#two-step`);
+}
+
+/** The API checks the typed address against the account's own, and the password (WP-123); here they are only passed on. */
 export async function deleteAccount(form: FormData): Promise<void> {
   const typed = field(form, 'confirm', 254).trim();
-  if (!typed) redirect('/app/settings?n=confirm');
-  const r = await deleteMe(typed);
+  if (!typed) redirect('/app/settings?n=confirm#delete');
+  const r = await deleteMe(typed, field(form, 'password', PASSWORD_MAX));
   if (r.ok) {
     await clearCookie(SESSION_COOKIE);
-    await clearCookie(BIND_COOKIE);
     redirect('/');
   }
   if (r.status === 401) redirect('/auth/expired');
-  redirect(`/app/settings?n=${r.status >= 400 && r.status < 500 ? 'confirm' : 'error'}`);
+  const code = r.status === 403 && r.error === 'wrong_password' ? 'wrong_password' : r.status === 429 ? 'rate_limited'
+    : r.status >= 400 && r.status < 500 ? 'confirm' : 'error';
+  redirect(`/app/settings?n=${code}#delete`);
 }

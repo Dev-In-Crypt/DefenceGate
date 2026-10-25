@@ -6,7 +6,7 @@ import 'server-only';
  * also carries `X-DG-Internal` (DG_INTERNAL_SECRET, never sent to a browser) when it is configured: the API
  * then refuses anything that does not come from this server.
  *
- * Nothing in this file logs. Tokens, binders, session ids and e-mail addresses never reach a log line.
+ * Nothing in this file logs. Passwords, tokens, tickets, session ids and e-mail addresses never reach a log line.
  * No call throws: wrappers return an AccountResult so a failed call renders as an error state.
  */
 import { cache } from 'react';
@@ -17,6 +17,7 @@ import type {
   Follow, FollowKind, Me, Profile, ProfileScope, Role, SavedSearch, SearchFilters, SearchKind, ShortlistItem, ShortlistKind,
   ShortlistStatus, StateItem, StateKey, Track,
 } from './types';
+import { readPlanChoice, type PlanChoice } from './plans';
 
 const API_BASE = process.env.DG_API_URL;
 const INTERNAL_SECRET = process.env.DG_INTERNAL_SECRET;
@@ -26,7 +27,8 @@ const INTERNAL_SECRET = process.env.DG_INTERNAL_SECRET;
  * subdomain or a plain-http response cannot set or shadow them (review of 13 October 2026, M5).
  */
 export const SESSION_COOKIE = '__Host-dg_session';
-export const BIND_COOKIE = '__Host-dg_bind';
+/** The ticket between the password and the second step (TOTP), for its 5 minutes only. */
+export const SECOND_STEP_COOKIE = '__Host-dg_mfa';
 const COOKIE_BASE = { httpOnly: true, secure: true, sameSite: 'lax', path: '/' } as const;
 
 /** Set one of the two cookies with the attributes the `__Host-` prefix requires. */
@@ -43,7 +45,7 @@ export async function clearCookie(name: string): Promise<void> {
 }
 /** Upper bound of a session cookie's life: the contract's 30 days. */
 export const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
-export const BIND_MAX_AGE_SECONDS = 15 * 60;
+export const SECOND_STEP_MAX_AGE_SECONDS = 5 * 60;
 
 /** URL-safe base64 of 256 bits is 43 characters; anything outside this shape is never placed in a header. */
 const TOKEN_RE = /^[A-Za-z0-9_-]{16,256}$/;
@@ -67,7 +69,7 @@ export type AccountResult<T> =
 export interface AccountInit {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   json?: unknown;
-  /** false for calls that carry no session (status, sign-in request and verify). Default true. */
+  /** false for calls that carry no session (status, registration, sign-in, verify, reset). Default true. */
   session?: boolean;
 }
 
@@ -171,6 +173,9 @@ function toMe(raw: unknown): Me {
     onboarded: raw.onboarded === true,
     lastVisitAt: typeof raw.lastVisitAt === 'string' ? raw.lastVisitAt : null,
     termsCurrent: isRecord(raw.terms) && raw.terms.current === true,
+    hasPassword: isRecord(raw.security) && raw.security.hasPassword === true,
+    totp: isRecord(raw.security) && raw.security.totp === true,
+    planChoice: isRecord(raw.plan) ? readPlanChoice(raw.plan.chosen, raw.plan.billing) : null,
   };
 }
 
@@ -230,24 +235,71 @@ export async function getAccountStatus(): Promise<AccountStatus> {
   }
 }
 
-/* ---- sign-in ---- */
+/* ---- registration and sign-in ---- */
 
 /** The tick on the form, with the versions of the two texts the form showed (the API refuses anything else). */
 export interface TermsTick { termsVersion: string; privacyVersion: string }
 
-export const authRequest = (email: string, binder: string, tick: TermsTick) =>
-  call<void>('/auth/request', { method: 'POST', json: { email, binder, acceptTerms: true, ...tick }, session: false });
+/**
+ * 202 for every address that passed the checks, whether or not it has an account (the mail differs). WP-123: with the plan
+ * picked on the pricing page, when there is one (remembered on the account; nothing is charged).
+ */
+export const authRegister = (email: string, password: string, tick: TermsTick, choice: PlanChoice | null = null) =>
+  call<void>('/auth/register', {
+    method: 'POST', session: false,
+    json: { email, password, acceptTerms: true, ...tick, ...(choice ? { plan: choice.plan, billing: choice.billing } : {}) },
+  });
+
+/** Confirms an address. It opens no session: the password does. The answer carries the plan chosen at registration, if any. */
+export const authVerify = (token: string) =>
+  call<PlanChoice | null>('/auth/verify', { method: 'POST', json: { token }, session: false },
+    (raw) => (isRecord(raw) ? readPlanChoice(raw.plan, raw.billing) : null));
 
 /** A signed-in account accepts the current texts (the re-prompt after a new version). */
 export const acceptTerms = (tick: TermsTick) =>
   call<void>('/me/terms', { method: 'POST', json: tick });
 
-export interface VerifiedSession { session: string; expiresAt: string; isNew: boolean }
-export const authVerify = (token: string, binder: string) =>
-  call<VerifiedSession>('/auth/verify', { method: 'POST', json: { token, binder }, session: false }, (raw) => {
-    if (!isRecord(raw) || !isTokenShaped(raw.session)) throw new Error('bad session');
-    return { session: raw.session, expiresAt: typeof raw.expiresAt === 'string' ? raw.expiresAt : '', isNew: raw.isNew === true };
+export type SignInResult =
+  | { kind: 'session'; session: string; expiresAt: string; isNew: boolean }
+  /** Two-step sign-in is on: the ticket goes with the code to `authSecondStep`. */
+  | { kind: 'second_step'; ticket: string };
+
+function toSignIn(raw: unknown): SignInResult {
+  if (isRecord(raw) && raw.secondStep === true && isTokenShaped(raw.ticket)) return { kind: 'second_step', ticket: raw.ticket };
+  if (!isRecord(raw) || !isTokenShaped(raw.session)) throw new Error('bad session');
+  return { kind: 'session', session: raw.session, expiresAt: typeof raw.expiresAt === 'string' ? raw.expiresAt : '', isNew: raw.isNew === true };
+}
+
+export const authLogin = (email: string, password: string) =>
+  call<SignInResult>('/auth/login', { method: 'POST', json: { email, password }, session: false }, toSignIn);
+export const authSecondStep = (ticket: string, code: string) =>
+  call<SignInResult>('/auth/login/second', { method: 'POST', json: { ticket, code }, session: false }, toSignIn);
+
+/** 202 whether or not the address has an account. */
+export const resetRequest = (email: string) =>
+  call<void>('/auth/reset/request', { method: 'POST', json: { email }, session: false });
+export const resetConfirm = (token: string, password: string) =>
+  call<void>('/auth/reset/confirm', { method: 'POST', json: { token, password }, session: false });
+
+/* ---- password and two-step sign-in, signed in ---- */
+
+export const changePassword = (currentPassword: string, newPassword: string) =>
+  call<void>('/me/password', { method: 'POST', json: { currentPassword, newPassword } });
+
+export interface TotpSetup { secret: string; uri: string }
+export const totpSetup = (password: string) =>
+  call<TotpSetup>('/me/totp/setup', { method: 'POST', json: { password } }, (raw) => {
+    if (!isRecord(raw) || typeof raw.secret !== 'string' || typeof raw.uri !== 'string') throw new Error('bad setup');
+    return { secret: raw.secret, uri: raw.uri };
   });
+export const totpEnable = (code: string) =>
+  call<string[]>('/me/totp/enable', { method: 'POST', json: { code } }, (raw) => {
+    const codes = isRecord(raw) ? arr<unknown>(raw.recoveryCodes) : [];
+    if (codes.length === 0 || !codes.every((c) => typeof c === 'string')) throw new Error('bad codes');
+    return codes as string[];
+  });
+export const totpDisable = (password: string) =>
+  call<void>('/me/totp/disable', { method: 'POST', json: { password } });
 
 export const authLogout = () => call<void>('/auth/logout', { method: 'POST' });
 
@@ -255,7 +307,9 @@ export const authLogout = () => call<void>('/auth/logout', { method: 'POST' });
 
 export const getMe = () => call<Me>('/me', {}, toMe);
 export const updateMe = (patch: Partial<Profile>) => call<Me>('/me', { method: 'PATCH', json: patch }, toMe);
-export const deleteMe = (confirm: string) => call<void>('/me', { method: 'DELETE', json: { confirm } });
+/** WP-123: the typed address and, for an account with a password, the password. */
+export const deleteMe = (confirm: string, password: string) =>
+  call<void>('/me', { method: 'DELETE', json: password ? { confirm, password } : { confirm } });
 
 export type UserState =
   | { kind: 'ok'; user: Me }

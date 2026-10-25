@@ -1,18 +1,18 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getAccountStatus, getCurrentUser } from '@/lib/account';
 import { buildMetadata } from '@/lib/seo';
 import { safeReturnPath } from '@/lib/safe-url';
-import { Callout } from '@/components/dg/blocks';
-import { Button } from '@/components/dg/button';
 import { ContentPage } from '@/components/dg/content-page';
+import { AccountsClosed } from '@/components/account/accounts-closed';
 import { SignInForm } from '@/components/account/signin-form';
 
 // Reads the session cookie, so never cached; and nothing here is for a search engine.
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = buildMetadata({
   title: 'Sign in',
-  description: 'Sign in to DefenceGate with your e-mail address and a one-time link, to save searches, follow buyers and keep a shortlist. No password.',
+  description: 'Sign in to DefenceGate with your e-mail address and password, to save searches, follow buyers and keep a shortlist.',
   path: '/signin',
   noindex: true,
 });
@@ -29,19 +29,16 @@ export default async function SignInPage({ searchParams }: Props) {
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Sign in', href: '/signin' }]}
       title="Sign in"
-      lead={status.open ? 'Enter your e-mail address and we send you a link. No password to remember.' : undefined}
+      lead={status.open ? 'With your e-mail address and password.' : undefined}
     >
-      {status.open && status.termsVersion && status.privacyVersion ? (
-        <SignInForm termsVersion={status.termsVersion} privacyVersion={status.privacyVersion} next={next} />
-      ) : (
-        <Callout title="Sign-in is not open yet">
-          <p className="m-0">Accounts are not available at the moment. Browsing tenders, buyers and funding calls needs no account.</p>
-          <div className="flex flex-wrap gap-3 pt-2">
-            <Button href="/tenders" variant="secondary">Browse tenders</Button>
-            <Button href="/funding" variant="secondary">Browse funding calls</Button>
-          </div>
-        </Callout>
-      )}
+      {status.open ? (
+        <>
+          <SignInForm next={next} />
+          <p className="m-0 max-w-prose text-body text-ink-muted">
+            No account yet? <Link href="/signup" className="font-semibold">Create one</Link>.
+          </p>
+        </>
+      ) : <AccountsClosed />}
     </ContentPage>
   );
 }

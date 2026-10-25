@@ -88,3 +88,10 @@ agents. Anything that looks removable is listed here with why, and the owner dec
 | 2026-10-21 | local container `dgate-wp72` and `D:\DEFENCEGATE TESTS\wp72` (test Postgres with a `bench` database of synthetic rows, venv) | laptop | WP-72 tests and the planner bench | none |
 | 2026-10-24 | index `alias_norm_trgm` (GIN trigram on `organisation_alias.normalised_name`, migration 0001), 56 MB | production database | idx_scan 0 since the 22 October restart; every alias lookup is by equality (db.py, resolution/cascade.py, api.py), served by the unique btree of migration 0005; the trigram search reads `organisation.canonical_name`. With `opp_search` and `opp_core_published` (above) in migration `0128_wp114_drop_unread_indexes.sql` (WP-114; owner approved the drop on 24 Oct 2026) | a fuzzy alias search added later would need it again (its CREATE INDEX is in migration 0001) |
 | 2026-10-24 | index `raw_plain_key` (raw_ingest, 451 MB): NOT a candidate | production database | idx_scan 0 only because the compaction has not run since the restart; `ops/compact_raw.py` reads it on every batch (lines 181, 247) | a compaction batch would read the 3.2 GB table sequentially |
+
+## WP-123 (accounts with a password; brings over the unmerged WP-79 branch)
+
+| 2026-10-25 | table `app_login_token` (migration 0027, columns added in 0047) | database | the one-time sign-in links; emptied by migration 0131 and written by nothing since. Still in the grants tests and `tests/conftest.py` | none; a `DROP TABLE` migration once WP-123 is merged |
+| 2026-10-25 | local container `dgate-wp79` and `D:\DEFENCEGATE TESTS\wp79` (WP-79 test copy) | laptop | superseded by WP-123 | none |
+| 2026-10-25 | `D:\DEFENCEGATE TESTS\wp123` (test copy, venv, node_modules; its Postgres container is removed at the end of the run) | laptop | WP-123 tests | none once the branch is merged |
+| 2026-10-25 | `bindValue`, `readBind` in `web/lib/safe-url.ts` (WP-116) and their lines in `lib/safe-url.check.ts` | site | the bind cookie is gone with the sign-in link (WP-123); nothing calls them | none; remove with their check lines once WP-123 is merged |

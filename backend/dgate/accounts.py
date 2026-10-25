@@ -1,7 +1,11 @@
-"""Accounts: sign-in by e-mail link, profile, saved searches, shortlist, follows, dashboard.
+"""Accounts: registration, sign-in with e-mail and password (optional TOTP), password reset,
+profile, saved searches, shortlist, follows, dashboard.
 
 Contract: docs/design/ACCOUNT_CONTRACT.md. Requirements: docs/SECURITY_REQUIREMENTS.md
-(A1-A6, O1-O3). Data held: docs/DATA_PROTECTION.md.
+(A1-A10, O1-O3). Data held: docs/DATA_PROTECTION.md. Since WP-123 (25 October 2026, built
+as WP-79 on 22 October) there is no sign-in by e-mail link: a link confirms an address or
+resets a password, and only the password (and the second step, when it is on) opens a
+session. Accounts open by themselves once `accounts_problem()` finds nothing in the way.
 
 The browser never calls this. The site's server (a backend for frontend) does, over the
 internal network, with the session in `X-DG-Session`. Consequences that are deliberate:
@@ -14,8 +18,10 @@ internal network, with the session in `X-DG-Session`. Consequences that are deli
   - every query on a user-owned table is scoped by the authenticated owner id in SQL (O1);
     a row owned by someone else is a 404, never a 403 and never the row.
 
-Secrets (sign-in tokens, session ids) exist in plain form only in the response that hands
-them to the site and in the e-mail; the database holds SHA-256 hashes.
+Secrets (e-mail tokens, second-step tickets, session ids) exist in plain form only in the
+response that hands them to the site and in the e-mail; the database holds SHA-256 hashes.
+Passwords are Argon2id hashes, recovery codes keyed HMACs, the TOTP key is sealed
+(`dgate/credentials.py`).
 """
 
 from __future__ import annotations
@@ -40,23 +46,37 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, 
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from . import db
+from . import credentials, db
 from .config import settings
 from .hardening import BODY_MAX, TokenBuckets, client_key
 from .ops import mailer
 from .ops.notify import notify
 
 log = logging.getLogger("accounts")
+# WP-123: uvicorn configures only its own loggers, so an INFO line of this one (the security log,
+# `_audit`, and the export line of O3) was dropped by the root logger's WARNING default. Its own
+# handler on stderr, unless the process configured logging itself (scripts, pytest).
+log.setLevel(logging.INFO)
+if not log.handlers and not logging.getLogger().handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    log.addHandler(_handler)
 
 # ------------------------------------------------------------------ limits
-LINK_TTL = timedelta(minutes=15)
+VERIFY_TTL = timedelta(hours=24)     # A7: the confirmation link
+RESET_TTL = timedelta(hours=1)       # A9: the reset link
+MFA_TTL = timedelta(minutes=5)       # A10: between the password and the code
+UNVERIFIED_TTL = timedelta(days=2)   # a registration not confirmed by then is deleted
 SESSION_ABSOLUTE = timedelta(days=30)
 SESSION_IDLE = timedelta(days=7)
-LIMIT_PER_ADDRESS = 5          # sign-in links per hour, per address (A3)
+LIMIT_PER_ADDRESS = 5          # account mails per hour, per address (A3)
 LIMIT_PER_ADDRESS_PER_IP = 3   # ... of which one client (IPv6: one /64) may ask for 3
 LIMIT_PER_IP = 20              # per client IP
 LIMIT_PER_IP_CROWDED = 3       # per client IP once half of LIMIT_GLOBAL is spent
 LIMIT_GLOBAL = 120             # in total; beyond it the operator is told
+LOGIN_FREE = 5                 # A8: failed sign-ins per address in an hour before the delay
+LOGIN_FREE_IP = 30             # ... per client IP
+LOGIN_DELAY = 30               # seconds after the first counted failure, doubling each time
 MAX_SEARCHES = 10
 MAX_SHORTLIST = 500
 MAX_FOLLOWS = 100
@@ -69,12 +89,21 @@ MAX_HIT_COUNT = 10_000         # one key's count in one batch
 NOTE_MAX = 500
 SEARCH_RESULTS = 100           # how many newest matches are read to count the new ones
 
-# The texts a sign-in accepts. Bump one when the published page changes: the sign-in form then
+# The texts a registration accepts. Bump one when the published page changes: the forms then
 # asks again (the form carries the versions it shows) and /me says `termsCurrent: false` for
 # an account that accepted an older one. Keep in step with web/app/(public)/terms and privacy,
 # and keep a dated copy of the text in docs/legal/versions/.
-TERMS_VERSION = "2.0"
-PRIVACY_VERSION = "1.5"        # draft of 18 October 2026 (WP-39), not published until the owner approves: docs/legal/versions/README.md
+TERMS_VERSION = "2.1"          # published 24 October 2026
+PRIVACY_VERSION = "1.6"        # published 24 October 2026
+# WP-123: the first privacy notice that describes accounts with a password (draft:
+# docs/legal/drafts/privacy-v1.7-draft.md). Accounts stay closed while the published one is older,
+# whatever the mail relay says: nobody is asked for a password the notice says we do not use.
+PASSWORD_PRIVACY_VERSION = "1.7"
+
+# What a person may pick on the pricing page and bring to /signup (WP-122 buttons). Remembered on the
+# account as a choice; nothing is charged and the plan in force stays `free` until billing (WP-124) sets it.
+PLANS = ("free", "pro", "team", "consultant", "founding")
+BILLINGS = ("monthly", "yearly")
 
 ROLES = ("supplier", "prime", "consultant", "grant_writer", "other")
 TRACKS = ("tenders", "funding")
@@ -88,7 +117,6 @@ PLUS_TAG_DOMAINS = {"gmail.com", "outlook.com", "hotmail.com", "live.com", "iclo
 GMAIL = {"gmail.com", "googlemail.com"}
 
 _EMAIL_LOCAL = re.compile(r"^[A-Za-z0-9!#$%&'*+/=?^_`{|}~.-]{1,64}$")
-_BINDER = re.compile(r"^[A-Za-z0-9_-]{32,128}$")
 _SESSION = re.compile(r"^[A-Za-z0-9_-]{43}$")
 _TOKEN = re.compile(r"^[A-Za-z0-9_-]{43}$")
 _DIGITS = re.compile(r"^[0-9]{1,18}$")
@@ -139,12 +167,46 @@ def _hash(value: str) -> bytes:
     return hashlib.sha256(value.encode("utf-8")).digest()
 
 
+def _server_key() -> bytes:
+    """The key only the API holds (never in the database, and not on the site's server:
+    DGATE_ACCOUNT_KEY, WP-123). Rotating it resets the throttle counters and makes recovery
+    codes and sealed TOTP keys unusable: an account with two-step sign-in is then locked out
+    until its totp_* columns and recovery codes are cleared (ponytail: one key; a key ring with
+    versions if it must ever rotate). Without it (development, tests) the internal secret is
+    the key; production keeps accounts closed instead (`accounts_problem`)."""
+    cfg = settings()
+    return (cfg.account_key or cfg.internal_secret or cfg.app_password).encode("utf-8")
+
+
+def _version(v: str) -> tuple[int, ...]:
+    return tuple(int(p) for p in v.split("."))
+
+
+def accounts_problem() -> str | None:
+    """Why accounts are closed, or None when they are open: a mail relay that is configured and
+    passed its health check, a published privacy notice that describes password accounts, and in
+    production a key of the API's own for the account secrets."""
+    if _version(PRIVACY_VERSION) < _version(PASSWORD_PRIVACY_VERSION):
+        return "privacy notice"
+    cfg = settings()
+    if cfg.env == "production" and not cfg.account_key.strip():
+        return "DGATE_ACCOUNT_KEY"
+    if not mailer.ready():
+        return "mail"
+    return None
+
+
+def _audit(event: str, user_id: Any = None, **facts: Any) -> None:
+    """The security log of the accounts: what happened to which account id, never an address,
+    a password, a token, a code or a session id (test_audit_lines_hold_no_secret)."""
+    extra = "".join(f" {k}={v}" for k, v in facts.items())
+    log.info("account event=%s user=%s%s", event, user_id if user_id is not None else "-", extra)
+
+
 def _event_key(kind: str, value: str) -> bytes:
     """Key of a throttle counter: HMAC-SHA256 under a key only the server holds. A plain hash
     of an address or an IP can be reversed by trying candidates; this cannot without the key."""
-    cfg = settings()
-    key = (cfg.internal_secret or cfg.app_password).encode("utf-8")
-    return hmac.new(key, f"{kind}\x00{value}".encode("utf-8"), hashlib.sha256).digest()
+    return hmac.new(_server_key(), f"{kind}\x00{value}".encode("utf-8"), hashlib.sha256).digest()
 
 
 def _secret() -> str:
@@ -233,23 +295,57 @@ class _Body(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class LinkRequest(_Body):
+class Register(_Body):
     email: str = Field(max_length=320)
-    binder: str
-    # The tick on the sign-in form, with the versions of the two texts the form showed.
+    password: str = Field(max_length=1024)   # the policy says 128: longer is its own error
+    # The tick on the form, with the versions of the two texts the form showed.
     acceptTerms: bool = False
     termsVersion: str | None = Field(None, max_length=20)
     privacyVersion: str | None = Field(None, max_length=20)
+    # WP-123: the plan picked on the pricing page, remembered (no payment, no entitlement).
+    plan: Literal["free", "pro", "team", "consultant", "founding"] | None = None
+    billing: Literal["monthly", "yearly"] | None = None
+
+
+class Login(_Body):
+    email: str = Field(max_length=320)
+    password: str = Field(max_length=1024)
+
+
+class SecondStep(_Body):
+    ticket: str = Field(max_length=64)
+    code: str = Field(max_length=32)
+
+
+class TokenIn(_Body):
+    token: str = Field(max_length=64)
+
+
+class ResetRequest(_Body):
+    email: str = Field(max_length=320)
+
+
+class ResetConfirm(_Body):
+    token: str = Field(max_length=64)
+    password: str = Field(max_length=1024)
+
+
+class PasswordChange(_Body):
+    currentPassword: str = Field(max_length=1024)
+    newPassword: str = Field(max_length=1024)
+
+
+class PasswordOnly(_Body):
+    password: str = Field(max_length=1024)
+
+
+class CodeIn(_Body):
+    code: str = Field(max_length=32)
 
 
 class TermsAcceptance(_Body):
     termsVersion: str = Field(max_length=20)
     privacyVersion: str = Field(max_length=20)
-
-
-class Verify(_Body):
-    token: str
-    binder: str
 
 
 class ProfilePatch(_Body):
@@ -262,6 +358,9 @@ class ProfilePatch(_Body):
 
 class DeleteAccount(_Body):
     confirm: str = Field(max_length=320)
+    # WP-123: an account with a password re-enters it (a session alone, left open on a shared
+    # computer, cannot delete the account).
+    password: str | None = Field(None, max_length=1024)
 
 
 class SearchIn(_Body):
@@ -310,17 +409,24 @@ class HitBatch(_Body):
 _last_prune = 0.0
 
 
+def _prune(conn) -> None:
+    """Counters and tokens expired for more than a day, and registrations never confirmed
+    within UNVERIFIED_TTL, deleted (an index on each time column). What the Privacy notice
+    says is then true."""
+    conn.execute("DELETE FROM app_auth_event WHERE at < now() - interval '1 day'")
+    conn.execute("DELETE FROM app_auth_token WHERE expires_at < now() - interval '1 day'")
+    conn.execute("DELETE FROM app_user WHERE email_verified_at IS NULL "
+                 "AND created_at < now() - %s::interval", (UNVERIFIED_TTL,))
+
+
 def prune_expired(conn) -> None:
-    """Sign-in counters and spent links older than a day, deleted. The sign-in request does
-    this too, but only a request does: with none, rows would wait. The status call (the site
-    asks every minute) bounds that to a day plus ten minutes, which is what the Privacy notice
-    says. Throttled to one pass in ten minutes per process."""
+    """`_prune`, from the status call too (the site asks every minute): with no sign-in
+    request rows would otherwise wait. Throttled to one pass in ten minutes per process."""
     global _last_prune
     if _last_prune and time.monotonic() - _last_prune < 600:   # 0.0: never run (a fresh host's clock is under 600)
         return
     _last_prune = time.monotonic()
-    conn.execute("DELETE FROM app_auth_event WHERE at < now() - interval '1 day'")
-    conn.execute("DELETE FROM app_login_token WHERE expires_at < now() - interval '1 day'")
+    _prune(conn)
 
 
 @router.get("/status")
@@ -329,12 +435,12 @@ def status(conn=Depends(get_conn)) -> JSONResponse:
         prune_expired(conn)
     except Exception:  # noqa: BLE001 - the status answer must not depend on housekeeping
         log.warning("status: prune failed")
-    return JSONResponse({"open": mailer.can_send(), "termsVersion": TERMS_VERSION,
+    return JSONResponse({"open": accounts_problem() is None, "termsVersion": TERMS_VERSION,
                          "privacyVersion": PRIVACY_VERSION},
                         headers={"Cache-Control": "public, max-age=60"})
 
 
-# ------------------------------------------------------------------ sign-in
+# ------------------------------------------------------------------ throttles
 _last_global_page = 0.0
 _page_lock = threading.Lock()
 
@@ -368,59 +474,22 @@ def _page_operator(message: str) -> None:
     notify(message)
 
 
-def _send_link(address: str, token: str) -> None:
-    link = f"{settings().site_url.rstrip('/')}/auth/verify?token={token}"
-    body = (
-        "Sign in to DefenceGate\n\n"
-        "Open this link in the browser where you asked for it. It works once and expires in "
-        "15 minutes:\n\n"
-        f"{link}\n\n"
-        "If you did not ask for this, ignore this message. Nothing happens unless the link "
-        "is opened.\n")
-    mailer.send_mail(address, "Your DefenceGate sign-in link", body)
-
-
-@router.post("/auth/request", status_code=202)
-def auth_request(body: LinkRequest, background: BackgroundTasks, conn=Depends(get_conn),
-                 x_dg_client_ip: str | None = Header(None)) -> dict[str, bool]:
-    if not mailer.can_send():
-        raise AccountError(503, "not_open", "sign-in is not open yet")
-    try:
-        canonical, display = canonical_email(body.email)
-    except ValueError:
-        raise AccountError(422, "invalid_email", "that does not look like an e-mail address") from None
-    if not _BINDER.match(body.binder):
-        raise AccountError(422, "invalid_request", "invalid request")
-    # The tick is required, and it is for the texts as they stand now: a form rendered
-    # before a new version went live is asked again, not silently accepted.
-    if not (body.acceptTerms and body.termsVersion == TERMS_VERSION
-            and body.privacyVersion == PRIVACY_VERSION):
-        raise AccountError(422, "terms_not_accepted",
-                           "accept the terms of use and the privacy notice to sign in")
-
-    # Tiny tables, so pruned at the start of every request that gets this far (an index on
-    # `at`): what the notice says (about a day) is then true. Committed at once, so a
-    # request refused below does not undo it.
-    conn.execute("DELETE FROM app_auth_event WHERE at < now() - interval '1 day'")
-    conn.execute("DELETE FROM app_login_token WHERE expires_at < now() - interval '1 day'")
-    conn.commit()
-
-    # A3. Counts are read first and written only for a request that is accepted, and every
-    # refusal is a visible 429 with the wait: the earlier silent 202 for an address over its
-    # limit locked its owner out without a word (audit M2, X-6). It is no oracle: any
-    # address is refused the same way after the same number of requests, whether or not it
-    # has an account. Three layers, the smallest first:
-    #   - one client (IPv6: one /64) asks for one address at most LIMIT_PER_ADDRESS_PER_IP
-    #     times an hour, so a stranger needs several clients to use up a victim's five
-    #   - an address has LIMIT_PER_ADDRESS an hour in all (the mail-bomb ceiling)
-    #   - a client has LIMIT_PER_IP an hour, and LIMIT_PER_IP_CROWDED once half of the
-    #     global budget is gone: six clients with twenty each can no longer switch sign-in
-    #     off for everyone, they run into their share first
-    ip = _client_ip(x_dg_client_ip)
+def _throttle_mail(conn, canonical: str, ip: str) -> None:
+    """A3, for every request that can send a mail (registration, password reset).
+    Counts are read first and written only for a request that is accepted, and every
+    refusal is a visible 429 with the wait (audit M2, X-6). It is no oracle: any address is
+    refused the same way after the same number of requests, whether or not it has an
+    account. Three layers, the smallest first:
+      - one client (IPv6: one /64) asks for one address at most LIMIT_PER_ADDRESS_PER_IP
+        times an hour, so a stranger needs several clients to use up a victim's five
+      - an address has LIMIT_PER_ADDRESS an hour in all (the mail-bomb ceiling)
+      - a client has LIMIT_PER_IP an hour, and LIMIT_PER_IP_CROWDED once half of the
+        global budget is gone: six clients with twenty each can no longer switch the
+        mails off for everyone, they run into their share first"""
     pair = f"{canonical}|{ip}"
     total = _recent(conn, "all", "all")
     if total >= LIMIT_GLOBAL:
-        _page_operator(f"Sign-in link requests are over {LIMIT_GLOBAL} an hour: possible abuse.")
+        _page_operator(f"Account mail requests are over {LIMIT_GLOBAL} an hour: possible abuse.")
     ip_cap = LIMIT_PER_IP if total < LIMIT_GLOBAL // 2 else LIMIT_PER_IP_CROWDED
     for kind, value, cap in (("ip", ip, ip_cap),
                              ("addr_ip", pair, LIMIT_PER_ADDRESS_PER_IP),
@@ -435,53 +504,101 @@ def auth_request(body: LinkRequest, background: BackgroundTasks, conn=Depends(ge
         conn.execute("INSERT INTO app_auth_event (kind, key_hash) VALUES (%s, %s)",
                      (kind, _event_key(kind, value)))
 
-    domain = canonical.rsplit("@", 1)[1]
-    disposable = conn.execute(
-        "SELECT 1 FROM app_disposable_domain WHERE domain = %s", (domain,)).fetchone() is not None
-    token = _secret()
-    conn.execute(
-        "INSERT INTO app_login_token (token_hash, binder_hash, email_canonical, email_display, "
-        "expires_at, terms_version, privacy_version, accepted_at) "
-        "VALUES (%s, %s, %s, %s, now() + %s::interval, %s, %s, now())",
-        (_hash(token), _hash(body.binder), canonical, display, LINK_TTL,
-         TERMS_VERSION, PRIVACY_VERSION))
-    if not disposable:                     # A4: refused quietly, identical answer
-        background.add_task(_send_link, display, token)
-    return {"ok": True}
+
+def login_wait(failures: int, since_last: float, free: int) -> int:
+    """A8: seconds before the next attempt is answered. `free` failures in the hour cost
+    nothing; from there each one doubles the wait after the last, from LOGIN_DELAY up to an
+    hour (12 failures of one address in an hour: locked until the hour has passed)."""
+    if failures < free:
+        return 0
+    wait = min(3600, LOGIN_DELAY * 2 ** min(failures - free, 12))
+    return max(0, math.ceil(wait - since_last))
 
 
-@router.post("/auth/verify")
-def auth_verify(body: Verify, conn=Depends(get_conn)) -> dict[str, Any]:
-    fail = AccountError(400, "invalid_or_expired", "this link is not valid")
-    if not _TOKEN.match(body.token) or not _BINDER.match(body.binder):
-        raise fail
-    row = conn.execute(
-        "SELECT token_hash, binder_hash, email_canonical, email_display, expires_at, used_at, "
-        "terms_version, privacy_version, accepted_at "
-        "FROM app_login_token WHERE token_hash = %s FOR UPDATE", (_hash(body.token),)).fetchone()
-    if (not row or row["used_at"] is not None or row["expires_at"] <= datetime.now(timezone.utc)
-            or not hmac.compare_digest(bytes(row["binder_hash"]), _hash(body.binder))):
-        # A wrong browser does not burn the link: a mail scanner must not be able to
-        # use it up on the person's behalf.
-        raise fail
-    conn.execute("UPDATE app_login_token SET used_at = now() WHERE token_hash = %s", (row["token_hash"],))
-    created = conn.execute(
-        "INSERT INTO app_user (email_canonical, email_display, terms_version, privacy_version, "
-        "accepted_at) VALUES (%s, %s, %s, %s, %s) "
-        "ON CONFLICT (email_canonical) DO NOTHING RETURNING id",
-        (row["email_canonical"], row["email_display"], row["terms_version"],
-         row["privacy_version"], row["accepted_at"])).fetchone()
-    if created:
-        user_id, is_new = created["id"], True
-    else:
-        user_id = conn.execute("SELECT id FROM app_user WHERE email_canonical = %s",
-                               (row["email_canonical"],)).fetchone()["id"]
-        is_new = False
-        if row["accepted_at"] is not None:      # a returning sign-in re-accepts the current texts
-            conn.execute(
-                "UPDATE app_user SET terms_version = %s, privacy_version = %s, accepted_at = %s "
-                "WHERE id = %s", (row["terms_version"], row["privacy_version"],
-                                  row["accepted_at"], user_id))
+def _login_gate(conn, canonical: str, ip: str) -> None:
+    """Refuses before any password is checked while the address or the client has to wait.
+    Keyed by the address typed, whether or not it has an account, so the delay itself tells
+    nothing; the counters are HMACs as for the mail limits."""
+    for kind, value, free in (("login_addr", canonical, LOGIN_FREE), ("login_ip", ip, LOGIN_FREE_IP)):
+        row = conn.execute(
+            "SELECT count(*) AS n, extract(epoch FROM now() - max(at)) AS since FROM app_auth_event "
+            "WHERE kind = %s AND key_hash = %s AND at > now() - interval '1 hour'",
+            (kind, _event_key(kind, value))).fetchone()
+        wait = login_wait(row["n"], float(row["since"] or 0), free)
+        if wait:
+            raise AccountError(429, "rate_limited", "too many failed attempts, try again later",
+                               {"Retry-After": str(wait)})
+
+
+def _login_failed(conn, canonical: str, ip: str) -> None:
+    for kind, value in (("login_addr", canonical), ("login_ip", ip)):
+        conn.execute("INSERT INTO app_auth_event (kind, key_hash) VALUES (%s, %s)",
+                     (kind, _event_key(kind, value)))
+    conn.commit()                     # the error that follows rolls the request back
+
+
+def _login_succeeded(conn, canonical: str) -> None:
+    conn.execute("DELETE FROM app_auth_event WHERE kind = 'login_addr' AND key_hash = %s",
+                 (_event_key("login_addr", canonical),))
+
+
+# ------------------------------------------------------------------ helpers
+def _open() -> None:
+    """The switch: no working relay (nothing could confirm an address), no published notice
+    for password accounts, or no account key in production: no accounts."""
+    if accounts_problem():
+        raise AccountError(503, "not_open", "sign-in is not open yet")
+
+
+def _address(raw: str) -> tuple[str, str]:
+    try:
+        return canonical_email(raw)
+    except ValueError:
+        raise AccountError(422, "invalid_email", "that does not look like an e-mail address") from None
+
+
+_PASSWORD_MESSAGES = {
+    "too_short": f"use at least {credentials.PASSWORD_MIN} characters",
+    "too_long": f"use at most {credentials.PASSWORD_MAX} characters",
+    "common": "this password is too common or too easy to guess: choose another",
+}
+
+
+def _check_password(password: str, canonical: str) -> None:
+    problem = credentials.password_problem(password, canonical)
+    if problem:
+        raise AccountError(422, f"password_{problem}", _PASSWORD_MESSAGES[problem])
+
+
+def _disposable(conn, canonical: str) -> bool:
+    return conn.execute("SELECT 1 FROM app_disposable_domain WHERE domain = %s",
+                        (canonical.rsplit("@", 1)[1],)).fetchone() is not None
+
+
+def _issue(conn, user_id, purpose: str, ttl: timedelta) -> str:
+    raw = _secret()
+    conn.execute("INSERT INTO app_auth_token (token_hash, user_id, purpose, expires_at) "
+                 "VALUES (%s, %s, %s, now() + %s::interval)", (_hash(raw), user_id, purpose, ttl))
+    return raw
+
+
+def _spend(conn, raw: str, purpose: str) -> dict[str, Any] | None:
+    """A token of this purpose, unused and unexpired, used up in the same statement: two
+    requests with one token cannot both pass."""
+    if not _TOKEN.match(raw or ""):
+        return None
+    return conn.execute(
+        "UPDATE app_auth_token SET used_at = now() WHERE token_hash = %s AND purpose = %s "
+        "AND used_at IS NULL AND expires_at > now() RETURNING user_id",
+        (_hash(raw), purpose)).fetchone()
+
+
+def _set_password(conn, user_id, password: str) -> None:
+    conn.execute("UPDATE app_user SET password_hash = %s, password_changed_at = now() WHERE id = %s",
+                 (credentials.hash_password(password), user_id))
+
+
+def _new_session(conn, user_id, is_new: bool) -> dict[str, Any]:
     raw = _secret()                        # A5: a fresh session id at every sign-in
     conn.execute("DELETE FROM app_session WHERE user_id = %s AND expires_at <= now()", (user_id,))
     # At most MAX_SESSIONS per account: the oldest beyond the cap go (the account's own
@@ -496,11 +613,317 @@ def auth_verify(body: Verify, conn=Depends(get_conn)) -> dict[str, Any]:
     return {"session": raw, "expiresAt": expires, "isNew": is_new}
 
 
+MAILS = {
+    "verify": ("Confirm your DefenceGate account",
+               "Confirm your e-mail address to finish creating your DefenceGate account. The link works "
+               "once and expires in 24 hours:\n\n{link}\n\n"
+               "If you did not create an account, ignore this message. An account that is not "
+               "confirmed is deleted within two days."),
+    "already": ("You already have a DefenceGate account",
+                "Someone, probably you, tried to create a DefenceGate account with this address. "
+                "There already is one. Sign in at:\n\n{site}/signin\n\n"
+                "If you do not remember the password, set a new one at {site}/reset.\n\n"
+                "If it was not you, ignore this message. Nothing has changed."),
+    "reset": ("Set a new DefenceGate password",
+              "To set a new password for your DefenceGate account, open this link. It works once and "
+              "expires in one hour:\n\n{link}\n\n"
+              "Setting a new password signs out every browser signed in to the account.\n\n"
+              "If you did not ask for this, ignore this message. Your password stays as it is."),
+    "changed": ("Your DefenceGate password was changed",
+                "The password of your DefenceGate account was just changed, and every other browser "
+                "signed in to it was signed out.\n\n"
+                "If this was not you, set a new password at once at {site}/reset."),
+}
+_MAIL_PATHS = {"verify": "/auth/verify", "reset": "/auth/reset"}
+
+
+def _mail(address: str, kind: str, token: str | None = None) -> None:
+    site = settings().site_url.rstrip("/")
+    link = f"{site}{_MAIL_PATHS[kind]}?token={token}" if token else ""
+    subject, body = MAILS[kind]
+    mailer.send_mail(address, subject, body.format(site=site, link=link) + "\n")
+
+
+# ------------------------------------------------------------------ registration
+OK: dict[str, bool] = {"ok": True}
+
+
+@router.post("/auth/register", status_code=202)
+def register(body: Register, background: BackgroundTasks, conn=Depends(get_conn),
+             x_dg_client_ip: str | None = Header(None)) -> dict[str, bool]:
+    """A7. The answer is the same 202 for a new address, one that has an account and a
+    disposable one; only the mail differs ("confirm" or "you already have an account")."""
+    _open()
+    canonical, display = _address(body.email)
+    # The tick is required, and it is for the texts as they stand now: a form rendered
+    # before a new version went live is asked again, not silently accepted.
+    if not (body.acceptTerms and body.termsVersion == TERMS_VERSION
+            and body.privacyVersion == PRIVACY_VERSION):
+        raise AccountError(422, "terms_not_accepted",
+                           "accept the terms of use and the privacy notice to create an account")
+    _check_password(body.password, canonical)
+    _prune(conn)
+    conn.commit()                          # a request refused below does not undo it
+    _throttle_mail(conn, canonical, _client_ip(x_dg_client_ip))
+    password_hash = credentials.hash_password(body.password)   # always: the time says nothing
+    if _disposable(conn, canonical):       # A4: refused quietly, identical answer
+        return OK
+    existing = conn.execute("SELECT id, email_verified_at FROM app_user WHERE email_canonical = %s "
+                            "FOR UPDATE", (canonical,)).fetchone()
+    if existing and existing["email_verified_at"] is not None:
+        background.add_task(_mail, display, "already")
+        return OK
+    plan = body.plan
+    billing = body.billing if plan and plan != "free" else None
+    if existing:
+        # Not confirmed: whoever registered it earlier never showed they hold the mailbox, so
+        # the newer registration replaces it and the earlier link stops working.
+        user_id = existing["id"]
+        conn.execute(
+            "UPDATE app_user SET password_hash = %s, password_changed_at = now(), email_display = %s, "
+            "created_at = now(), terms_version = %s, privacy_version = %s, accepted_at = now(), "
+            "plan_choice = %s, billing_choice = %s WHERE id = %s",
+            (password_hash, display, TERMS_VERSION, PRIVACY_VERSION, plan, billing, user_id))
+        conn.execute("DELETE FROM app_auth_token WHERE user_id = %s", (user_id,))
+    else:
+        row = conn.execute(
+            "INSERT INTO app_user (email_canonical, email_display, password_hash, password_changed_at, "
+            "terms_version, privacy_version, accepted_at, plan_choice, billing_choice) "
+            "VALUES (%s, %s, %s, now(), %s, %s, now(), %s, %s) "
+            "ON CONFLICT (email_canonical) DO NOTHING RETURNING id",
+            (canonical, display, password_hash, TERMS_VERSION, PRIVACY_VERSION, plan, billing)).fetchone()
+        if not row:                        # registered a moment ago by a parallel request
+            return OK
+        user_id = row["id"]
+    _audit("registered", user_id)
+    background.add_task(_mail, display, "verify", _issue(conn, user_id, "verify", VERIFY_TTL))
+    return OK
+
+
+@router.post("/auth/verify")
+def verify(body: TokenIn, conn=Depends(get_conn)) -> dict[str, Any]:
+    """Confirms the address. It does not sign in: the password does that, so a link
+    forwarded or opened by a mail scanner gives nobody a session. The answer carries the plan
+    chosen at registration, so the page can say it again (WP-123); nothing else."""
+    row = _spend(conn, body.token, "verify")
+    if not row:
+        raise AccountError(400, "invalid_or_expired", "this link is not valid")
+    chosen = conn.execute(
+        "UPDATE app_user SET email_verified_at = coalesce(email_verified_at, now()) "
+        "WHERE id = %s RETURNING plan_choice, billing_choice", (row["user_id"],)).fetchone()
+    _audit("confirmed", row["user_id"])
+    if not chosen["plan_choice"]:
+        return OK
+    return {"ok": True, "plan": chosen["plan_choice"], "billing": chosen["billing_choice"]}
+
+
+# ------------------------------------------------------------------ sign-in
+@router.post("/auth/login")
+def login(body: Login, conn=Depends(get_conn),
+          x_dg_client_ip: str | None = Header(None)) -> dict[str, Any]:
+    """A8. One answer for an unknown address, an account without a password and a wrong
+    password, after the same Argon2id work. An unconfirmed account is told so only after
+    its password was right."""
+    _open()
+    canonical, _ = _address(body.email)
+    ip = _client_ip(x_dg_client_ip)
+    _prune(conn)
+    conn.commit()
+    _login_gate(conn, canonical, ip)
+    user = conn.execute("SELECT id, password_hash, email_verified_at, totp_enabled_at, onboarded "
+                        "FROM app_user WHERE email_canonical = %s", (canonical,)).fetchone()
+    if not credentials.verify_password(body.password, user["password_hash"] if user else None):
+        _login_failed(conn, canonical, ip)
+        _audit("sign_in_failed", user["id"] if user else None)
+        raise AccountError(401, "invalid_credentials", "the e-mail address or the password is wrong")
+    if user["email_verified_at"] is None:
+        raise AccountError(403, "not_verified",
+                           "confirm your e-mail address first: open the link we sent you")
+    if user["totp_enabled_at"] is not None:
+        # The failures stay until the code is right too: a password alone must not buy a
+        # fresh set of free guesses at the code.
+        _audit("password_ok_second_step", user["id"])
+        return {"secondStep": True, "ticket": _issue(conn, user["id"], "mfa", MFA_TTL)}
+    _login_succeeded(conn, canonical)
+    _audit("signed_in", user["id"])
+    return _new_session(conn, user["id"], not user["onboarded"])
+
+
+def _second_factor(conn, row: dict[str, Any], code: str) -> bool:
+    """A TOTP code (each step once), or one unused recovery code, which is then used up."""
+    secret = credentials.unseal(row["totp_secret_enc"], _server_key(), str(row["user_id"])) \
+        if row["totp_secret_enc"] is not None else None
+    if secret is not None:
+        step = credentials.totp_step(secret, code, time.time(), row["totp_last_step"])
+        if step is not None:
+            conn.execute("UPDATE app_user SET totp_last_step = %s WHERE id = %s", (step, row["user_id"]))
+            return True
+    return conn.execute(
+        "UPDATE app_recovery_code SET used_at = now() WHERE user_id = %s AND code_hash = %s "
+        "AND used_at IS NULL RETURNING 1",
+        (row["user_id"], credentials.recovery_code_hash(code, _server_key()))).fetchone() is not None
+
+
+@router.post("/auth/login/second")
+def login_second(body: SecondStep, conn=Depends(get_conn),
+                 x_dg_client_ip: str | None = Header(None)) -> dict[str, Any]:
+    """A10. The ticket from the password step (5 minutes) and a code. Wrong codes count as
+    failed sign-ins of the address, so the delay of A8 bounds guessing."""
+    fail = AccountError(400, "invalid_or_expired", "sign in again")
+    if not _TOKEN.match(body.ticket):
+        raise fail
+    row = conn.execute(
+        "SELECT t.token_hash, t.user_id, u.email_canonical, u.totp_secret_enc, u.totp_last_step, u.onboarded "
+        "FROM app_auth_token t JOIN app_user u ON u.id = t.user_id "
+        "WHERE t.token_hash = %s AND t.purpose = 'mfa' AND t.used_at IS NULL AND t.expires_at > now() "
+        "AND u.totp_enabled_at IS NOT NULL FOR UPDATE OF t, u", (_hash(body.ticket),)).fetchone()
+    if not row:
+        raise fail
+    ip = _client_ip(x_dg_client_ip)
+    _login_gate(conn, row["email_canonical"], ip)
+    if not _second_factor(conn, row, body.code):
+        _login_failed(conn, row["email_canonical"], ip)
+        _audit("second_step_failed", row["user_id"])
+        raise AccountError(401, "invalid_code", "that code is not valid")
+    conn.execute("UPDATE app_auth_token SET used_at = now() WHERE token_hash = %s", (row["token_hash"],))
+    _login_succeeded(conn, row["email_canonical"])
+    _audit("signed_in", row["user_id"], second_step=True)
+    return _new_session(conn, row["user_id"], not row["onboarded"])
+
+
 @router.post("/auth/logout", status_code=204)
 def auth_logout(conn=Depends(get_conn), x_dg_session: str | None = Header(None)) -> Response:
     if x_dg_session and _SESSION.match(x_dg_session):
-        conn.execute("DELETE FROM app_session WHERE id_hash = %s", (_hash(x_dg_session),))
+        gone = conn.execute("DELETE FROM app_session WHERE id_hash = %s RETURNING user_id",
+                            (_hash(x_dg_session),)).fetchone()
+        if gone:
+            _audit("signed_out", gone["user_id"])
     return Response(status_code=204)
+
+
+# ------------------------------------------------------------------ password reset
+@router.post("/auth/reset/request", status_code=202)
+def reset_request(body: ResetRequest, background: BackgroundTasks, conn=Depends(get_conn),
+                  x_dg_client_ip: str | None = Header(None)) -> dict[str, bool]:
+    """A9. The same 202 whether or not the address has an account; a mail only if it has.
+    The mail goes to the address the account holds, not to the spelling typed."""
+    _open()
+    canonical, _ = _address(body.email)
+    _prune(conn)
+    conn.commit()
+    _throttle_mail(conn, canonical, _client_ip(x_dg_client_ip))
+    if _disposable(conn, canonical):
+        return OK
+    user = conn.execute("SELECT id, email_display FROM app_user WHERE email_canonical = %s",
+                        (canonical,)).fetchone()
+    if user:
+        conn.execute("DELETE FROM app_auth_token WHERE user_id = %s AND purpose = 'reset'", (user["id"],))
+        _audit("reset_requested", user["id"])
+        background.add_task(_mail, user["email_display"], "reset",
+                            _issue(conn, user["id"], "reset", RESET_TTL))
+    return OK
+
+
+@router.post("/auth/reset/confirm")
+def reset_confirm(body: ResetConfirm, background: BackgroundTasks, conn=Depends(get_conn)) -> dict[str, bool]:
+    """Sets the password, confirms the address (the link reached it) and signs out every
+    session. A refused password does not use the link up. TOTP stays as it was: a mailbox
+    alone does not pass the second step. The account is told by mail, as for a change."""
+    fail = AccountError(400, "invalid_or_expired", "this link is not valid")
+    if not _TOKEN.match(body.token):
+        raise fail
+    row = conn.execute(
+        "SELECT u.email_canonical, u.email_display, u.totp_enabled_at FROM app_auth_token t "
+        "JOIN app_user u ON u.id = t.user_id "
+        "WHERE t.token_hash = %s AND t.purpose = 'reset' AND t.used_at IS NULL AND t.expires_at > now()",
+        (_hash(body.token),)).fetchone()
+    if not row:
+        raise fail
+    _check_password(body.password, row["email_canonical"])
+    spent = _spend(conn, body.token, "reset")
+    if not spent:
+        raise fail
+    user_id = spent["user_id"]
+    _set_password(conn, user_id, body.password)
+    conn.execute("UPDATE app_user SET email_verified_at = coalesce(email_verified_at, now()) WHERE id = %s",
+                 (user_id,))
+    conn.execute("DELETE FROM app_session WHERE user_id = %s", (user_id,))
+    conn.execute("DELETE FROM app_auth_token WHERE user_id = %s AND purpose IN ('reset', 'mfa')", (user_id,))
+    if row["totp_enabled_at"] is None:     # with a second step, the mailbox does not reset its delay
+        _login_succeeded(conn, row["email_canonical"])
+    _audit("password_reset", user_id)
+    background.add_task(_mail, row["email_display"], "changed")
+    return OK
+
+
+# ------------------------------------------------------------------ password and TOTP in settings
+def _require_password(conn, user: dict[str, Any], password: str, ip: str) -> None:
+    """Re-entry of the current password, under the same delay as a sign-in."""
+    _login_gate(conn, user["email_canonical"], ip)
+    if not credentials.verify_password(password, user["password_hash"]):
+        _login_failed(conn, user["email_canonical"], ip)
+        raise AccountError(403, "wrong_password", "the current password is wrong")
+
+
+@router.post("/me/password")
+def change_password(body: PasswordChange, background: BackgroundTasks, conn=Depends(get_conn),
+                    user=Depends(current), x_dg_client_ip: str | None = Header(None)) -> dict[str, bool]:
+    """Every other session ends; this one stays. The account is told by mail."""
+    _require_password(conn, user, body.currentPassword, _client_ip(x_dg_client_ip))
+    _check_password(body.newPassword, user["email_canonical"])
+    _set_password(conn, user["id"], body.newPassword)
+    conn.execute("DELETE FROM app_session WHERE user_id = %s AND id_hash <> %s", (user["id"], user["id_hash"]))
+    _audit("password_changed", user["id"])
+    background.add_task(_mail, user["email_display"], "changed")
+    return OK
+
+
+@router.post("/me/totp/setup")
+def totp_setup(body: PasswordOnly, conn=Depends(get_conn), user=Depends(current),
+               x_dg_client_ip: str | None = Header(None)) -> dict[str, str]:
+    """A new key, held sealed and inactive until a code from it is entered (`enable`)."""
+    _require_password(conn, user, body.password, _client_ip(x_dg_client_ip))
+    if user["totp_enabled_at"] is not None:
+        raise AccountError(409, "totp_enabled", "two-step sign-in is already on")
+    secret = credentials.new_totp_secret()
+    conn.execute("UPDATE app_user SET totp_secret_enc = %s, totp_last_step = NULL WHERE id = %s",
+                 (credentials.seal(secret, _server_key(), str(user["id"])), user["id"]))
+    return {"secret": credentials.b32(secret), "uri": credentials.otpauth_uri(secret, user["email_display"])}
+
+
+@router.post("/me/totp/enable")
+def totp_enable(body: CodeIn, conn=Depends(get_conn), user=Depends(current),
+                x_dg_client_ip: str | None = Header(None)) -> dict[str, list[str]]:
+    """Switches the key on with a first code and hands out the recovery codes, once."""
+    if user["totp_enabled_at"] is not None or user["totp_secret_enc"] is None:
+        raise AccountError(409, "totp_state", "start the set-up again")
+    ip = _client_ip(x_dg_client_ip)
+    _login_gate(conn, user["email_canonical"], ip)
+    secret = credentials.unseal(user["totp_secret_enc"], _server_key(), str(user["id"]))
+    step = credentials.totp_step(secret, body.code, time.time(), None) if secret else None
+    if step is None:
+        _login_failed(conn, user["email_canonical"], ip)
+        raise AccountError(422, "invalid_code", "that code is not valid")
+    codes = credentials.new_recovery_codes()
+    conn.execute("DELETE FROM app_recovery_code WHERE user_id = %s", (user["id"],))
+    for code in codes:
+        conn.execute("INSERT INTO app_recovery_code (user_id, code_hash) VALUES (%s, %s)",
+                     (user["id"], credentials.recovery_code_hash(code, _server_key())))
+    conn.execute("UPDATE app_user SET totp_enabled_at = now(), totp_last_step = %s WHERE id = %s",
+                 (step, user["id"]))
+    _audit("totp_on", user["id"])
+    return {"recoveryCodes": codes}
+
+
+@router.post("/me/totp/disable")
+def totp_disable(body: PasswordOnly, conn=Depends(get_conn), user=Depends(current),
+                 x_dg_client_ip: str | None = Header(None)) -> dict[str, bool]:
+    _require_password(conn, user, body.password, _client_ip(x_dg_client_ip))
+    conn.execute("UPDATE app_user SET totp_secret_enc = NULL, totp_enabled_at = NULL, totp_last_step = NULL "
+                 "WHERE id = %s", (user["id"],))
+    conn.execute("DELETE FROM app_recovery_code WHERE user_id = %s", (user["id"],))
+    _audit("totp_off", user["id"])
+    return OK
 
 
 # ------------------------------------------------------------------ account
@@ -510,10 +933,16 @@ def _user_out(u: dict[str, Any]) -> dict[str, Any]:
         "profile": {"role": u["role"], "tracks": list(u["tracks"]), "countries": list(u["countries"]),
                     "scope": u["scope"], "cadence": u["cadence"]},
         "onboarded": u["onboarded"], "lastVisitAt": u["last_visit_at"],
+        "security": {"hasPassword": u.get("password_hash") is not None,
+                     "totp": u.get("totp_enabled_at") is not None},
         "terms": {"termsVersion": u.get("terms_version"), "privacyVersion": u.get("privacy_version"),
                   "acceptedAt": u.get("accepted_at"),
                   "current": (u.get("terms_version") == TERMS_VERSION
                               and u.get("privacy_version") == PRIVACY_VERSION)},
+        # WP-123: `current` is the plan in force (only billing will change it, WP-124); `chosen` and
+        # `billing` are what the person picked on the pricing page, remembered and nothing more.
+        "plan": {"current": u.get("plan") or "free", "chosen": u.get("plan_choice"),
+                 "billing": u.get("billing_choice")},
     }
 
 
@@ -564,25 +993,49 @@ def patch_me(body: ProfilePatch, conn=Depends(get_conn), user=Depends(current)) 
 
 
 @router.delete("/me", status_code=204)
-def delete_me(body: DeleteAccount, conn=Depends(get_conn), user=Depends(current)) -> Response:
+def delete_me(body: DeleteAccount, conn=Depends(get_conn), user=Depends(current),
+              x_dg_client_ip: str | None = Header(None)) -> Response:
+    """Self-service deletion: the typed address, and the password when the account has one.
+    The account row goes and every table that holds the account id with it (ON DELETE CASCADE):
+    sessions, saved searches, shortlist, follows, confirmation and reset links, second-step
+    tickets, recovery codes; the password hash and the TOTP key are columns of the row. The
+    throttle counters hold no account id (keyed hashes, gone within a day)."""
     try:
         typed, _ = canonical_email(body.confirm)
     except ValueError:
         raise AccountError(422, "confirmation_mismatch", "type your e-mail address to confirm") from None
     if typed != user["email_canonical"]:
         raise AccountError(422, "confirmation_mismatch", "type your e-mail address to confirm")
+    if user["password_hash"] is not None:
+        _require_password(conn, user, body.password or "", _client_ip(x_dg_client_ip))
     conn.execute("DELETE FROM app_user WHERE id = %s", (user["id"],))   # cascades to everything owned
+    _audit("deleted", user["id"])
     return Response(status_code=204)
 
 
 @router.get("/export")
 def export(conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
+    """Art. 15 and 20 GDPR: everything held about the account, in one document. Secrets are
+    never in it (the password hash, the TOTP key, codes and tokens are said to exist, with
+    their dates, not given)."""
     uid = user["id"]
-    log.info("account export for %s", uid)          # O3: logged with the account id
+    _audit("export", uid)                           # O3: logged with the account id
+    held = conn.execute(
+        "SELECT email_verified_at, password_changed_at, totp_enabled_at, "
+        "  (SELECT count(*) FROM app_recovery_code r WHERE r.user_id = u.id AND r.used_at IS NULL) AS codes_left "
+        "FROM app_user u WHERE id = %s", (uid,)).fetchone()
     return {
         "exportedAt": datetime.now(timezone.utc),
         "account": _user_out(user),
-        "searches": [_search_row(r) for r in conn.execute(
+        "security": {"emailConfirmedAt": held["email_verified_at"],
+                     "passwordChangedAt": held["password_changed_at"],
+                     "twoStepOnSince": held["totp_enabled_at"],
+                     "recoveryCodesLeft": held["codes_left"]},
+        "sessions": [{"createdAt": r["created_at"], "lastSeenAt": r["last_seen_at"], "expiresAt": r["expires_at"]}
+                     for r in conn.execute(
+                         "SELECT created_at, last_seen_at, expires_at FROM app_session "
+                         "WHERE user_id = %s ORDER BY created_at LIMIT 50", (uid,)).fetchall()],
+        "searches": [{**_search_row(r), "lastAlertedAt": r["last_alerted_at"]} for r in conn.execute(
             "SELECT * FROM app_saved_search WHERE owner_id = %s ORDER BY created_at LIMIT %s",
             (uid, MAX_SEARCHES)).fetchall()],
         "shortlist": [{"kind": r["kind"], "ref": r["ref"], "status": r["status"], "note": r["note"],
@@ -1265,7 +1718,7 @@ def dashboard(conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, Any]
 # ------------------------------------------------------------------ visit counter
 _KNOWN_ROUTES = {"", "funding", "tenders", "buyers", "data", "market", "calendar", "cpv", "glossary",
                  "methodology", "about", "terms",
-                 "privacy", "imprint", "pricing", "alerts", "pack", "signin", "app"}
+                 "privacy", "imprint", "pricing", "alerts", "pack", "signin", "register", "signup", "reset", "app"}
 _DETAIL_ROUTES = {"funding", "tenders", "buyers"}
 
 

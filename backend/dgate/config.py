@@ -353,8 +353,16 @@ class Settings:
     smtp_password: str | None = field(repr=False,
         default_factory=lambda: os.environ.get("DGATE_SMTP_PASSWORD") or None)
     smtp_from: str | None = field(default_factory=lambda: os.environ.get("DGATE_SMTP_FROM") or None)
-    # starttls (587), ssl (465) or none (a local relay only).
+    # starttls (587), ssl (465) or none (a relay on this host only: ops/mailer.py refuses it for any other).
     smtp_security: str = field(default_factory=lambda: _env("DGATE_SMTP_SECURITY", "starttls"))
+    # WP-123, development and tests only: write every mail as an .eml file into this directory instead of
+    # sending it (ops/mailer.py). Ignored when DGATE_ENV is production.
+    mail_catcher_dir: str | None = field(default_factory=lambda: os.environ.get("DGATE_MAIL_CATCHER_DIR") or None)
+    # WP-123: the key of the account secrets that the server reads back or compares (sealed TOTP keys, recovery
+    # code HMACs, throttle counter HMACs). The API's own: the site's server does not hold it, unlike
+    # DGATE_INTERNAL_SECRET. Without it (development) the internal secret is the key; in production accounts
+    # stay closed until it is set (accounts.accounts_problem).
+    account_key: str = field(repr=False, default_factory=lambda: _env("DGATE_ACCOUNT_KEY", ""))
     # The public address links in mail point at.
     site_url: str = field(default_factory=lambda: _env("DGATE_SITE_URL", "https://defencegatehub.com"))
 
