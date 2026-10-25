@@ -5,6 +5,7 @@
  * change twice, and `updated` is when we last observed that day's change. Titles, buyers, countries, dates and
  * statuses only, as everywhere else: no contact data and nothing about what is being bought beyond its title.
  */
+import { programmeNameOf } from './format';
 import type { Change, FundingChange } from './types';
 
 export interface AtomOptions {
@@ -92,7 +93,7 @@ export function entryTitle(c: Change): string {
 function fundingEntry(f: FundingChange, o: AtomOptions): string {
   const c = f.call;
   const lines = f.changes.map((l) => `${l.label}: ${l.before ?? 'not stated'} to ${l.after ?? 'not stated'}`);
-  const text = f.kind === 'call-new' ? `New funding call: ${c.funder}, ${c.programmeName}.` : `Funding call from ${c.funder}, ${c.programmeName}. ${lines.join('. ')}.`;
+  const text = f.kind === 'call-new' ? `New funding call: ${c.funder}, ${programmeNameOf(c)}.` : `Funding call from ${c.funder}, ${programmeNameOf(c)}. ${lines.join('. ')}.`;
   return [
     '  <entry>',
     `    <id>${xmlText(tagId(o.origin, 'change', f.id))}</id>`,

@@ -1598,7 +1598,7 @@ def upsert_call(conn: psycopg.Connection, call: Any, content_hash: str,
         moved = call.status is not None and call.status != existing["status"]
         # A column added after the call was first read is filled from the same
         # payload the next time it is seen, rather than waiting for the call to change.
-        conn.execute("UPDATE call SET last_seen_at = now(), status = COALESCE(%s, status), "
+        conn.execute("UPDATE call SET last_seen_at = now(), unlisted_runs = 0, status = COALESCE(%s, status), "
                      "published_at = COALESCE(published_at, %s) WHERE id = %s",
                      (call.status, call.published_at, call_id))
         # The deadline is derived from the payload alone, so with the payload unchanged a
@@ -1627,7 +1627,7 @@ def upsert_call(conn: psycopg.Connection, call: Any, content_hash: str,
     assignments = ", ".join(f"{f} = %s" for f in supplied)
     conn.execute(
         f"UPDATE call SET {assignments}, content_hash = %s, source_id = %s, "
-        f"last_seen_at = now() WHERE id = %s",
+        f"last_seen_at = now(), unlisted_runs = 0 WHERE id = %s",
         [*supplied.values(), content_hash, src_id, call_id],
     )
     if "deadline_at" in changed:
@@ -1635,6 +1635,19 @@ def upsert_call(conn: psycopg.Connection, call: Any, content_hash: str,
                     before.get("deadline_at"), call.deadline_at)
     record_call_dates(conn, call_id, before, call)
     return call_id, ("changed" if changed else "unchanged"), changed
+
+
+def count_unlisted(conn: psycopg.Connection, src_id: int, run_id: int) -> int:
+    """WP-132: after a complete, successful run of a source that publishes its whole standing list at once (the EU portal's
+    snapshot), one more run that did not list each call the run did not touch: a call the source last called open or
+    forthcoming, in scope. `upsert_call` resets the count when the source lists the call again. Returns how many were counted;
+    funding.EFFECTIVE_STATUS serves a call as `unlisted` from funding.UNLISTED_AFTER_RUNS."""
+    return conn.execute(
+        """UPDATE call c SET unlisted_runs = LEAST(c.unlisted_runs + 1, 32767)
+             FROM ingest_run r
+            WHERE r.id = %s AND c.source_id = %s AND c.last_seen_at < r.started_at
+              AND c.status IN ('open', 'forthcoming') AND NOT c.out_of_scope""",
+        (run_id, src_id)).rowcount
 
 
 def _call_day(value: Any) -> str | None:

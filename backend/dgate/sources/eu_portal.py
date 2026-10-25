@@ -394,11 +394,24 @@ _MEMBER_NOUNS = ("entities", "organisations", "organizations", "participants",
                  "applicants", "beneficiaries", "partners", "legal entities")
 
 _AT_LEAST = r"at least\s+(\d+|" + "|".join(_NUMBER_WORDS) + r")\s+"
+# WP-132: only these words may stand between the number and the noun. Any three words did, and "at least 2 Civil Society
+# Organisations" (a kind of partner the topic requires, 44, 46, 47) was read as the consortium's size.
+_MEMBER_WORDS = r"(?:(?:independent|eligible|different|separate|legal),?\s+){0,2}"
 _CONSORTIUM_SIZE = re.compile(
-    _AT_LEAST + r"(?:\w+\s+){0,3}?(?:" + "|".join(_MEMBER_NOUNS) + r")\b",
+    _AT_LEAST + _MEMBER_WORDS + r"(?:" + "|".join(_MEMBER_NOUNS) + r")\b",
     re.IGNORECASE)
 _MEMBER_STATES = re.compile(
     _AT_LEAST + r"(?:different\s+)?(?:EU\s+)?[Mm]ember [Ss]tates", re.IGNORECASE)
+# "at least 2 Border or Coast Guard Authorities from at least 2 different Member States": a count of some partners, which the
+# countries clause then belongs to (39, 42, 43, 45, 55 said "from 2 Member States" against a rule of 3 countries)
+_SOME_PARTNERS = re.compile(_AT_LEAST + r"(?!" + _MEMBER_WORDS + r"(?:" + "|".join(_MEMBER_NOUNS) + r")\b)\S", re.IGNORECASE)
+# The call also takes one applicant alone (EIC Pathfinder: "from consortia or from single legal entities"): no minimum consortium
+_SINGLE = re.compile(r"\b(?:single|individual)\s+(?:legal\s+)?(?:entit\w*|beneficiar\w*|applicants?)\b", re.IGNORECASE)
+_NOT = re.compile(r"\b(?:not|cannot|never|excluded|ineligible)\b", re.IGNORECASE)
+
+
+def _single_applicant(text: str) -> bool:
+    return any(_SINGLE.search(s) and not _NOT.search(s) for s in re.split(r"(?<=[.;])\s+", text))
 
 
 def _count(word: str) -> int | None:
@@ -456,10 +469,12 @@ def consortium_rule(text: str | None) -> tuple[int | None, int | None]:
     requires in general, would be a rule read from the regulation and presented
     as a fact about this call.
     """
-    if not text:
+    if not text or _single_applicant(text):
         return None, None
-    size = _CONSORTIUM_SIZE.search(text)
-    states = _MEMBER_STATES.search(text)
+    text = re.sub(r"\[\[.*?\]\]", " ", text, flags=re.S)     # the portal's footnotes ("[[Police Authorities means ...]]") split no clause
+    size =_CONSORTIUM_SIZE.search(text)
+    states = next((m for m in _MEMBER_STATES.finditer(text)
+                   if not _SOME_PARTNERS.search(re.split(r"[.;:]\s", text[:m.start()])[-1])), None)
     return (_count(size.group(1)) if size else None,
             _count(states.group(1)) if states else None)
 

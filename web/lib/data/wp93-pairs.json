@@ -11376,15 +11376,15 @@
    ]
   },
   "P6|188": {
-   "fit": "check",
-   "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "fit": "no",
+   "shown": "no",
+   "word": "Blocked by: Staff count with the group",
    "conditions": [],
    "lines": [
     {
      "key": "group",
-     "verdict": "yes",
-     "reason": "The call is for companies with fewer than 2000 staff, counted with the group, and yours is within that."
+     "verdict": "no",
+     "reason": "The call is for companies with fewer than 2000 staff, counted with the group. A university is not a company."
     },
     {
      "key": "country",

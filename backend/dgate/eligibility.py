@@ -374,6 +374,46 @@ def consortium_floor(facts: dict[str, Any], action: str | None, general_read: bo
     return out
 
 
+# WP-132 (KEC, EUR 282 m): a quote that joins two lines of a list and leaves out the one between ("must: - be established in ..."
+# without "- be legal entities (public or private bodies)") is still the document's text when its parts are there, in order, each at
+# most QUOTE_GAP characters after the one before, at most QUOTE_PARTS of them, each QUOTE_PART_MIN characters or longer.
+QUOTE_GAP, QUOTE_PARTS, QUOTE_PART_MIN = 160, 3, 20
+
+
+def _in_order(q: str, haystack: str) -> bool:
+    words = q.split()
+
+    def rest(i: int, at: int, parts: int) -> bool:
+        if i == len(words):
+            return True
+        if parts == QUOTE_PARTS:
+            return False
+        for j in range(len(words), i, -1):          # the longest next part first
+            piece = " ".join(words[i:j])
+            if len(piece) < QUOTE_PART_MIN:
+                return False
+            k = haystack.find(piece, at, at + QUOTE_GAP + len(piece))
+            if k >= 0:
+                return rest(j, k + len(piece), parts + 1)
+        return False
+
+    n = next((i for i in range(1, len(words) + 1) if len(" ".join(words[:i])) >= QUOTE_PART_MIN), len(words))
+    first = " ".join(words[:n])
+    start = haystack.find(first)
+    while start >= 0:
+        if rest(0, start, 0):
+            return True
+        start = haystack.find(first, start + 1)
+    return False
+
+
+def quote_found(quote: str, haystack: str) -> bool:
+    """Whether a quote is the document's text; `haystack` is the document after `_norm`."""
+    q = _norm(quote)
+    # A long quote the model cut short or tidied at its end is still the document's sentence.
+    return bool(q) and (q in haystack or (len(q) >= 100 and q[:100] in haystack) or _in_order(q, haystack))
+
+
 def check_quotes(answer: dict[str, Any], text: str, topic_code: str | None = None) -> dict[str, Any]:
     """Add `verified` to every fact: whether its quote is in the document text. A stated fact
     without a found quote keeps its value but its confidence is capped. With the call's topic code,
@@ -382,9 +422,7 @@ def check_quotes(answer: dict[str, Any], text: str, topic_code: str | None = Non
     out: dict[str, Any] = {}
 
     def found(quote: str) -> bool:
-        q = _norm(quote)
-        # A long quote the model cut short or tidied at its end is still the document's sentence.
-        return bool(q) and (q in haystack or (len(q) >= 100 and q[:100] in haystack))
+        return quote_found(quote, haystack)
 
     for name in FIELDS:
         fact = dict(answer[name])
@@ -648,6 +686,38 @@ def extract_one(conn, url: str, *, force: bool = False, client: httpx.Client | N
     stated = sum(1 for f in fields.values() if f["value"] is not None)
     verified = sum(1 for f in fields.values() if f["verified"])
     return {"url": key, "status": "done", "scope": scope, "stated": stated, "verified": verified, **usage}
+
+
+def reverify_stored(conn, *, write: bool = False) -> dict[str, Any]:
+    """WP-132: check again, against the stored document text, the quotes of stored facts that were not found when they were read
+    (`quote_found` now also finds a quote whose parts are in the document in order). Nothing is fetched and no model is asked; a fact
+    found now is marked verified, its value and quote unchanged. Returns the counts and the rows (url: facts) it changes."""
+    from psycopg.types.json import Jsonb
+
+    rows = conn.execute(
+        """SELECT e.url, e.fields, t.text FROM call_eligibility e
+             JOIN call_document_text t ON t.url = COALESCE(e.document_url, split_part(e.url, '#', 1))
+            ORDER BY e.url""").fetchall()
+    counts: dict[str, Any] = {"rows": len(rows), "unverified": 0, "found": 0, "changed": {}}
+    for r in rows:
+        haystack, fields, now_found = _norm(r["text"]), dict(r["fields"] or {}), []
+        code = r["url"].split("#", 1)[1] if "#" in r["url"] else None
+        for name, fact in fields.items():
+            if not isinstance(fact, dict) or fact.get("verified") or fact.get("other_topic") or fact.get("value") is None:
+                continue
+            counts["unverified"] += 1
+            quote = (fact.get("quote") or "").strip()
+            if quote and quote_found(quote, haystack) and not names_other_topic(quote, code):
+                fields[name] = {**fact, "verified": True}
+                now_found.append(name)
+        if now_found:
+            counts["found"] += len(now_found)
+            counts["changed"][r["url"]] = now_found
+            if write:
+                conn.execute("UPDATE call_eligibility SET fields = %s WHERE url = %s", (Jsonb(fields), r["url"]))
+    if write:
+        conn.commit()
+    return counts
 
 
 def redact_stored(conn, *, write: bool = False) -> dict[str, int]:

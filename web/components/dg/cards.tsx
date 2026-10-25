@@ -1,6 +1,6 @@
 import { TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { callStatusKind, getCallDeadline, getTenderDeadline, localDeadline, now } from '@/lib/deadline';
+import { callStatusKind, closingDayNote, getCallDeadline, getTenderDeadline, localDeadline, now } from '@/lib/deadline';
 import { formatDateUtc, formatNumber, funderLine, isPlaceholderAmount, openingPhrase, variantsLine } from '@/lib/format';
 import { AWARD_VALUE_LABEL, anomalyNotes, isLongRunning, noticeValueLabel, subjectAddsTo, tenderChangedLabel, tenderStatusView, winnersLine } from '@/lib/tender-status';
 import { PROGRAMMES, REGIMES, isNonEnglish } from '@/lib/taxonomy';
@@ -111,6 +111,10 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
                 {/* No countdown before the call opens, and none without a deadline. */}
                 {!upcoming && d.countdown && (
                   <div className={cn('font-sans text-small font-bold', closed ? 'text-ink-muted' : soon ? 'text-soon-fg' : 'text-accent-text')}>{d.countdown}</div>
+                )}
+                {/* WP-132: the closing day says the hour where it is known, and to check it where it is not */}
+                {!upcoming && closingDayNote(d, call.funderCountry) && (
+                  <div className="font-sans text-small font-normal text-ink-muted" data-closing-day>{closingDayNote(d, call.funderCountry)}</div>
                 )}
               </>
             ) : (

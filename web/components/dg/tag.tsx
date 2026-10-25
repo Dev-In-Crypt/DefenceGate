@@ -22,6 +22,8 @@ const PILL: Record<StatusKind, { cls: string; label: string }> = {
   amended: { cls: 'bg-primary text-on-primary', label: 'Amended' },
   // Neither open nor closed: the source does not say. Neutral fill with a hairline, never the green of "Open".
   unknown: { cls: 'border-line bg-surface-inset text-ink', label: 'Status unknown' },
+  // WP-132: the source stopped listing a call it called open or forthcoming. It did not say it closed: neutral, never the green of "Open".
+  unlisted: { cls: 'border-line bg-surface-inset text-ink', label: 'No longer listed' },
 };
 
 /** Always text-labelled, never colour alone. Not interactive. */

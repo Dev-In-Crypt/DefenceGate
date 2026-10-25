@@ -574,7 +574,13 @@ export function check(facts: EligibilityFacts, p: Profile, ctx?: CallContext): R
     const n = most.value;
     const line = (verdict: Verdict, reason: string): Line => ({ key: 'group', label: 'Staff count with the group', verdict, reason, quote: most.quote });
     const h = p.size;
-    if (h && h.max <= n) lines.push(line('yes', `The call is for companies with fewer than ${n + 1} staff, counted with the group, and yours is within that.`));
+    // WP-132 (RAPID, a Polish university: "Nothing known blocks you"): a cap on a company's group staff makes the call one for companies;
+    // a university or a public body is not one, and a research organisation only if it is a company (verdict.py says the same)
+    if (p.kind === 'university' || p.kind === 'public' || (!p.kind && (p.orgType === 'public' || p.orgType === 'university'))) {
+      const who = p.kind === 'university' ? 'A university' : p.orgType === 'public' ? 'A public body' : 'A university or a research body';
+      lines.push(line('no', `The call is for companies with fewer than ${n + 1} staff, counted with the group. ${who} is not a company.`));
+    } else if (p.kind === 'research') lines.push(line('check', `The call is for companies with fewer than ${n + 1} staff, counted with the group. A research organisation may apply only if it is such a company.`));
+    else if (h && h.max <= n) lines.push(line('yes', `The call is for companies with fewer than ${n + 1} staff, counted with the group, and yours is within that.`));
     else if (h && h.min > n) lines.push(line('no', `The call is for companies with fewer than ${n + 1} staff, counted with the group, and your answers give ${staff(h)}.`));
     else lines.push(line('check', `The call is for companies with fewer than ${n + 1} staff, counted with the whole group. Check your group's consolidated staff count.`));
   }

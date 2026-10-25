@@ -13,11 +13,12 @@ export type WhoMayApply = 'companies' | 'public' | 'designated';
 /** The values of the filter `who` (WP-99: a call open only to designated bodies is in neither). */
 export type WhoFilter = 'companies' | 'public' | 'research';
 export type Regime = 'defence' | 'dual-use';
-export type CallStatus = 'open' | 'forthcoming' | 'closed';
+/** WP-132: `unlisted`: the source stopped listing a call it last called open or forthcoming (`lastSeenAt` is when it last listed it). */
+export type CallStatus = 'open' | 'forthcoming' | 'closed' | 'unlisted';
 /** Deadline presentation state, derived in lib/deadline.ts — never stored. 'none' = no stated deadline. */
 export type DeadlineState = 'normal' | 'soon' | 'urgent' | 'closed' | 'none';
 /** UI status pill values. 'upcoming' = a forthcoming call ("Opens soon"). */
-export type StatusKind = 'open' | 'upcoming' | 'pending' | 'soon' | 'closed' | 'amended' | 'unknown';
+export type StatusKind = 'open' | 'upcoming' | 'pending' | 'soon' | 'closed' | 'amended' | 'unknown' | 'unlisted';
 
 /** ISO 8601 timestamp, always UTC (e.g. "2026-11-26T16:00:00Z"). */
 export type IsoDateTime = string;
@@ -150,6 +151,8 @@ export interface Call {
   ukraineBasis?: { reason: string; evidence: string | null } | null;
   /** Detail only: the regime the call is under and its headline conditions, each with its source. Absent on older API builds. */
   rulesApply?: RulesApply | null;
+  /** Detail only (WP-132): the scope rule no longer takes the call (WP-109): its page says so and is not indexed. */
+  outOfScope?: boolean;
 }
 
 /** Why a call has no budget figure (GET /v1/funding `budgetNote`). `perProject` is a ceiling the source states per project, not a budget. */

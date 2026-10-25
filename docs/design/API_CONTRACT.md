@@ -67,7 +67,7 @@ type CountryCode = 'EU'|'PL'|'SE'|'FR'|'ES'|'FI'|'DE'|'IT'|'NL';   // funder cou
 type CurrencyCode = string;                                      // ISO 4217 as the source states it
 type ProgrammeCode = 'EDF'|'EDIP'|'HORIZON'|'DIGITAL'|'NATIONAL';
 type Regime = 'defence'|'dual-use';
-type CallStatus = 'open'|'forthcoming'|'closed';
+type CallStatus = 'open'|'forthcoming'|'closed'|'unlisted';   // unlisted: WP-132
 
 interface Call {
   id: string;                  // numeric id as a string
@@ -1338,3 +1338,17 @@ Rate limit: 15 tokens (the five list searches as separate requests cost 22).
   award load finished after them: its contracts join the order at the next renewal; each card's own values are summed live).
 - `GET /v1/changes?pageSize=200&page=1|2` (the Atom feed's first page) is kept by the worker (`ops/warm_lists`), and a page
   larger than 100 now reads its snapshot too (it is still not kept in memory).
+
+## Changes of 25 October 2026 (WP-132: funding calls, round-7 funding audit)
+
+- `/v1/funding` and `/v1/funding/{slug}` `status` has a fourth value, `unlisted`: the source stopped listing a call it last called
+  `open` or `forthcoming` (the EU portal: missing from 2 complete nightly runs in a row, `funding.UNLISTED_AFTER_RUNS`). Not in
+  `open`, `forthcoming`, `open-forthcoming`, `closing-soon` or `closed`; in `all`. `lastSeenAt` is the last time the source listed
+  it. A call listed again is `open` or `forthcoming` again. `sourceStatus` stays the source's last word.
+- `GET /v1/funding/{slug}` has `outOfScope` (true for a call the scope rule of WP-109 no longer takes); `GET /v1/funding/slugs`
+  leaves such calls out.
+- `whoMayApply`: a call whose own facts say nothing either way and whose verified facts from the work programme's general annexes
+  let any legal entity take part (Horizon Europe) is `companies`.
+- `eligibility` row `Minimum consortium`: from the call's verified facts (`min_entities`, `min_countries`, `single_applicant_allowed`)
+  with where they were read in brackets ("At least 5 legal entities from at least 3 countries (the topic's conditions)", "None: a
+  single legal entity may apply (the EIC work programme)"); without such facts, the topic text's rule with "(the topic's conditions)".

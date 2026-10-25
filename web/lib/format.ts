@@ -1,3 +1,4 @@
+import { PROGRAMMES } from './taxonomy';
 import type { IsoDateTime, Money } from './types';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
@@ -138,6 +139,16 @@ export function variantsLine(n: number): string | null {
 }
 
 /** "European Commission · European Defence Fund": who pays and the programme in full; said once when they are the same. */
-export function funderLine(c: { funder: string; programmeName: string }): string {
-  return c.funder === c.programmeName ? c.funder : `${c.funder} · ${c.programmeName}`;
+export function funderLine(c: { funder: string; programmeName: string; programme?: string }): string {
+  const name = programmeNameOf(c);
+  return c.funder === name ? c.funder : `${c.funder} · ${name}`;
+}
+
+/**
+ * WP-109 (p09): the programme a call is under, by name. The portal files the EDIP calls (the Ukraine Support Instrument's included) under
+ * the European Defence Fund; their programme is the instrument the topic code names (`programme`), as the call page says. WP-132: the
+ * card and the call header say it too ("European Commission · European Defence Fund" stood under the 9 EDIP calls).
+ */
+export function programmeNameOf(c: { programme?: string; programmeName: string }): string {
+  return c.programme === 'EDIP' || c.programme === 'EDIP-USI' ? PROGRAMMES[c.programme].name : c.programmeName;
 }

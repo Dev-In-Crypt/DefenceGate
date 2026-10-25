@@ -1,6 +1,7 @@
 // A fake of the parts of the API that WP-52b reads, shaped as docs/design/API_CONTRACT.md ("Changes of 19 October 2026") says, with the
 // numbers of the UX audit of 19 October 2026: 1,449 open notices with a deadline (593 in November), 287,634 closed notices that stop at
-// position 10,000, 2,311 changes in 14 days (3,100 for Poland), a digest week of 873 new notices. For e2e/wp52b-api.spec.ts and e2e/wp127-api.spec.ts; nothing else uses it.
+// position 10,000, 2,311 changes in 14 days (3,100 for Poland), a digest week of 873 new notices. For e2e/wp52b-api.spec.ts, e2e/wp127-api.spec.ts and
+// e2e/wp132-api.spec.ts (five funding calls, 9001-9005); nothing else uses it.
 //
 // `npx playwright test` against a local build starts it and a second `next start` that reads it (playwright.config.ts, the
 // fake-api-* projects, WP-128). By hand, against a site of your own:
@@ -108,6 +109,27 @@ function tenders(q) {
   return [200, { items, total, totalCapped: capped, page, pageSize: size, maxOffset: 10_000, meta: { updatedAt: NOW }, asOf: '2026-10-12T07:55:00Z' }];
 }
 
+// ---- WP-132: funding calls as production served them on 25 October 2026 (e2e/wp132-api.spec.ts): one outside the scope rule, one the
+// portal stopped listing, one closing today on a date only, one closing today at 17:00 Brussels, one EDIP call filed under the EDF ----
+const EU_SRC = { sourceId: 'eu_portal', sourceName: 'EU Funding & Tenders Portal', url: 'https://ec.europa.eu/info/funding-tenders/opportunities/portal/x', retrievedAt: '2026-10-12T04:20:00Z', licence: 'CC BY 4.0', attribution: '© European Union' };
+const fundingCall = (id, over = {}) => ({
+  id: String(id), slug: `${id}-wp132-call-${id}`, programme: 'HORIZON', programmeName: 'Horizon Europe', funder: 'European Commission', callId: 'HORIZON-CL3-2026-01',
+  topicId: `HORIZON-CL3-2026-01-WP132-${id}`, title: `WP-132 call ${id}`, titleLanguage: 'en', originalTitle: null, originalLanguage: null, regime: 'defence',
+  funderCountry: 'EU', issuer: null, status: 'open', sourceStatus: 'open', openingDate: '2025-11-06T00:00:00Z', deadline: '2026-11-05T22:59:59Z', deadlineIsDate: true,
+  rolling: false, anomalies: [], budget: { amount: 6000000, currency: 'EUR' }, budgetScope: 'topic', budgetNote: null, actionType: 'Research and Innovation Action',
+  fundingRate: null, scope: [], eligibility: [], cascade: null, openToUkraine: null, whoMayApply: 'companies', researchMayApply: true, smeOnly: null,
+  publishedAt: '2025-11-06T00:00:00Z', firstSeenAt: '2026-09-24T09:42:00Z', lastSeenAt: '2026-10-12T04:20:00Z', source: EU_SRC,
+  conditionsText: null, fundsSummary: null, whoCanApply: [], documents: [], documentEligibility: null, eligibilityState: 'no_source', eligibilitySources: [],
+  cascadeBasis: null, partnerArea: null, ukraineBasis: null, rulesApply: null, outOfScope: false, ...over,
+});
+const FUNDING = {
+  9001: fundingCall(9001, { regime: 'dual-use', title: 'RAISE doctoral networks for AI in science', deadline: '2026-10-20T21:59:59Z', outOfScope: true }),
+  9002: fundingCall(9002, { status: 'unlisted', sourceStatus: 'forthcoming', title: 'European network for upscaling venture builders', deadline: '2027-02-02T22:59:59Z', lastSeenAt: '2026-10-07T04:20:17Z' }),
+  9003: fundingCall(9003, { title: 'Advanced materials for miniaturised energy harvesting', deadline: '2026-10-12T21:59:59Z' }),
+  9004: fundingCall(9004, { title: 'Strengthening cybersecurity capacities', programme: 'DIGITAL', programmeName: 'Digital Europe Programme', deadline: '2026-10-12T15:00:00Z', deadlineIsDate: false }),
+  9005: fundingCall(9005, { title: 'Key electronic components', programme: 'EDIP', programmeName: 'European Defence Fund', topicId: 'EDF-EDIP-P-2027-LS-IRA-KEC' }),
+};
+
 function route(url) {
   const p = url.pathname;
   const q = url.searchParams;
@@ -126,7 +148,15 @@ function route(url) {
   if (p === '/v1/digest') return q.get('week') === '2026-W42' ? [200, digest('2026-W42')] : [404, {}];
   if (p === '/v1/digest/weeks') return [200, [{ week: '2026-W42', weekFrom: '2026-10-12T00:00:00Z', weekTo: '2026-10-19T00:00:00Z', counts: null, computedAt: null }]];
   if (p === '/v1/sources') return [200, sources()];
+  if (p === '/v1/funding' && q.get('q') === 'wp132') {
+    const items = [FUNDING[9002], FUNDING[9003], FUNDING[9004], FUNDING[9005]].map(({ outOfScope, ...c }) => c);
+    return [200, { items: Number(q.get('page') ?? 1) === 1 ? items : [], total: items.length, page: Number(q.get('page') ?? 1), pageSize: Number(q.get('pageSize') ?? 10), meta: { updatedAt: NOW } }];
+  }
   if (p === '/v1/funding') return [200, { items: [], total: 0, page: 1, pageSize: Number(q.get('pageSize') ?? 10) }];
+  if (/^\/v1\/funding\/\d+/.test(p)) {
+    const c = FUNDING[Number(/^\/v1\/funding\/(\d+)/.exec(p)[1])];
+    return c ? [200, c] : [404, { detail: 'no such call' }];
+  }
   return [404, { detail: 'not here' }];
 }
 
