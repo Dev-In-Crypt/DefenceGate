@@ -47,6 +47,7 @@ from .config import settings
 from .suppliers import ValueSum
 from .suppress import removed
 from .tenders import (
+    COLLAPSE_REPEATS,
     CORE,
     FIELD_LABELS,
     PLACEHOLDER_VALUE_MAX,
@@ -659,7 +660,7 @@ def buyer_profile(conn, org_id: int, today: date | None = None) -> dict[str, Any
     today = today or datetime.now(timezone.utc).date()
     own, one = _buyer_scope(org_id)
     where = f"{own} AND {collapse_clauses([own])}"
-    params = one * 4
+    params = one * COLLAPSE_REPEATS
     head = conn.execute(
         f"""SELECT count(*) AS n, count(*) FILTER (WHERE {_api().EFFECTIVE_STATUS_SQL} = 'open')
                    AS open_n

@@ -56,7 +56,8 @@ def test_a_count_under_the_codes_that_takes_too_long_is_the_plain_count_and_says
     # the collapse made slow (a sleep per notice) past a budget of 10 ms: the plain count, the copy counted too
     monkeypatch.setattr(tenders, "UNDER_CODES_MS", 10)
     real = tenders.collapse_clauses
-    slow = "(SELECT true FROM pg_sleep(0.05)) AND %s::text[] IS NOT NULL AND %s::text[] IS NOT NULL AND %s::text[] IS NOT NULL"
+    # one placeholder per collapse rule, as the real clauses carry the filters' (WP-135: four rules)
+    slow = "(SELECT true FROM pg_sleep(0.05)) AND " + " AND ".join(["%s::text[] IS NOT NULL"] * (tenders.COLLAPSE_REPEATS - 1))
     monkeypatch.setattr(tenders, "collapse_clauses", lambda w, same_buyer=False: (
         slow if tenders.CPV_HEADS in w else real(w, same_buyer=same_buyer)))
     late = get(client, "/v1/buyers", cpv="343")

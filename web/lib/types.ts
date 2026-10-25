@@ -378,6 +378,8 @@ export interface Tender {
   subcontracting: boolean;
   /** The same notice in other sources. `source` is the source's name or id (the contract does not say which). `id` and `noticeId` are the other notice's. */
   sameNotice: { source: string; url: string | null; id?: string; noticeId?: string }[];
+  /** WP-135, the notice's own page only: the slug of the copy the lists show, when this notice is the other copy of a Polish notice (bulletin and mirror). */
+  copyOf?: string | null;
   /** retrievedAt = when the source last changed the notice as we saw it; checkedAt = when we last collected that source. */
   source: SourceAttribution;
   /** WP-90, the notice's own page only: the first sentence of its description when it reads as a commercial subject (no specification, no contact). */
