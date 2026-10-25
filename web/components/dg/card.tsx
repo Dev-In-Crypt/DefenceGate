@@ -13,6 +13,11 @@ import { cn } from '@/lib/utils';
  */
 export const CARD_SURFACE = 'rounded-lg border border-transparent bg-surface';
 export const CARD_PADDING = 'p-5 sm:p-7';
+/**
+ * WP-118: a row of a list that is one link as a whole (a stretched title, or a link that fills the row) shows its hover and keyboard focus on
+ * the row, the inset tint (the spread shadow carries the tint 8 px past the text, so nothing moves), never as an underline of its lines.
+ */
+export const ROW_HOVER = 'hover:bg-surface-inset hover:shadow-[0_0_0_8px_var(--surface-inset)] has-[:focus-visible]:bg-surface-inset has-[:focus-visible]:shadow-[0_0_0_8px_var(--surface-inset)]';
 const CARD_BODY = 'flex min-w-0 flex-col gap-4 [&_p]:max-w-prose';
 
 export const slugId = (title: string) => title.toLowerCase().replace(/\W+/g, '-');

@@ -46,9 +46,9 @@ function Tile({ id, href, question, title, body, go, children }: { id: string; h
   return (
     <li className="min-w-0">
       <Link href={href} data-tile="" aria-labelledby={`${id}-q ${id}-t`} aria-describedby={children ? `${id}-b ${id}-n` : `${id}-b`}
-        className={`group flex h-full flex-col gap-3 border-strong text-ink no-underline transition-colors duration-dg hover:border-ink-muted ${CARD_SURFACE} ${CARD_PADDING}`}>
+        className={`group flex h-full flex-col gap-3 border-strong text-ink no-underline transition-colors duration-dg hover:border-ink-muted focus-visible:border-ink-muted ${CARD_SURFACE} ${CARD_PADDING}`}>
         <h2 id={`${id}-q`} className="m-0 text-h4 text-accent-text">{question}</h2>
-        <span id={`${id}-t`} className="text-h3 font-bold group-hover:underline">{title}</span>
+        <span id={`${id}-t`} className="text-h3 font-bold">{title}</span>
         <span id={`${id}-b`} className="text-body text-ink-muted">{body}</span>
         {children && <span id={`${id}-n`} className="mt-auto flex flex-wrap gap-x-6 gap-y-2 pt-1">{children}</span>}
         <span className={`inline-flex items-center gap-2 text-body font-bold ${children ? '' : 'mt-auto'}`}>{go}<Icon icon={ArrowRight} size="inline" /></span>

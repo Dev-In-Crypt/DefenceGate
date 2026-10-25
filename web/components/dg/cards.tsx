@@ -18,18 +18,18 @@ import { BasisChips } from './basis-chips';
 import { FitBadge } from '../funding/fit-badge';
 
 /**
- * A list card: the book's surface with no outline, radius 20, a 1.5px --ink-muted edge and an underlined title on hover (the transparent
+ * A list card: the book's surface with no outline, radius 20, a 1.5px --ink-muted edge on hover and on keyboard focus, no underline (WP-118: the whole card is the link) (the transparent
  * border keeps the box the same size on hover and draws the card in forced colours). Compact by the owner's decision of 21 Oct 2026 (the
  * book's 28 px padding, 20 px gaps and 28/36 title made a call card 331-371 px tall): padding 20, 12 px between the parts.
  */
-const CARD = '[container-type:inline-size] group relative flex flex-col gap-3 [&_p]:max-w-prose rounded-lg border-strong border-transparent bg-surface p-5 transition-colors duration-dg hover:border-ink-muted has-[[data-link-pending]]:opacity-70';
+const CARD = '[container-type:inline-size] group relative flex flex-col gap-3 [&_p]:max-w-prose rounded-lg border-strong border-transparent bg-surface p-5 transition-colors duration-dg hover:border-ink-muted has-[:focus-visible]:border-ink-muted has-[[data-link-pending]]:opacity-70';
 /**
  * Card title: the card-title step, 20/28 bold (the book's 28/36 h2 is for page-level titles). Two lines at most in a wide card, three in a
  * narrow one (the card is a size container); the whole title is also in the link's `title` (a tooltip) and always in the link text itself,
  * which the clamp only hides.
  */
 export const CARD_TITLE = 'm-0 line-clamp-3 text-h3 font-bold cq:line-clamp-2';
-const TITLE_LINK = 'break-words text-inherit no-underline decoration-2 underline-offset-4 group-hover:underline after:absolute after:inset-0 after:rounded-lg after:content-[""]';
+const TITLE_LINK = 'break-words text-inherit no-underline decoration-2 underline-offset-4 after:absolute after:inset-0 after:rounded-lg after:content-[""]';
 /**
  * One column in a narrow card (text, facts, provenance). From a 664 px card the facts are a 22rem column at the right of the text, and the
  * provenance runs under both on one line.
