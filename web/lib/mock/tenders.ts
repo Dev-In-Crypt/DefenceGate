@@ -325,6 +325,17 @@ export function findTender(slug: string, ref: Date = now()): Tender | null {
   return t ? { ...t, subject: null, documentsUrl: null, awardedTo: [], awardedPersons: 0, awardValue: null, ...DETAIL[RAW[Number(t.id) - 1].words] } : null;
 }
 
+/**
+ * WP-121: the demo's old addresses (`GET /v1/tenders/{slug}/moved`): 990001 is a notice that left the defence scope, 990002 one whose
+ * publication in scope is the demo's first notice.
+ */
+export function movedTender(slug: string): { slug: string | null; left: { title: string; noticeId: string; sourceName: string; url: string | null } | null } | null {
+  const id = /^(\d+)(?:-|$)/.exec(slug)?.[1];
+  if (id === '990001') return { slug: null, left: { title: 'Latvia – Utility vehicles', noticeId: '711894-2026', sourceName: 'TED (Tenders Electronic Daily)', url: 'https://ted.europa.eu/en/notice/-/detail/711894-2026' } };
+  if (id === '990002') return { slug: allTenders()[0].slug, left: null };
+  return null;
+}
+
 export function tenderVersions(slug: string): TenderVersion[] | null {
   const t = findTender(slug);
   if (!t) return null;
@@ -345,7 +356,8 @@ export function allBuyers(ref: Date = now()): Buyer[] {
       lastPublishedAt: published.at(-1) ?? null, isDefenceBuyer: b.defence,
       nameVariants: i === 0 ? 2 : 0,
       // WP-111: the names the family's other rows publish under (the buyer's own page)
-      ...(i === 0 ? { variantNames: ['Skarb Panstwa - Demo Armaments Agency', 'DEMO ARMAMENTS AGENCY, WARSZAWA'] } : {}),
+      // WP-121: and one as the pipeline stored it after taking an e-mail address out (Agencja Uzbrojenia, p04): the same name once shown
+      ...(i === 0 ? { variantNames: ['Skarb Panstwa - Demo Armaments Agency', 'DEMO ARMAMENTS AGENCY, WARSZAWA', 'Skarb Panstwa - Demo Armaments Agency, [email removed]'] } : {}),
     };
   });
 }

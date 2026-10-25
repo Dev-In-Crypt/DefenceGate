@@ -7,8 +7,8 @@ import { Button } from '@/components/dg/button';
 import { Select, TextInput } from '@/components/dg/form';
 import { cpvGroupName } from '@/lib/cpv';
 import { formatDateTimeUtc, formatDateUtc, formatNumber, plural } from '@/lib/format';
-import { amendmentsShown, daysText, monthLabel, percentText } from '@/lib/market';
-import { buildMetadata } from '@/lib/seo';
+import { amendmentsShown, citeLine, daysText, monthLabel, percentText } from '@/lib/market';
+import { absoluteUrl, buildMetadata } from '@/lib/seo';
 import { AutoGrid } from '@/components/dg/auto-grid';
 import { AboutData } from '@/components/dg/about-data';
 import { BarChart, RankTable } from '@/components/market/charts';
@@ -207,6 +207,12 @@ export default async function MarketPage({ searchParams }: Props) {
         </FactCell>
         <FactCell label="Figures as of"><time dateTime={stats.asOf}>{formatDateTimeUtc(stats.asOf)}</time></FactCell>
       </dl>
+      {/* WP-121: how to quote these figures, next to their date (terms, 12) */}
+      <p className="m-0 max-w-prose text-small text-ink-muted" data-cite>
+        <span className="font-semibold text-ink">How to cite:</span>{' '}
+        {citeLine(stats.sources.filter((s) => s.count > 0).map((s) => s.name), formatDateTimeUtc(stats.asOf), absoluteUrl(`/market${marketQuery}`))}{' '}
+        <Link href="/terms#c12" className="font-semibold">Terms of use, 12</Link>
+      </p>
       {/* WP-100: the tables below as one file, with the sources' licence and attribution on every row */}
       <a href={`/market/export.csv${marketQuery}`} className="inline-flex min-h-11 items-center gap-2 self-start text-small font-bold" data-market-csv>
         <Icon icon={Download} size="inline" />Download these tables (CSV)

@@ -283,6 +283,17 @@ export async function getTender(slug: string): Promise<Tender | null> {
   return tenderMock.findTender(slug);
 }
 
+/**
+ * WP-121 (p10: an address cited in an earlier round answered 404): where an old notice address leads when `getTender` has none: the slug of
+ * the same procurement's publication in scope, or the notice that left the defence scope (`left`). null for an id never held.
+ */
+export interface TenderMoved { slug: string | null; left: { title: string; noticeId: string; sourceName: string; url: string | null } | null }
+export async function getTenderMoved(slug: string): Promise<TenderMoved | null> {
+  if (!isTenderSlug(slug)) return null;
+  if (API_BASE) return http<TenderMoved>(`/v1/tenders/${encodeURIComponent(slug)}/moved`, 'revalidate', DETAIL_REVALIDATE_SECONDS);
+  return tenderMock.movedTender(slug);
+}
+
 /** The archive of one notice, newest first. */
 export async function getTenderVersions(slug: string): Promise<TenderVersion[]> {
   if (!isTenderSlug(slug)) return [];

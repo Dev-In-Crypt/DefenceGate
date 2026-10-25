@@ -17,7 +17,7 @@ import { FILTER_COLUMN, SkipToResults } from '../dg/list-page';
 import { FilterNotices } from '../dg/filter-notices';
 import { Icon } from '../dg/icon';
 import { FilterBar, type FilterGroup } from './filter-bar';
-import { FitFilter, FitList, type WholeList } from './fit-badge';
+import { FitCount, FitFilter, FitList, type WholeList } from './fit-badge';
 import { SortSelect } from './filter-panel';
 import { LiveListScope, ResultsRegion } from '../dg/live-list';
 import { CallCalendar } from './call-calendar';
@@ -109,7 +109,10 @@ export function CallListTemplate({
         <ResultsRegion id="results" tabIndex={-1} aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4 outline-none">
           <div className="flex flex-wrap items-center gap-3">
             <Count id="results-heading" className="m-0 mr-auto text-body font-semibold" aria-live="polite">
-              {result.total === 0 ? 'No calls' : view === 'calendar' || fitAll ? `${result.total} ${plural(result.total, 'call')}` : `Showing ${from}–${to} of ${result.total} ${plural(result.total, 'call')}`}
+              {result.total === 0 ? 'No calls' : view === 'calendar' ? `${result.total} ${plural(result.total, 'call')}` : (
+                <FitCount text={fitAll ? `${result.total} ${plural(result.total, 'call')}` : `Showing ${from}–${to} of ${result.total} ${plural(result.total, 'call')}`}
+                  ids={result.items.map((c) => c.id)} total={result.total} whole={fitAll} />
+              )}
             </Count>
             {view === 'list' && <SortSelect value={filters.sort ?? 'deadline-asc'} options={sortOptions(filters.currency ?? DEFAULT_CURRENCY)} />}
             <div role="group" aria-label="View" className="flex rounded-pill border border-transparent bg-surface p-1">

@@ -92,9 +92,11 @@ test('a wizard-only Spanish company is sent to the supplier page from its result
 });
 
 test('/changes past its last page, and unknown filter values, say so', async ({ page }) => {
-  await visit(page, '/changes?page=101', { title: /changed/i, h1: 'What changed', text: ['There is no page 101 of this list'] });
+  // WP-121 (moved): past the last page the address goes to the last page, as the other lists answer (it said "There is no page 101")
+  await visit(page, '/changes?page=101', { title: /changed/i, h1: 'What changed' });
+  await expect(page).toHaveURL(/\/changes(\?page=\d+)?$/);
+  expect(Number(new URL(page.url()).searchParams.get('page') ?? '1')).toBeLessThanOrEqual(100);
   await expect(page.getByText('The change list is not available right now')).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Go to page 1' })).toHaveAttribute('href', '/changes');
   await visit(page, '/changes?kind=bogus&week=garbage&country=XX', { title: /changed/i, h1: 'What changed' });
   for (const t of ['Ignored filter: kind=bogus', 'Ignored filter: week=garbage', 'Ignored filter: country=XX']) await expect(page.getByText(t, { exact: false })).toBeVisible();
   await visit(page, '/organisations?country=XX&sort=bogus', { title: /organisations/i, h1: 'Companies', text: ['Ignored filter: country=XX', 'Ignored filter: sort=bogus'] });

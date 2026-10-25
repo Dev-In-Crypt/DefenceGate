@@ -8,7 +8,8 @@ import { visit } from './helpers';
  */
 
 const isMobile = (page: Page) => (page.viewportSize()?.width ?? 1280) < 700;
-const LEAD = 'Defence and dual-use tenders and EU funding calls, the companies already in EU-funded projects, and a five-question check against EDF, EDIP and SAFE rules. Free to browse, every fact linked to its source.';
+// WP-121: "a five-question check" became "a step-by-step check" (the one change to the lead the owner approved, 25 Oct 2026)
+const LEAD = 'Defence and dual-use tenders and EU funding calls, the companies already in EU-funded projects, and a step-by-step check against EDF, EDIP and SAFE rules. Free to browse, every fact linked to its source.';
 const ldOf = (page: Page) => page.locator('script[type="application/ld+json"]').evaluateAll((s) => s.map((n) => JSON.parse(n.textContent ?? '{}')));
 const faqOf = async (page: Page) => ((await ldOf(page)).find((b) => b['@type'] === 'FAQPage')?.mainEntity ?? []).map((q: { name: string }) => q.name) as string[];
 /** "Showing 1–20 of 1,234 tenders": the list's own total. */
@@ -33,35 +34,45 @@ test('home: the owner’s headline and lead, one search and nothing else in the 
   }
 });
 
-test('home: exactly three tiles, each one link to its page, with the live counts of those pages', async ({ page }) => {
+// WP-121 (moved to the new contract, docs/verification/round6/wp121-selfcheck.md): the first tile is two actions, Browse tenders and Browse
+// funding, each with its own count (it was one link to /tenders that showed the funding count); the partners tile opens the organisations
+// in EU-funded defence projects with their count (it opened the winners list, with the count of companies that won contracts); the check
+// tile says the questions it asks (it said "Five short sets of questions").
+test('home: exactly three tiles; each link leads to its page, with the live counts of those pages', async ({ page }) => {
   await visit(page, '/', { title: /DefenceGate/, h1: 'Win, partner, qualify.' });
   const tiles = page.locator('[data-tile]');
   await expect(tiles).toHaveCount(3);
   const hrefs = await tiles.evaluateAll((els) => els.map((e) => e.getAttribute('href')));
-  expect(hrefs).toEqual(['/tenders', '/companies', '/check']);
-  for (const [name, href] of [[/What is open\? Find tenders and funding/, '/tenders'], [/Who is already in\? Find partners/, '/companies'], [/Can I take part\? Check if my company qualifies/, '/check']] as const) {
+  expect(hrefs).toEqual([null, '/organisations', '/check']);
+  await expect(tiles.first()).toHaveAttribute('role', 'group');
+  await expect(page.getByRole('group', { name: /What is open\? Find tenders and funding/ })).toBeVisible();
+  for (const [name, href] of [[/Who is already in\? Find partners/, '/organisations'], [/Can I take part\? Check if my company qualifies/, '/check']] as const) {
     await expect(page.getByRole('link', { name }), String(name)).toHaveAttribute('href', href);
   }
-  // the tile is the link: nothing else to click inside it
-  for (const t of await tiles.all()) await expect(t.locator('a, button, input')).toHaveCount(0);
+  // the first tile holds its two actions and nothing else to click; a tile that is a link holds no other
+  expect(await tiles.first().locator('a').evaluateAll((as) => as.map((a) => a.getAttribute('href')))).toEqual(['/tenders', '/funding']);
+  await expect(tiles.first().locator('button, input')).toHaveCount(0);
+  for (const i of [1, 2]) await expect(tiles.nth(i).locator('a, button, input')).toHaveCount(0);
   const figure = (i: number, label: RegExp) => tiles.nth(i).locator('[data-figure]').filter({ hasText: label }).locator(':scope > span:first-child').innerText();
   const tenders = await figure(0, /open tenders?$/);
   const calls = await figure(0, /open funding calls?$/);
-  const companies = await figure(1, /won contracts$/);
-  await expect(tiles.nth(2)).toContainText('Five short sets of questions');
-  await expect(tiles.nth(2).locator('[data-figure]')).toContainText('5');
+  const orgs = await figure(1, /organisations? in EU-funded defence projects$/);
+  // each count is inside the action it belongs to
+  await expect(tiles.first().locator('a[href="/tenders"] [data-figure]')).toContainText(/open tenders?$/);
+  await expect(tiles.first().locator('a[href="/funding"] [data-figure]')).toContainText(/open funding calls?$/);
+  await expect(tiles.nth(2)).toContainText('five steps of 25 to 35 questions');
+  await expect(tiles.nth(2)).not.toContainText('Five short sets of questions');
+  await expect(tiles.nth(2).locator('[data-figure]')).toContainText('25 to 35 questions');
   // the same numbers as the lists the tiles lead to (never hard-coded)
   expect(tenders).toBe(await listTotal(page, '/tenders'));
   expect(calls).toBe(await listTotal(page, '/funding'));
-  // the supplier map's own count ("How we count: N suppliers and M wins …", the same summary)
-  await visit(page, '/suppliers', { title: /.+/, h1: 'Companies' });
-  expect(await page.locator('#main').textContent()).toContain(`${companies} supplier`);
+  expect(orgs).toBe(await listTotal(page, '/organisations'));
   // the supplier route that /check leads to
   await visit(page, '/', { title: /DefenceGate/, h1: 'Win, partner, qualify.' });
   await expect(page.getByText('Make parts or provide services?')).toBeVisible();
   await expect(page.getByRole('link', { name: 'See who buys what you make' })).toHaveAttribute('href', '/readiness/supplier');
-  // keyboard: the tile takes focus and shows it
-  const first = page.locator('[data-tile]').first();
+  // keyboard: the first action takes focus and shows it
+  const first = page.locator('[data-tile] a').first();
   await page.locator('#home-search').focus();
   await page.keyboard.press('Tab');   // the Search button
   await page.keyboard.press('Tab');

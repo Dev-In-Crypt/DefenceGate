@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { MAIN_NAV } from '@/lib/nav';
 
 /**
  * Companies (WP-86): one page, two tabs. Each tab is the list it always was, at its own address (/suppliers, /organisations),
@@ -19,6 +20,13 @@ export const companyCrumbs = (tab: CompanyTab) => {
   const t = COMPANY_TABS.find((x) => x.key === tab)!;
   return [{ label: 'Home', href: '/' }, { label: 'Companies', href: COMPANY_TABS[0].href }, { label: t.label, href: t.href }];
 };
+
+/**
+ * WP-121: the crumbs of a page of the menu's Partners group (Ukraine partners, Consortium gaps): Home, Partners (the group's first page,
+ * Companies), the page; the menu's words, not the older "Organisations" and "Gaps in consortia".
+ */
+export const partnerCrumbs = (label: string, href: string) =>
+  [{ label: 'Home', href: '/' }, { label: MAIN_NAV.find((n) => n.key === 'partners')!.label, href: COMPANY_TABS[0].href }, { label, href }];
 
 export function CompaniesTabs({ current }: { current: CompanyTab }) {
   const tab = COMPANY_TABS.find((t) => t.key === current)!;

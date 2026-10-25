@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { getBuyer, getBuyerProfile, getBuyerSuppliers, getTenders, isBuyerSlug, REMOVED, UNAVAILABLE, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
-import { displayName } from '@/lib/display-name';
+import { displayName, shownVariants } from '@/lib/display-name';
 import { formatDateUtc, formatNumber, variantsLine } from '@/lib/format';
 import { MAX_PAGE, TENDER_PAGE_SIZE, lastPage, parseTenderFilters, toTenderQuery, type SearchParams } from '@/lib/filters';
 import { TextInput } from '@/components/dg/form';
@@ -101,6 +101,7 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
     redirect(hrefOf(lastPage(earlier.total, earlier.pageSize)));
   }
   const name = displayName(buyer.name, 'title');
+  const variants = shownVariants(buyer.variantNames ?? [], buyer.name);
 
   return (
     <>
@@ -133,12 +134,12 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
               : <span className="font-sans">Not stated</span>}
           </FactCell>
         </FactsGrid>
-        {variantsLine(buyer.nameVariants) && ((buyer.variantNames?.length ?? 0) > 0 ? (
-          /* WP-111 (p04): the names themselves, so a reader sees which notices are this buyer's */
+        {variantsLine(buyer.nameVariants) && (variants.length > 0 ? (
+          /* WP-111 (p04): the names themselves, so a reader sees which notices are this buyer's (WP-121: without the removal token) */
           <details className="max-w-prose text-small text-ink-muted" data-variant-names>
             <summary className="cursor-pointer">{variantsLine(buyer.nameVariants)}: show the names</summary>
             <ul className="m-0 mt-2 flex list-disc flex-col gap-1 pl-5">
-              {(buyer.variantNames ?? []).map((v) => <li key={v}>{v}</li>)}
+              {variants.map((v) => <li key={v}>{v}</li>)}
             </ul>
           </details>
         ) : <p className="m-0 max-w-prose text-small text-ink-muted">{variantsLine(buyer.nameVariants)}</p>)}

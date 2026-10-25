@@ -110,8 +110,10 @@ test('the header search and the home search open the results page', async ({ pag
 test('home: the lead, the search and the three tasks before anything else; no "What is in here"', async ({ page }) => {
   await visit(page, '/', { title: /DefenceGate/, h1: 'Win, partner, qualify.', text: [/^Defence and dual-use tenders and EU funding calls, the companies already in/] });
   const tasks = page.getByRole('list', { name: 'What do you want to know?' });
-  await expect(tasks.getByRole('link', { name: /Find tenders and funding/ })).toHaveAttribute('href', '/tenders');
-  await expect(tasks.getByRole('link', { name: /Find partners/ })).toHaveAttribute('href', '/companies');
+  // WP-121 (moved): the first task is two actions (tenders, funding), the partners task opens the organisations in EU-funded defence projects
+  await expect(tasks.getByRole('link', { name: /^Browse tenders/ })).toHaveAttribute('href', '/tenders');
+  await expect(tasks.getByRole('link', { name: /^Browse funding/ })).toHaveAttribute('href', '/funding');
+  await expect(tasks.getByRole('link', { name: /Find partners/ })).toHaveAttribute('href', '/organisations');
   await expect(tasks.getByRole('link', { name: /Check if my company qualifies/ })).toHaveAttribute('href', '/check');
   await expect(page.locator('#main').getByRole('link', { name: 'See who buys what you make' })).toHaveAttribute('href', '/readiness/supplier');   // WP-97: not the Spain page for every visitor
   await expect(page.getByRole('heading', { name: 'What is in here' })).toHaveCount(0);

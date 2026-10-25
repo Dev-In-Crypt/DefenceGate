@@ -349,6 +349,17 @@ export function verdictLines(r: FitResult): Line[] {
 }
 
 /**
+ * WP-121 (the call page's profile box: "Blocked by: Who may apply" over "none is a no"): the lines a box lists under the verdict, the
+ * document's and the programme's rules that block it (`verdictLines`), and the conditions left to list apart (not the ones that block).
+ */
+export function boxLines(r: FitResult): { lines: Line[]; asked: string[] } {
+  return {
+    lines: [...(r.result?.lines ?? []), ...verdictLines(r).filter((l) => l.key.startsWith('programme-'))],
+    asked: r.conditions.filter((c) => !r.blockedBy.includes(c)),
+  };
+}
+
+/**
  * WP-102 (p05): the CSS order of a call in "Fits my profile": the calls holding more of the visitor's topics first, among them the eligible
  * ones first; a call that needs a partner the profile says it lacks (NO_UA_PARTNER) or that others join only as partners after every other.
  * 0 keeps the server's order.
@@ -422,6 +433,10 @@ export function answersFit(call: PageCall, a: Answers): FitResult {
   const ra = call.rulesApply;
   const companyNo = ra?.forCompany?.find((r) => r.outcome === 'not_met');
   if (companyNo) {
+    // WP-121 (p2, SEAP 114: "Blocked by: Who may apply" over a line "Who may apply: Check"): the action's rule on who may apply answers the
+    // question the document's "Who may apply" line asked, so that line gives way; one line of that name, with the verdict the summary counts
+    const doc = lines.findIndex((l) => l.key === 'entity');
+    if (doc >= 0) lines.splice(doc, 1);
     lines.push(a.orgType === 'public'
       ? { key: 'who', label: 'Who may apply', verdict: 'check', reason: `${companyNo.title}. Check that your organisation is one of them.` }
       : { key: 'who', label: 'Who may apply', verdict: 'no', reason: `Companies, universities and research bodies cannot apply to this call. ${companyNo.title}.` });

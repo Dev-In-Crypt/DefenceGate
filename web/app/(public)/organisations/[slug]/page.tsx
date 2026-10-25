@@ -22,6 +22,7 @@ import { Pagination } from '@/components/dg/pagination';
 import { Tag } from '@/components/dg/tag';
 import { CountryNote, DataSources, FundingChart, PartnerTable, ProjectTable, TabNav, nameOf } from '@/components/networks/parts';
 import type { SearchParams } from '@/lib/filters';
+import { companyCrumbs } from '@/components/dg/companies-tabs';
 
 export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<SearchParams> };
@@ -77,7 +78,7 @@ export default async function OrganisationPage({ params, searchParams }: Props) 
     <>
       <JsonLd data={{ '@context': 'https://schema.org', '@type': 'Organization', name, url: absoluteUrl(base), address: { '@type': 'PostalAddress', addressCountry: org.country } }} />
       <PageHeader
-        crumbs={[{ label: 'Home', href: '/' }, { label: 'Organisations', href: '/organisations' }, { label: name, href: base }]}
+        crumbs={[...companyCrumbs('organisations'), { label: name, href: base }]}
         eyebrow={<p className="m-0 flex flex-wrap gap-2">{org.programmes.map((p) => <Tag key={p.code || 'none'} kind="programme">{p.code ? programmeName(p.code) : 'Programme not stated'}</Tag>)}</p>}
         title={name}
       >

@@ -6,7 +6,7 @@ import { ArrowRight, Pencil } from 'lucide-react';
 import type { EligibilityFacts } from '@/lib/eligibility-check';
 import { callSummary } from '@/lib/call-readiness';
 import { cleanQuote } from '@/lib/quote';
-import { fitLabel, linesSummary, type Fit } from '@/lib/fit';
+import { boxLines, fitLabel, linesSummary, type Fit } from '@/lib/fit';
 import { useFit } from '@/lib/fit-hooks';
 import { fitFor, isLoaded, lookupFailed } from '@/lib/fit-store';
 import { isFinished, toRequest } from '@/lib/profile';
@@ -111,6 +111,9 @@ export function CallReadiness({ callId, headingLevel = 'h3' }: { callId: string;
   // WP-93 (finding 5): the one verdict of the call, the list badge's (lib/fit.ts callFit through the store), not a second reading of the facts
   const store = useFit(callId);
   const doc = usable && profile && store.hasProfile && isLoaded(callId) ? fitFor(callId) : null;
+  // WP-121: the lines under the verdict include the programme's rules that block (`verdictLines`), so a "Blocked by" heading never stands
+  // over "none is a no"; a blocking rule is one of those lines, not also "asked of every applicant"
+  const { lines: docLines, asked } = doc ? boxLines(doc) : { lines: [], asked: [] };
 
   if (!usable || !profile) {
     return (
@@ -146,9 +149,9 @@ export function CallReadiness({ callId, headingLevel = 'h3' }: { callId: string;
         <h4 className="m-0 text-label">This call’s rules and its programme’s, against your profile: {doc ? (lookupFailed(callId) ? 'not compared yet: reload the page' : doc.fit === 'unknown' ? (facts ? 'nothing to compare with your profile' : 'rules not read: check the call document') : fitLabel(doc).word) : 'comparing…'}</h4>
         {doc?.result ? (
           <>
-            <p className="m-0 text-small font-semibold">{linesSummary(doc.result.lines)}</p>
+            <p className="m-0 text-small font-semibold">{linesSummary(docLines)}</p>
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
-              {doc.result.lines.map((l) => (
+              {docLines.map((l) => (
                 <li key={l.key} className={ROW}>
                   <span><strong>{l.label}: {l.verdict === 'yes' ? 'Allowed' : l.verdict === 'no' ? 'Not allowed' : 'Check'}.</strong> {l.reason}</span>
                   {l.quote && <q className="text-small text-ink-muted">{cleanQuote(l.quote)}</q>}
@@ -161,9 +164,9 @@ export function CallReadiness({ callId, headingLevel = 'h3' }: { callId: string;
             {facts ? 'None of the rules read from the document concerns what your profile says.' : 'The rules of this call have not been read, so there is nothing to compare your profile with. Read the source’s own text before you apply.'}
           </p>
         )}
-        {doc && doc.conditions.length > 0 && (
+        {asked.length > 0 && (
           <ul className="m-0 flex list-none flex-col gap-1 p-0">
-            {doc.conditions.map((c) => <li key={c} className="text-body"><strong>Asked of every applicant.</strong> {c}</li>)}
+            {asked.map((c) => <li key={c} className="text-body"><strong>Asked of every applicant.</strong> {c}</li>)}
           </ul>
         )}
       </div>

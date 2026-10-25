@@ -118,6 +118,11 @@ export function formatNumber(n: number): string {
   return amountFormat.format(n);
 }
 
+/** WP-121 (p08: "See all at least 26 open tenders"): a count, and "26+" for one that stopped counting. */
+export function countPlus(n: number, atLeast: boolean): string {
+  return `${formatNumber(n)}${atLeast ? '+' : ''}`;
+}
+
 /** The noun that goes with a count: plural(1, 'factsheet') is "factsheet", plural(2, 'factsheet') "factsheets". */
 export function plural(n: number, one: string, many = `${one}s`): string {
   return n === 1 ? one : many;

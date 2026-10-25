@@ -63,7 +63,11 @@ for (const theme of ['light', 'dark'] as const) {
     else await expect(page.locator('html')).not.toHaveAttribute('data-theme', 'dark');
     const tiles = page.locator('[data-tile]');
     await expect(tiles).toHaveCount(3);
-    for (let i = 0; i < 3; i++) await expectCardHover(page, tiles.nth(i), `tile ${i + 1}`);
+    // WP-121 (moved): the first tile is not a link but two actions, each a box with the card's hover (it was one link); tiles 2 and 3 are links
+    const actions = tiles.first().locator('[data-tile-action]');
+    await expect(actions).toHaveCount(2);
+    for (let i = 0; i < 2; i++) await expectCardHover(page, actions.nth(i), `tile 1, action ${i + 1}`);
+    for (let i = 1; i < 3; i++) await expectCardHover(page, tiles.nth(i), `tile ${i + 1}`);
     // keyboard: the focused tile has the same edge, and its focus ring
     const tile = tiles.nth(2);
     const rest = (await readCard(tile)).look;

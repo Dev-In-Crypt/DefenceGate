@@ -19,6 +19,7 @@ import { FactsGrid } from '@/components/dg/facts-grid';
 import { CountryLabel, FactCell } from '@/components/dg/data-display';
 import { ValueTotalsBlock } from '@/components/dg/value-totals';
 import { Icon } from '@/components/dg/icon';
+import { companyCrumbs } from '@/components/dg/companies-tabs';
 import { Download } from 'lucide-react';
 
 export const revalidate = 300;
@@ -67,7 +68,7 @@ export default async function SupplierPage({ params, searchParams }: Props) {
   if (s.slug !== slug && isSupplierSlug(s.slug)) permanentRedirect(`/suppliers/${s.slug}`);
   return (
     <>
-      <PageHeader crumbs={[{ label: 'Home', href: '/' }, { label: 'Suppliers', href: '/suppliers' }, { label: s.name, href: `/suppliers/${s.slug}` }]} title={s.name}>
+      <PageHeader crumbs={[...companyCrumbs('suppliers'), { label: s.name, href: `/suppliers/${s.slug}` }]} title={s.name}>
         <FactsGrid>
           <FactCell label="Country"><CountryLabel code={s.country} className="font-sans" /></FactCell>
           <FactCell label="Contracts won, last three years">

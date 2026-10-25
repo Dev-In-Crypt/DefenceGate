@@ -63,7 +63,8 @@ test('T13: the scope counts add up with the overlap, and say when they were coun
   expect(body).toContain('(294)');
   expect(body).toContain('(1,274)');
   expect(body).toContain('Counts as of 07:55 UTC, for the other filters as they are now.');
-  expect(body).toContain('Core and supplies add up to 46 more than the first count: 46 supply notices are the national copy of a core notice');
+  // WP-121: the labels' words (was "Core and supplies add up to 46 more than the first count: 46 supply notices are the national copy of a core notice")
+  expect(body).toContain('Military goods and works and Other purchases by armed forces add up to 46 more than All defence: 46 notices are in both (the national copy of a notice of military goods and works)');
 });
 
 test('T10: the Atom feed holds the whole window, and says so when a cap cuts it', async ({ request }) => {

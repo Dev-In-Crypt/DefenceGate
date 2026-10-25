@@ -131,7 +131,8 @@ test('the supplier profile offers textiles, naval and aviation codes, and the ma
   await visit(page, '/tenders', { title: /tenders/i, h1: /.+/ });
   const filters = page.getByRole('button', { name: /^(Show|Hide) filters/ });
   if (await filters.isVisible() && (await filters.getAttribute('aria-expanded')) !== 'true') await filters.click();
-  await expect(page.locator('[data-cpv-presets]').getByRole('link', { name: 'Ships and naval' })).toHaveAttribute('href', `/tenders?cpv=${encodeURIComponent('345,355,5064,50241')}`);
+  // WP-121: the eighth goods group is folded under "Show all" (the column was ~3,500 px); it is still the same link
+  await expect(page.locator('[data-cpv-presets]').getByRole('link', { name: 'Ships and naval', includeHidden: true })).toHaveAttribute('href', `/tenders?cpv=${encodeURIComponent('345,355,5064,50241')}`);
 });
 
 test('a buyer page: top suppliers first, with contract values and their sum, under the CPV filter (p01, p03, p06)', async ({ page }) => {
