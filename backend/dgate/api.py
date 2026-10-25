@@ -1080,6 +1080,14 @@ from .accounts import router as _account_router  # noqa: E402
 
 app.include_router(_account_router)
 app.include_router(_internal_router)
+
+# WP-124: payments through Creem. The account's billing routes and the webhook, which the site's server forwards
+# (web/app/api/billing/webhook): internal like the accounts, never in the Caddy allow-list.
+from .billing import router as _billing_router  # noqa: E402
+from .billing import webhook_router as _billing_webhook_router  # noqa: E402
+
+app.include_router(_billing_router)
+app.include_router(_billing_webhook_router)
 app.add_exception_handler(AccountError, account_error_handler)
 
 # Layer 3, readiness (dgate/readiness): the public requirements catalogue and the stateless

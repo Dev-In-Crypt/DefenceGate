@@ -285,6 +285,9 @@ class RateLimit(BaseHTTPMiddleware):
 BODY_MAX = 16 * 1024
 BODY_LIMITED_PREFIXES = ("/v1/account", "/v1/internal")
 BODY_LIMITED_PREFIXES += ("/v1/readiness",)       # the profile of a company: a few hundred bytes
+# WP-124: Creem's webhook events carry the checkout with its product, customer and subscription objects.
+BODY_LIMITED_PREFIXES += ("/v1/billing",)
+BILLING_WEBHOOK_MAX = 64 * 1024
 
 
 class _TooLarge(Exception):
@@ -305,8 +308,9 @@ class BodyLimit:
         if scope["type"] != "http" or not scope["path"].startswith(BODY_LIMITED_PREFIXES):
             await self.app(scope, receive, send)
             return
+        limit = BILLING_WEBHOOK_MAX if scope["path"] == "/v1/billing/webhook" else self.limit
         declared = dict(scope["headers"]).get(b"content-length", b"")
-        if declared.isdigit() and int(declared) > self.limit:
+        if declared.isdigit() and int(declared) > limit:
             await self._refuse(scope, receive, send)
             return
         seen = 0
@@ -317,7 +321,7 @@ class BodyLimit:
             message = await receive()
             if message["type"] == "http.request" and not refused:
                 seen += len(message.get("body", b""))
-                if seen > self.limit:
+                if seen > limit:
                     refused = True
                     await self._refuse(scope, receive, send)
                     raise _TooLarge

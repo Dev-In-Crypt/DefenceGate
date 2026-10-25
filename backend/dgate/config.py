@@ -369,6 +369,22 @@ class Settings:
     # The public address links in mail point at.
     site_url: str = field(default_factory=lambda: _env("DGATE_SITE_URL", "https://defencegatehub.com"))
 
+    # --- payments (WP-124): Creem, merchant of record. Billing is open only when the key, the webhook secret and
+    # every product id are set (billing.billing_problem); values live on the server, never in a file here.
+    creem_api_key: str = field(repr=False, default_factory=lambda: _env("DGATE_CREEM_API_KEY", ""))
+    creem_webhook_secret: str = field(repr=False, default_factory=lambda: _env("DGATE_CREEM_WEBHOOK_SECRET", ""))
+    # B5: the secret being replaced, accepted as well while a rotation is under way (runbook in docs/verification/accounts/wp124-selfcheck.md).
+    creem_webhook_secret_previous: str = field(
+        repr=False, default_factory=lambda: _env("DGATE_CREEM_WEBHOOK_SECRET_PREVIOUS", ""))
+    # Test mode (Creem's test-api host, test keys, test cards) unless DGATE_CREEM_TEST_MODE=0.
+    creem_test_mode: bool = field(default_factory=lambda: _env("DGATE_CREEM_TEST_MODE", "1").strip() != "0")
+    # Development and tests only: a local stand-in for Creem's API (tests/creem_mock.py). Ignored in production.
+    creem_api_url: str = field(default_factory=lambda: _env("DGATE_CREEM_API_URL", ""))
+    creem_products: dict[str, str] = field(default_factory=lambda: {
+        key: _env(f"DGATE_CREEM_PRODUCT_{key.upper()}", "").strip()
+        for key in ("pro_monthly", "pro_yearly", "team_monthly", "team_yearly",
+                    "consultant_monthly", "consultant_yearly", "founding_yearly")})
+
     # --- alerting -------------------------------------------------------
     # All optional. Unconfigured means log-only: an alerting backend must
     # never be able to take the pipeline down with it.

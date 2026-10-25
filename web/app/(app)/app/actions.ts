@@ -9,7 +9,7 @@ import { redirect } from 'next/navigation';
 import {
   acceptTerms, authLogout, CADENCES, changePassword, clearCookie, deleteFollow, deleteMe, deleteSearch, deleteShortlist,
   revokeOtherSessions, revokeSession, ROLES, SCOPES, SESSION_COOKIE, SHORTLIST_STATUSES, totpDisable, totpEnable, totpSetup,
-  updateMe, updateSearch, putShortlist, type AccountResult,
+  updateMe, updateSearch, putShortlist, createCheckout, openPortal, type AccountResult,
 } from '@/lib/account';
 import { followRef, isUuid, numericRef } from '@/lib/refs';
 import type { Cadence, FollowKind, Profile, ProfileScope, Role, ShortlistKind, ShortlistStatus, Track } from '@/lib/types';
@@ -196,6 +196,33 @@ export async function deleteAccount(form: FormData): Promise<void> {
   }
   if (r.status === 401) redirect('/auth/expired');
   const code = r.status === 403 && r.error === 'wrong_password' ? 'wrong_password' : r.status === 429 ? 'rate_limited'
+    : r.status === 409 && r.error === 'subscription_active' ? 'subscription_active'
     : r.status >= 400 && r.status < 500 ? 'confirm' : 'error';
   redirect(`/app/settings?n=${code}#delete`);
+}
+
+/* ---- billing (WP-124) ---- */
+
+/**
+ * "Continue to payment": the API creates the Creem checkout (the key stays there) and answers its address, which the browser is
+ * sent to. Nothing is granted here: the plan opens when Creem's verified event reaches the API.
+ */
+export async function continueToPayment(form: FormData): Promise<void> {
+  const plan = pick(field(form, 'plan', 16), ['pro', 'team', 'consultant', 'founding'] as const);
+  const billing = pick(field(form, 'billing', 8), ['monthly', 'yearly'] as const);
+  if (!plan || !billing) redirect('/app/billing?n=invalid');
+  const r = await createCheckout(plan, billing);
+  if (r.ok) redirect(r.data);
+  if (r.status === 401) redirect('/auth/expired');
+  const code = r.error === 'founding_full' ? 'founding_full' : r.error === 'already_subscribed' ? 'already_subscribed'
+    : r.error === 'billing_not_open' ? 'billing_closed' : r.status === 429 ? 'rate_limited' : r.status === 422 ? 'invalid' : 'payment_error';
+  redirect(`/app/billing?n=${code}`);
+}
+
+/** "Manage subscription": Creem's customer portal of this account (cancel, invoices, payment method). */
+export async function manageSubscription(): Promise<void> {
+  const r = await openPortal();
+  if (r.ok) redirect(r.data);
+  if (r.status === 401) redirect('/auth/expired');
+  redirect('/app/billing?n=payment_error');
 }

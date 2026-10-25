@@ -94,15 +94,15 @@ export function SecondStepForm({ next = null }: { next?: string | null }) {
   );
 }
 
-export function RegisterForm({ termsVersion, privacyVersion, choice = null }: {
-  termsVersion: string; privacyVersion: string; choice?: PlanChoice | null;
+export function RegisterForm({ termsVersion, privacyVersion, choice = null, payOpen = false }: {
+  termsVersion: string; privacyVersion: string; choice?: PlanChoice | null; payOpen?: boolean;
 }) {
   const [state, action, pending] = useActionState(register, initial);
   if (state.status === 'sent') {
     return (
       <Sent title="Check your mail">
         We have sent a message to the address you gave. Open the link in it to confirm the address; it works once and expires in 24 hours.
-        If the address already has an account, the message says so instead.{choice && <> {planSentence(choice)}</>}
+        If the address already has an account, the message says so instead.{choice && <> {planSentence(choice, payOpen)}</>}
       </Sent>
     );
   }
@@ -110,7 +110,7 @@ export function RegisterForm({ termsVersion, privacyVersion, choice = null }: {
     <form action={action} noValidate className={FORM}>
       {choice && (
         <>
-          <p className="m-0 text-body font-semibold" data-plan-choice>{planSentence(choice)}</p>
+          <p className="m-0 text-body font-semibold" data-plan-choice>{planSentence(choice, payOpen)}</p>
           <input type="hidden" name="plan" value={choice.plan} />
           {choice.billing && <input type="hidden" name="billing" value={choice.billing} />}
         </>

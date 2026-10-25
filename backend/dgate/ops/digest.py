@@ -16,6 +16,7 @@ from datetime import datetime
 from typing import Any
 
 from ..accounts import _is_new, run_search
+from ..billing import may
 from ..config import settings
 from . import mailer
 
@@ -26,8 +27,10 @@ MAX_ITEMS_PER_SEARCH = 8
 
 DUE_SQL = """
     SELECT s.id, s.owner_id, s.name, s.kind, s.filters, s.cadence, s.created_at,
-           s.last_alerted_at, u.email_display
+           s.last_alerted_at, u.email_display,
+           b.plan AS sub_plan, b.status AS sub_status, b.current_period_end AS sub_period_end
       FROM app_saved_search s JOIN app_user u ON u.id = s.owner_id
+      LEFT JOIN billing_subscription b ON b.account_id = u.id
      WHERE s.cadence <> 'off'
        AND COALESCE(s.last_alerted_at, s.created_at) <= now() - (CASE s.cadence
               WHEN 'instant' THEN interval '50 minutes'
@@ -58,6 +61,14 @@ def run_digests(conn) -> dict[str, int]:
         by_owner[row["owner_id"]].append(row)
 
     for searches in list(by_owner.values())[:MAX_ACCOUNTS_PER_RUN]:
+        if not may(searches[0], "email_alerts"):
+            # WP-124: no plan with alerts (any more): nothing is sent, and the window moves on so the
+            # search is not due again every hour and a later plan does not mail the backlog.
+            conn.execute("UPDATE app_saved_search SET last_alerted_at = now() WHERE id = ANY(%s)",
+                         ([s["id"] for s in searches],))
+            conn.commit()
+            result["skipped"] = result.get("skipped", 0) + 1
+            continue
         result["accounts"] += 1
         sections, total = [], 0
         evaluated: list[Any] = []       # only these may move their window on (audit M3)

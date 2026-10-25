@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bell, Bookmark, LayoutDashboard, Search, Settings } from 'lucide-react';
+import { Bell, Bookmark, CreditCard, LayoutDashboard, Search, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Icon } from '../dg/icon';
 
@@ -11,6 +11,7 @@ const ITEMS = [
   { label: 'Searches', href: '/app/searches', icon: Search },
   { label: 'Shortlist', href: '/app/shortlist', icon: Bookmark },
   { label: 'Following', href: '/app/following', icon: Bell },
+  { label: 'Billing', href: '/app/billing', icon: CreditCard },
   { label: 'Settings', href: '/app/settings', icon: Settings },
 ] as const;
 

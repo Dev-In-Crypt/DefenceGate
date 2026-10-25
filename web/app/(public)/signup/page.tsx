@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getAccountStatus, getCurrentUser } from '@/lib/account';
-import { planSentence, readPlanChoice } from '@/lib/plans';
+import { billingOpen, planSentence, readPlanChoice } from '@/lib/plans';
+import { BILLING_OPEN } from '@/lib/pricing';
 import { buildMetadata } from '@/lib/seo';
 import { ContentPage } from '@/components/dg/content-page';
 import { AccountsClosed } from '@/components/account/accounts-closed';
@@ -26,7 +27,8 @@ export default async function SignUpPage({ searchParams }: Props) {
   const q = await searchParams;
   const choice = readPlanChoice(q.plan, q.billing);
   const [status, user] = await Promise.all([getAccountStatus(), getCurrentUser()]);
-  if (user) redirect('/app');
+  // WP-124: a signed-in account that picked a paid plan on the pricing page goes on to pay for it.
+  if (user) redirect(choice && choice.plan !== 'free' && choice.billing ? `/app/billing?plan=${choice.plan}&billing=${choice.billing}` : '/app');
   const open = status.open && status.termsVersion && status.privacyVersion;
   return (
     <ContentPage
@@ -36,7 +38,7 @@ export default async function SignUpPage({ searchParams }: Props) {
     >
       {open ? (
         <>
-          <RegisterForm termsVersion={status.termsVersion!} privacyVersion={status.privacyVersion!} choice={choice} />
+          <RegisterForm termsVersion={status.termsVersion!} privacyVersion={status.privacyVersion!} choice={choice} payOpen={billingOpen(BILLING_OPEN, status)} />
           <p className="m-0 text-body text-ink-muted">Already have an account? <Link href="/signin" className="font-semibold">Sign in</Link>.</p>
         </>
       ) : (

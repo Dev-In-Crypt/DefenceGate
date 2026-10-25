@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Download } from 'lucide-react';
-import { dataOrNull, getCurrentUser, listSessions } from '@/lib/account';
+import { dataOrNull, getAccountStatus, getCurrentUser, listSessions } from '@/lib/account';
+import { BILLING_OPEN } from '@/lib/pricing';
 import { formatStamp } from '@/lib/account-format';
-import { planSentence } from '@/lib/plans';
+import { billingOpen, PLAN_LABELS, planSentence } from '@/lib/plans';
 import { Button } from '@/components/dg/button';
 import { TextInput } from '@/components/dg/form';
 import { Tag } from '@/components/dg/tag';
@@ -18,7 +19,8 @@ export const metadata: Metadata = { title: 'Settings', robots: { index: false, f
 type Props = { searchParams: Promise<{ n?: string | string[] }> };
 
 export default async function SettingsPage({ searchParams }: Props) {
-  const [me, sessionsResult, { n }] = await Promise.all([getCurrentUser(), listSessions(), searchParams]);
+  const [me, sessionsResult, { n }, status] = await Promise.all([getCurrentUser(), listSessions(), searchParams, getAccountStatus()]);
+  const payOpen = billingOpen(BILLING_OPEN, status);
   const sessions = dataOrNull(sessionsResult);
   if (!me) return <LoadFailed href="/app/settings" />;
   const others = (sessions ?? []).filter((s) => !s.current);
@@ -35,9 +37,14 @@ export default async function SettingsPage({ searchParams }: Props) {
       </Block>
 
       <Block id="plan" title="Plan">
-        <p className="m-0 max-w-prose text-body text-ink-muted" data-plan-choice>
-          Your plan is Free.{me.planChoice && me.planChoice.plan !== 'free' && <> {planSentence(me.planChoice)} Nothing is charged until then.</>}
-        </p>
+        {me.plan === 'free' ? (
+          <p className="m-0 max-w-prose text-body text-ink-muted" data-plan-choice>
+            Your plan is Free.{!payOpen && me.planChoice && me.planChoice.plan !== 'free' && <> {planSentence(me.planChoice)} Nothing is charged until then.</>}
+          </p>
+        ) : (
+          <p className="m-0 max-w-prose text-body text-ink-muted" data-plan-current>Your plan is {PLAN_LABELS[me.plan]}.</p>
+        )}
+        <p className="m-0 text-small"><Link href="/app/billing" className="font-semibold">Billing</Link>: your plan, its renewal date, invoices and cancelling.</p>
       </Block>
 
       <Block id="password" title="Password">
@@ -105,7 +112,7 @@ export default async function SettingsPage({ searchParams }: Props) {
       <Block id="delete" title="Delete account">
         <p className="m-0 max-w-prose text-body text-ink-muted">Deleting the account removes at once, and for good:</p>
         <ul className="m-0 flex max-w-prose list-disc flex-col gap-1 pl-5 text-body text-ink-muted" data-deletes>
-          <li>your e-mail address, your profile and the plan you chose;</li>
+          <li>your e-mail address, your profile, the plan you chose and what we hold about your subscription;</li>
           <li>your saved searches and their alerts, your shortlist with its notes, and what you follow;</li>
           <li>your password, two-step sign-in key and recovery codes, and any confirmation or password link not used yet;</li>
           <li>every session: you are signed out everywhere.</li>
@@ -113,6 +120,11 @@ export default async function SettingsPage({ searchParams }: Props) {
         <p className="m-0 max-w-prose text-body text-ink-muted">
           It cannot be undone. Download your data first if you want a copy. The counters that limit sign-in attempts hold no
           address in readable form and expire within a day.
+        </p>
+        <p className="m-0 max-w-prose text-body text-ink-muted" data-delete-subscription>
+          A paid plan is cancelled first, under <Link href="/app/billing" className="font-semibold">Billing</Link> (Manage subscription):
+          while a subscription is running the account cannot be deleted, so nothing is charged for an account that no longer exists.
+          Creem, which sold the plan, keeps its invoices and payment records as the law requires.
         </p>
         <form action={deleteAccount} className="flex max-w-form flex-col gap-4">
           <TextInput name="confirm" type="email" autoComplete="off" required maxLength={254}

@@ -110,3 +110,33 @@ Providing an e-mail address and a password is necessary to have an account; with
 3. Whether "Sign-in is not open yet" stays in section 5 on publication.
 4. The lawyer's review (OPEN_ITEMS_FOR_LAWYER.md) of the security log basis and of the plan wording together with the
    terms draft 2.2.
+
+## WP-124 (25 October 2026): payments through Creem, DRAFT additions
+
+Payment is built (Creem, merchant of record, test mode, switched off; `docs/verification/accounts/wp124-selfcheck.md`).
+It opens only once these additions are in the published notice (with the terms draft's new term "Paid plans") and the
+owner has set Creem's settings on the server. What is held is in `docs/DATA_PROTECTION.md` (rows `billing_checkout`,
+`billing_subscription`, `billing_event`, Creem).
+
+| Where | 1.7 as drafted above | 1.7 with payments (draft) |
+|---|---|---|
+| In short, new item | none | "If you buy a paid plan, Creem, our reseller, sells it to you and handles the payment, the VAT and the invoice. We never see your card." |
+| 5, item on the plan picked on the pricing page | "... Choosing a plan charges nothing and gives no paid plan; until payment opens every account is on the free plan;" | "... Choosing a plan charges nothing by itself;" |
+| 5, new item | none | "if you buy a paid plan: which plan and billing period, its state (for example active, cancelled or payment failed), the end of the period paid for, whether a refund was made, and the customer and subscription numbers Creem gives it, so that we can open the plan for your account and show you its state. We do not hold your name, billing address, card or invoices: Creem does;" |
+| 5, new item | none | "the checkouts you open, with the plan, a random reference and the time, so that a payment is matched to the account that made it and never to an e-mail address typed elsewhere;" |
+| 5, legal basis | "... rest on Art. 6(1)(b) ..." (as drafted) | add: "The data of a paid plan rests on Art. 6(1)(b) (the contract) and, for the record of payment events, Art. 6(1)(c) and (f) (accounting, and showing which payment opened which plan)." |
+| 5, Retention | as drafted | add: "The record of a paid plan is deleted with the account. An account with a running subscription cannot be deleted until the subscription is cancelled, so that nothing is charged for an account that no longer exists. The record of each payment event Creem sends us (its number, type and time, nothing about you) is deleted after 30 days." |
+| 8, recipients, new item | none | "Creem ([legal entity, country]), the reseller and merchant of record of the paid plans, as an independent controller of the sale: it receives what you enter at its checkout (your name, e-mail address, billing address, VAT number and payment details, processed by its payment providers) and from us only the plan, a random reference of the checkout and your account's internal number. Its own privacy notice applies to that data [link]. Creem keeps invoices and payment records for as long as tax law requires." |
+| 9 (transfers), if Creem processes outside the EEA | none | [owner: Creem's location and the safeguards it names for transfers, once known] |
+
+### Notes for the lawyer and the owner
+
+- Creem is a merchant of record: it sells to the customer in its own name, so it is an independent controller of the
+  checkout data, not our processor (no data processing agreement for that part; check Creem's terms).
+- The site forwards Creem's webhook events to the API unread; they carry the customer's e-mail address in the checkout
+  object, and the API stores none of it (`billing_event`: id, type, time and outcome only). The security log holds the
+  event id, type and outcome and, for a checkout, the account's internal number.
+- We send Creem no e-mail address: the checkout asks for it. (Pre-filling it would be a convenience and a transfer we do
+  not need.)
+- Open: Creem's legal entity, country and privacy notice link; transfer safeguards; whether the tax record period should
+  be stated as Creem's (it is theirs, not ours).

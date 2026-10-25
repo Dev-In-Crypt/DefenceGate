@@ -21,8 +21,15 @@ export function readPlanChoice(plan: unknown, billing: unknown): PlanChoice | nu
   return { plan: id, billing: b === 'monthly' || b === 'yearly' ? b : null };
 }
 
-/** "You chose Pro, monthly. Payment opens soon." / "You chose Free." */
-export function planSentence(c: PlanChoice): string {
+/**
+ * "You chose Pro, monthly. Payment opens soon." / "You chose Free." WP-124: with payment open (`billingOpen` below), a paid plan
+ * says where payment comes instead.
+ */
+export function planSentence(c: PlanChoice, open = false): string {
   if (c.plan === 'free') return 'You chose Free.';
-  return `You chose ${PLAN_LABELS[c.plan]}${c.billing ? `, ${c.billing}` : ''}. Payment opens soon.`;
+  const chosen = `You chose ${PLAN_LABELS[c.plan]}${c.billing ? `, ${c.billing}` : ''}.`;
+  return open ? `${chosen} You pay for it after you sign in, under Billing.` : `${chosen} Payment opens soon.`;
 }
+
+/** WP-124: payment is open when the site was built with it (NEXT_PUBLIC_BILLING_OPEN) and the API has every Creem setting. */
+export const billingOpen = (built: boolean, status: { billing: boolean }) => built && status.billing;

@@ -33,13 +33,13 @@ export function Done({ title, children }: { title: string; children: React.React
   );
 }
 
-export function ConfirmForm({ token }: { token: string }) {
+export function ConfirmForm({ token, payOpen = false }: { token: string; payOpen?: boolean }) {
   const [state, action, pending] = useActionState(confirmAddress, initial);
   if (state.status === 'invalid') return <InvalidLink />;
   if (state.status === 'done') {
     return (
       <Done title="Your address is confirmed">
-        {state.choice && <><span data-plan-choice>{planSentence(state.choice)}</span> </>}Sign in with your e-mail address and password.
+        {state.choice && <><span data-plan-choice>{planSentence(state.choice, payOpen)}</span> </>}Sign in with your e-mail address and password.
       </Done>
     );
   }
