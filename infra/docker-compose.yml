@@ -217,6 +217,9 @@ services:
       DGATE_LLM_MONTHLY_CAP_USD: ${DGATE_LLM_MONTHLY_CAP_USD:-5}
       # The monthly PLACSP archive catch-up of the award results (WP-61): off until `true`.
       DGATE_PLACSP_AWARDS_CATCHUP: ${DGATE_PLACSP_AWARDS_CATCHUP:-false}
+      # The snapshots the worker stores (contract values, supplier value order) carry this switch and the API reads them
+      # only when its own matches (25 Oct 2026: unset here, the market money and the supplier value sort were never served)
+      DGATE_PLACSP_AWARDS_PUBLIC: ${DGATE_PLACSP_AWARDS_PUBLIC:-false}
       # WP-96: the defence buyer lists of the image (the package is also installed in the venv, where no seeds/ is)
       DGATE_SEEDS_DIR: /app/seeds
       DGATE_RAW_BACKEND: ${DGATE_RAW_BACKEND:-fs}
