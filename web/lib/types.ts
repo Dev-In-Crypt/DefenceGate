@@ -153,7 +153,14 @@ export interface Call {
   rulesApply?: RulesApply | null;
   /** Detail only (WP-132): the scope rule no longer takes the call (WP-109): its page says so and is not indexed. */
   outOfScope?: boolean;
+  /**
+   * Detail only (WP-137): the call's own limits beside who may apply: where an applicant must be established (`established`, Art. 22.5
+   * of the Horizon Europe Regulation) and the exclusion of entities controlled from elsewhere (`control`), each with the call's sentence.
+   */
+  whoMayApplyLimits?: WhoLimit[];
 }
+
+export type WhoLimit = { kind: 'established' | 'control' | string; quote: string; note: string };
 
 /** Why a call has no budget figure (GET /v1/funding `budgetNote`). `perProject` is a ceiling the source states per project, not a budget. */
 export interface BudgetNote {

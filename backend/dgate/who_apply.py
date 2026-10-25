@@ -19,6 +19,11 @@ Europe annexes' "Any legal entity ... is eligible to participate" (21 open Horiz
 companies" while the same pages said any legal entity may take part). A mandatory consortium and its country
 composition are not a badge: "Can I apply?" on the call page states them (web/lib/funding-path.ts applySummary);
 the "Minimum consortium" row of the call's terms is `consortium_of`.
+
+WP-137: the call's own conditions come before the general annexes as the evidence. Where they limit where an applicant is established
+(Art. 22.5 of the Horizon Europe Regulation: the EuroHPC JU calls) or exclude entities controlled from elsewhere ("controlled by China",
+154), `limits_of` gives those sentences: they are the evidence of "a company can take part" and the call page shows them with the answer.
+The kind of entity is not limited by them, so the answer stays `companies`.
 """
 
 from __future__ import annotations
@@ -90,13 +95,38 @@ def _general_companies(facts: dict[str, Any]) -> str | None:
     return None
 
 
+# WP-137: a sentence of the call's own conditions that limits where an applicant is established ("In accordance with Article 22.5 of the
+# HE Regulation ... participation is limited to legal entities established in Member States or Participating States of the EuroHPC JU",
+# rule_readings._JU_COUNTRIES). A topic's "at least 2 Border or Coast Guard Authorities from at least 2 different EU Member States" is
+# a rule for some partners, not a limit on who may apply, and is not one.
+_ESTABLISHED_LIMIT = re.compile(r"\blimited\s+to\s+(?:legal\s+)?entities\s+established\s+in\b|\bonly\s+(?:legal\s+)?entities\s+established\s+in\b|"
+                                r"\bmust\s+be\s+established\s+in\b", re.I)
+
+
+def limits_of(facts: dict[str, Any]) -> list[dict[str, str]]:
+    """WP-137: the call's own limits on who may apply, beside the kind of entity: where an applicant must be established and the exclusion
+    of entities controlled from elsewhere (Art. 22.5 of the Horizon Europe Regulation; "controlled by China", 154), each with the call's
+    own sentence and its note. Facts of the work programme's general annexes are not limits of the call. Empty when the call states none."""
+    out: list[dict[str, str]] = []
+    where = facts.get("eligible_countries")
+    if where and where["scope"] in OWN_SCOPES and _ESTABLISHED_LIMIT.search(str(where.get("quote") or "")):
+        out.append({"kind": "established", "quote": str(where["quote"])[:EVIDENCE_MAX], "note": verdict.own_note(where)})
+    control = facts.get("ownership_control_restriction")
+    if control and control["scope"] in OWN_SCOPES and control["value"] is True and control.get("quote"):
+        out.append({"kind": "control", "quote": str(control["quote"])[:EVIDENCE_MAX], "note": verdict.own_note(control)})
+    return out
+
+
 def decide(facts: dict[str, Any]) -> tuple[str | None, bool | None, str | None]:
-    """(who, sme_only, evidence) from one call's served facts; (None, None, None) when they say nothing."""
+    """(who, sme_only, evidence) from one call's served facts; (None, None, None) when they say nothing. WP-137: where the answer comes
+    from the general annexes ("Any legal entity, regardless of its place of establishment ... is eligible") and the call's own conditions
+    limit where an applicant is established or who may control it, the evidence is the call's own sentences, not the annexes'."""
     got = _own(facts)
     if got[0] is None:
         general = _general_companies(facts)
         if general:
-            return "companies", None, general
+            own = " ".join(x["quote"] for x in limits_of(facts))
+            return "companies", None, (own[:EVIDENCE_MAX] if own else general)
     return got
 
 
@@ -180,8 +210,9 @@ def consortium_of(facts: dict[str, Any]) -> str | None:
     return f"{text} ({'; '.join(places)})"
 
 
-def run(conn, *, write: bool = False) -> dict[str, int]:
-    """Decide every call. Writes only the calls whose answer changed; a second run changes nothing."""
+def run(conn, *, write: bool = False, changes: list[dict[str, Any]] | None = None) -> dict[str, int]:
+    """Decide every call. Writes only the calls whose answer changed; a second run changes nothing. `changes`, when given, receives each
+    call whose who-may-apply answer changes, before and after (WP-137: the report names them; the same rows the write takes)."""
     rows = conn.execute(
         """SELECT id, topic_code, type_of_action, conditions_raw, eligibility_text,
                   who_may_apply_doc, sme_only, who_may_apply_evidence, research_may_apply_doc, consortium_rule
@@ -208,6 +239,9 @@ def run(conn, *, write: bool = False) -> dict[str, int]:
         counts["research"] += research is True
         if (who, sme, evidence) != (r["who_may_apply_doc"], r["sme_only"], r["who_may_apply_evidence"]):
             counts["changed"] += 1
+            if changes is not None:
+                changes.append({"id": r["id"], "topic": r["topic_code"], "before": (r["who_may_apply_doc"], r["sme_only"], r["who_may_apply_evidence"]),
+                                "after": (who, sme, evidence)})
         elif research != r["research_may_apply_doc"]:
             counts["research_changed"] += 1
         else:

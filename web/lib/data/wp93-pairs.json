@@ -9673,7 +9673,7 @@
   "P4|116": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 4 conditions to check",
+   "word": "Controlled from outside: only on the exception the call allows",
    "conditions": [
     "European Defence Industry Programme (EDIP): the Programme: a condition or an answer is still open"
    ],
@@ -9708,7 +9708,7 @@
   "P4|117": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 3 conditions to check",
+   "word": "Controlled from outside: only on the exception the call allows",
    "conditions": [
     "European Defence Industry Programme (EDIP): the Programme: a condition or an answer is still open"
    ],
@@ -9796,7 +9796,7 @@
   "P4|131": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 4 conditions to check",
+   "word": "Controlled from outside: only on the exception the call allows",
    "conditions": [],
    "lines": [
     {
@@ -9913,7 +9913,7 @@
   "P4|151": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 5 conditions to check",
+   "word": "Controlled from outside: only on the exception the call allows",
    "conditions": [
     "A consortium is required: at least 3 legal entities from at least 3 countries. Your profile does not say whether you have partners."
    ],
@@ -11789,7 +11789,7 @@
   "P7|116": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 4 conditions to check",
+   "word": "Controlled from outside: only on the exception the call allows",
    "conditions": [
     "European Defence Industry Programme (EDIP): the Programme: a condition or an answer is still open"
    ],
@@ -13196,7 +13196,7 @@
   "P9|116": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 4 conditions to check",
+   "word": "Controlled from outside: only on the exception the call allows",
    "conditions": [
     "European Defence Industry Programme (EDIP): the Programme: a condition or an answer is still open"
    ],
@@ -13231,7 +13231,7 @@
   "P9|117": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 3 conditions to check",
+   "word": "Controlled from outside: only on the exception the call allows",
    "conditions": [
     "European Defence Industry Programme (EDIP): the Programme: a condition or an answer is still open"
    ],
@@ -13319,7 +13319,7 @@
   "P9|131": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 4 conditions to check",
+   "word": "Controlled from outside: only on the exception the call allows",
    "conditions": [],
    "lines": [
     {

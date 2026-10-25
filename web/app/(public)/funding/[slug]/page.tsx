@@ -32,7 +32,7 @@ import { Icon } from '@/components/dg/icon';
 import { FollowButton, SaveButton } from '@/components/account/save-button';
 import { LongText } from '@/components/funding/long-text';
 import { mergeSameText } from '@/lib/long-text';
-import { otherTopicCode, whatItFunds } from '@/lib/funding-path';
+import { otherTopicCode, whatItFunds, whoLimits } from '@/lib/funding-path';
 import { WHO_BADGE } from '@/lib/filters';
 import { ApplySummary, UkraineOnly } from '@/components/funding/apply-summary';
 
@@ -119,6 +119,7 @@ export default async function CallDetailPage({ params }: Props) {
   const terms = call.eligibility.filter((r) => !whoLabels.has(r.label)).map((r) => ({ ...r, value: isoDatesToSite(r.value) }));
   // Two rows with the same sentence ("Described in section 6 of the call document.") are one row.
   const whoRows = mergeSameText(who);
+  const limits = whoLimits(call);
   const ukraine = ukraineSentence(call.openToUkraine, call.ukraineBasis?.reason);
   const documentCode = otherTopicCode(call.topicId, Object.values(call.documentEligibility?.facts ?? {}).map((f) => `${f.quote ?? ''} ${f.note ?? ''}`).join(' '));
   const edip = call.rulesApply && (call.rulesApply.regime.code === 'EDIP' || call.rulesApply.regime.code === 'EDIP-USI') ? call.rulesApply.regime.name : null;
@@ -294,12 +295,19 @@ export default async function CallDetailPage({ params }: Props) {
         )}
 
         <Panel title="Who can apply">
+          {/* WP-137: the call's own limits (where an applicant is established, who may control it) come with the answer */}
+          {limits && (
+            <div className="flex flex-col gap-2" data-who-limits>
+              <p className="m-0 text-body font-semibold">{limits.lead}</p>
+              <FactsGrid className={IN_CARD} items={limits.rows.map((r) => ({ label: r.label, value: <LongText text={r.value} />, wide: true }))} />
+            </div>
+          )}
           {who.length > 0 ? (
             <>
               <FactsGrid className={IN_CARD} items={whoRows.map((e) => ({ label: e.label, value: <LongText text={e.value} />, wide: isLong(e.value) }))} />
               <p className="m-0 text-small text-ink-muted">In the source’s own words. The official call text is authoritative.</p>
             </>
-          ) : (
+          ) : !limits && (
             <p className="m-0 text-body text-ink-muted">The source does not say who may apply.</p>
           )}
           {sourceUrl ? (

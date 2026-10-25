@@ -134,6 +134,10 @@ function mockDetail(r: RawCall): Partial<Call> {
     out.eligibilitySources = [];
     out.eligibility = [{ label: 'Decision expected', value: '2026-12-15' }, { label: 'Project start', value: '2027-01-04 to 2027-01-11' }];
   }
+  // WP-137: a call whose own conditions limit who may take part (the China control restriction of the Cluster 3 topics); e2e/wp137.spec.ts
+  if (r.topicId === 'HORIZON-CL3-2026-BM-01-04') {
+    out.whoMayApplyLimits = [{ kind: 'control', quote: 'entities established in an eligible country but which are directly or indirectly controlled by China or by a legal entity established in China are not eligible to participate in the action.', note: '' }];
+  }
   if (r.topicId === 'HORIZON-CL4-2026-MAT-03-11') {
     const countries = Array.from({ length: 120 }, (_, i) => `Country${String(i).padStart(3, "0")}`).join('; ');
     out.whoCanApply = [
