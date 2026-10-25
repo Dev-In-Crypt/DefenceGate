@@ -26,13 +26,13 @@ those of 1.6 and are not repeated here. Section 8 changes in one item.
 | 5, new item | none | "if you came from our pricing page: the plan and billing period you picked, so that we can show it to you again. Choosing a plan charges nothing and gives no paid plan; until payment opens every account is on the free plan;" |
 | 5, new item | none | "the links we mail you, to confirm your address (valid 24 hours) or to set a new password (valid one hour), and the ticket between your password and your code (valid 5 minutes): each works once and is held only as a hash;" |
 | 5, counters item | "for up to a day: your e-mail address with the one-time link, and a keyed hash (HMAC) of your e-mail address and of your IP address, kept only to limit how often links can be requested;" | "for up to a day: keyed hashes (HMAC) of your e-mail address and of your IP address with the time, kept only to limit how often account mails can be requested and to slow down failed sign-ins (after five failed attempts for one address in an hour, each further attempt has to wait longer, up to an hour);" |
-| 5, new item | none | "a security log of what happens to your account (for example a sign-in, a failed sign-in, a password change or the deletion) with the account's internal number and the time, never your e-mail address, your IP address or your password. It is kept in our server's log, which is overwritten as it fills; [the owner sets a period here, see open item 2];" |
+| 5, new item | none | "a security log of what happens to your account (for example a sign-in, a failed sign-in, a password change or the deletion) with the account's internal number and the time, never your e-mail address, your IP address or your password. It is kept in our server's log for at most 90 days;" |
 | 5, after the list | "We do not use passwords. We do not look at what you save ..." | "We do not look at what you save ..." (first sentence removed) |
 | 5, legal basis | "... Security measures such as limiting sign-in requests rest on Art. 6(1)(f)." | "... Security measures such as limiting account mails and failed sign-ins and the security log rest on Art. 6(1)(f)." |
-| 5, Mail | "sign-in links and alert digests are plain text, with no tracking pixel and no link redirection. They will be sent through a mail provider acting as our processor. None has been chosen yet, which is why sign-in is not open; the provider will be named here before it opens." | "the confirmation and password links, a notice when your password is changed or reset, and alert digests are sent as plain text with an HTML version of the same text, with no tracking pixel, no images and no link redirection. They are sent through [provider name, country], acting as our processor." |
+| 5, Mail | "sign-in links and alert digests are plain text, with no tracking pixel and no link redirection. They will be sent through a mail provider acting as our processor. None has been chosen yet, which is why sign-in is not open; the provider will be named here before it opens." | "the confirmation and password links, a notice when your password is changed or reset, and alert digests are sent as plain text with an HTML version of the same text, with no tracking pixel, no images and no link redirection. They are sent through Brevo (Sendinblue SAS, France), acting as our processor." |
 | 5, Retention | "... deletion removes it at once, and encrypted backups containing it are overwritten within 30 days. Sign-in links and rate-limit counters are deleted after about a day." | "... deletion removes it at once, together with your password hash, two-step key, recovery codes, sessions and unused links, and encrypted backups containing it are overwritten within 30 days. To delete the account you type your e-mail address and your password. An account whose address is not confirmed within two days is deleted. Links and tickets are deleted a day after they expire, and the rate-limit and failed sign-in counters after about a day." |
 | 5, last | "Providing an e-mail address is necessary to have an account; without it we cannot offer one." | "Providing an e-mail address and a password is necessary to have an account; without them we cannot offer one." |
-| 8, mail item | "The mail provider named in section 5, once sign-in opens." | "[Provider name], as the processor that sends our mail (section 5)." |
+| 8, mail item | "The mail provider named in section 5, once sign-in opens." | "Brevo (Sendinblue SAS, France), as the processor that sends our mail (section 5)." |
 
 ## Sections 4 and 5 as they would read
 
@@ -78,7 +78,7 @@ You sign in with the address and the password. We then hold:
 - a hash of your session identifier and when it was used;
 - a security log of what happens to your account (for example a sign-in, a failed sign-in, a password change or the
   deletion) with the account's internal number and the time, never your e-mail address, your IP address or your
-  password. It is kept in our server's log, which is overwritten as it fills; [period].
+  password. It is kept in our server's log for at most 90 days.
 
 We do not look at what you save for any purpose other than showing it to you and sending the alerts you asked for, and
 we do not combine it across accounts.
@@ -89,7 +89,7 @@ as limiting account mails and failed sign-ins and the security log rest on Art. 
 
 **Mail:** the confirmation and password links, a notice when your password is changed or reset, and alert digests are
 sent as plain text with an HTML version of the same text, with no tracking pixel, no images and no link redirection.
-They are sent through [provider name, country], acting as our processor.
+They are sent through Brevo (Sendinblue SAS, France), acting as our processor.
 
 **Retention:** your account and what is in it until you delete it. You can download everything we hold and delete the
 account yourself in Settings; deletion removes it at once, together with your password hash, two-step key, recovery
@@ -102,6 +102,7 @@ Providing an e-mail address and a password is necessary to have an account; with
 
 ## Open items for the owner
 
+0. Owner decisions of 25 October 2026: mail provider Brevo (Sendinblue SAS, France); security log kept 90 days (to be enforced on the API log before publishing).
 1. The mail provider: name and country in sections 5 and 8, its data processing agreement, SPF/DKIM for the sender
    domain.
 2. The security log period: the API's container log is rotated by size only (5 x 20 MB). Either state "until it is
