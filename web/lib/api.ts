@@ -81,12 +81,31 @@ async function visitorHeaders(): Promise<Record<string, string>> {
 /** A request the data service has not answered by now is given up: the page then shows its last good answer, or says so. */
 const HTTP_TIMEOUT_MS = 20_000;
 
+/**
+ * WP-127: how long a request is tried again when the data service cannot be reached at all (its container is being replaced in a
+ * deploy: the name does not resolve or the port refuses, a few seconds). Only a failed connection is retried, never an answer.
+ */
+const UNREACHABLE_RETRY_MS = 15_000;
+const UNREACHABLE_PAUSE_MS = 500;
+
 export async function http<T>(path: string, mode: CacheMode = 'revalidate', seconds: number = REVALIDATE_SECONDS): Promise<T | null> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { accept: 'application/json', ...(mode === 'no-store' ? await visitorHeaders() : {}) },
-    signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
-    ...(mode === 'no-store' ? { cache: 'no-store' as const } : { next: { revalidate: seconds } }),
-  });
+  const extra = mode === 'no-store' ? await visitorHeaders() : {};
+  const until = Date.now() + UNREACHABLE_RETRY_MS;
+  let res: Response;
+  for (;;) {
+    try {
+      res = await fetch(`${API_BASE}${path}`, {
+        headers: { accept: 'application/json', ...extra },
+        signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
+        ...(mode === 'no-store' ? { cache: 'no-store' as const } : { next: { revalidate: seconds } }),
+      });
+      break;
+    } catch (e) {
+      // undici's "fetch failed" (TypeError) is a connection that never opened; a timeout is a DOMException and is not retried
+      if (!(e instanceof TypeError) || Date.now() + UNREACHABLE_PAUSE_MS > until) throw e;
+      await new Promise((r) => setTimeout(r, UNREACHABLE_PAUSE_MS));
+    }
+  }
   if (res.status === 404) return null;
   if (!res.ok) throw new ApiError(res.status, `GET ${path} failed`);
   return (await res.json()) as T;

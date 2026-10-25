@@ -9,6 +9,22 @@
 #
 # Run from the repository root:
 #   docker compose -f infra/docker-compose.yml up -d --build
+#
+# Deploy order (WP-127; 25 Oct 2026 the proxy answered 502 x39 in 43 s while api and web were replaced). There is one container
+# of each, so a replacement always leaves a gap of a few seconds; Caddy holds each request through it (lb_try_duration 30s in
+# infra/Caddyfile) and the gap must stay well under that:
+#   1. Build every image first, with the old containers still serving (a build inside `up` stops nothing, but its minutes
+#      are where a mistake shows):
+#        C="docker compose -f infra/docker-compose.yml --env-file infra/.env"
+#        $C build migrate api worker            and, for the site, DGATE_DOMAIN=... sh infra/build-web.sh
+#   2. Replace the API and wait until its healthcheck passes (migrate runs first, as a dependency):
+#        $C up -d --no-build --wait api worker
+#   3. Only then the site, again waiting for its healthcheck:
+#        $C --profile web up -d --no-build --no-deps --wait web
+#   4. Caddy is not restarted for a code deploy; a changed Caddyfile is loaded in place, without dropping connections:
+#        docker exec dgate-caddy-1 caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+# A healthcheck that does not pass within its start period fails `--wait`: stop there (`docker compose logs api web` says
+# why) and go back to the previous commit before the site is touched.
 
 name: dgate
 
@@ -183,6 +199,9 @@ services:
       interval: 30s
       timeout: 6s
       retries: 3
+      # WP-127: probed every 2 s while starting, so `up --wait` (the deploy order above) returns within seconds of it being ready
+      start_period: 60s
+      start_interval: 2s
     depends_on:
       postgres:
         condition: service_healthy
@@ -338,6 +357,9 @@ services:
       interval: 30s
       timeout: 6s
       retries: 3
+      # WP-127: probed every 2 s while starting, so `up --wait` (the deploy order above) returns within seconds of it being ready
+      start_period: 60s
+      start_interval: 2s
     depends_on:
       api:
         condition: service_healthy

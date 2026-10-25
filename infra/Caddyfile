@@ -84,6 +84,11 @@
 	handle @public {
 		reverse_proxy api-edge:8000 {
 			# The proxy's own `Via` is removed in the site's `header` block above.
+			# WP-127: while the container is replaced (a deploy) the name does not resolve or the port refuses: the request
+			# is held and the dial tried again every 250 ms for up to 30 s instead of answering 502 (39 of them in 43 s on
+			# 25 Oct 2026). Only a failed dial is retried for any method; a request that reached the API is never sent twice.
+			lb_try_duration 30s
+			lb_try_interval 250ms
 			transport http {
 				dial_timeout 5s
 				response_header_timeout 20s
@@ -98,10 +103,13 @@
 		respond "Not found" 404
 	}
 
-	# The site (docker-compose `web` profile). Down until the domain is live: Caddy
-	# resolves web:3000 per request, so it can start first and answers 502 meanwhile.
+	# The site (docker-compose `web` profile). Caddy resolves web:3000 per request, so it can
+	# start first; with no web container it answers 502 after the 30 s below.
 	handle {
 		reverse_proxy web:3000 {
+			# WP-127: the same hold as the API's while the web container is replaced (a deploy).
+			lb_try_duration 30s
+			lb_try_interval 250ms
 			# The framework's cache and prerender markers are not for clients.
 			header_down -X-Nextjs-Cache
 			header_down -X-Nextjs-Prerender

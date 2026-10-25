@@ -1,6 +1,6 @@
 // A fake of the parts of the API that WP-52b reads, shaped as docs/design/API_CONTRACT.md ("Changes of 19 October 2026") says, with the
 // numbers of the UX audit of 19 October 2026: 1,449 open notices with a deadline (593 in November), 287,634 closed notices that stop at
-// position 10,000, 2,311 changes in 14 days (3,100 for Poland), a digest week of 873 new notices. For e2e/wp52b-api.spec.ts; nothing else uses it.
+// position 10,000, 2,311 changes in 14 days (3,100 for Poland), a digest week of 873 new notices. For e2e/wp52b-api.spec.ts and e2e/wp127-api.spec.ts; nothing else uses it.
 //
 //   node e2e/support/fake-api.mjs [port]              then:  DG_API_URL=http://127.0.0.1:4010 npx next start -p 3100
 //   E2E_FAKE_API=1 E2E_BASE_URL=http://127.0.0.1:3100 npx playwright test e2e/wp52b-api.spec.ts
@@ -112,6 +112,8 @@ function route(url) {
   stats.requests.push(`${p}?${q}`);
   if (p === '/_requests') return [200, stats.requests];
   if (p === '/v1/tenders/calendar') return [200, calendar()];
+  // WP-127: counts that answer after 5 s (a search word the time box cannot count): the page must not wait for them
+  if (p === '/v1/tenders/scope-counts' && q.get('q') === 'slowcounts') return [503, { detail: 'the count took too long; narrow the request' }, 5000];
   if (p === '/v1/tenders/scope-counts') return [200, { relevant: 1522, core: 294, supply: 1274, overlap: 46, capped: false, asOf: '2026-10-12T07:55:00Z' }];
   if (p === '/v1/tenders') return tenders(q);
   if (/^\/v1\/tenders\/\d+/.test(p) && !p.endsWith('/versions')) {
@@ -127,7 +129,9 @@ function route(url) {
 }
 
 createServer((req, res) => {
-  const [status, body] = route(new URL(req.url ?? '/', 'http://x'));
-  res.writeHead(status, { 'content-type': 'application/json' });
-  res.end(JSON.stringify(body));
+  const [status, body, delay = 0] = route(new URL(req.url ?? '/', 'http://x'));
+  setTimeout(() => {
+    res.writeHead(status, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(body));
+  }, delay);
 }).listen(PORT, '127.0.0.1', () => console.log(`fake API on ${PORT}`));

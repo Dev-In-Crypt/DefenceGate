@@ -9,6 +9,21 @@ import type { ScopeCounts } from './types';
 
 interface Bounded { total: number; totalCapped?: boolean; maxOffset?: number }
 
+/**
+ * WP-127: how long past the list the tender page waits for its scope counts. A count that is not in by then is left out and the
+ * filter shows its choices without numbers; the API keeps the answer when it comes, so the next view has them. (`/tenders?q=ammunition`
+ * waited 1.5 s on every view for a count that answered 503; a streamed Suspense boundary would not help: Caddy buffers each page whole,
+ * WP-63.)
+ */
+export const SCOPE_COUNTS_GRACE_MS = 250;
+
+/** `p`'s value if it settles within `ms`, else null (a failure is null too). */
+export function within<T>(p: Promise<T>, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), ms); });
+  return Promise.race([p.catch(() => null), late]).finally(() => clearTimeout(timer));
+}
+
 /** "at least 10,000" for a count that stopped; undefined for an exact one (the heading then prints the number). */
 export function totalWords(r: Pick<Bounded, 'total' | 'totalCapped'>): string | undefined {
   return r.totalCapped === true ? `at least ${formatNumber(r.total)}` : undefined;
