@@ -11,7 +11,7 @@ import { displayName } from '@/lib/display-name';
 import { formatDateUtc, formatMoney, isPlaceholderAmount, noticeDateLabel } from '@/lib/format';
 import { correctionLines, setAsideNote, versionCountLine, winnersNotReadLine } from '@/lib/award-lines';
 import { safeHttpUrl } from '@/lib/safe-url';
-import { buildMetadata, tenderMeetsMinimumContent } from '@/lib/seo';
+import { buildMetadata, tenderMeetsMinimumContent, tenderTitle } from '@/lib/seo';
 import { AWARD_VALUE_LABEL, AWARD_NOTICE_VALUE_LABEL, noticeValueLabel, sourceStatusWord, tenderChangedLabel, valueKindLabel } from '@/lib/tender-status';
 import { WHO_MAY_BID_NOTE, WHO_MAY_BID_UNKNOWN, whoMayBid, winnersHref } from '@/lib/who-may-bid';
 import { cpvName } from '@/lib/cpv';
@@ -63,7 +63,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     `Source: ${tender.source.sourceName}.`,
   ].join(' ');
   return buildMetadata({
-    title: `${displayName(tender.title)} (${tender.noticeId})`,
+    title: tenderTitle(tender),
     description,
     path: `/tenders/${tender.slug}`,
     // The sitemap lists core-scope notices only; a notice that only supplies a defence buyer is not promoted.

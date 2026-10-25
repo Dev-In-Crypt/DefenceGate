@@ -22,11 +22,12 @@ export const companyCrumbs = (tab: CompanyTab) => {
 };
 
 /**
- * WP-121: the crumbs of a page of the menu's Partners group (Ukraine partners, Consortium gaps): Home, Partners (the group's first page,
- * Companies), the page; the menu's words, not the older "Organisations" and "Gaps in consortia".
+ * WP-121: the crumbs of a page of the menu's Partners group (Ukraine partners, Consortium gaps): Home, Partners, the page; the menu's
+ * words, not the older "Organisations" and "Gaps in consortia". WP-130: Partners is a menu group with no page of its own, so it is text
+ * (it linked to /suppliers, and the structured data called /suppliers "Partners").
  */
 export const partnerCrumbs = (label: string, href: string) =>
-  [{ label: 'Home', href: '/' }, { label: MAIN_NAV.find((n) => n.key === 'partners')!.label, href: COMPANY_TABS[0].href }, { label, href }];
+  [{ label: 'Home', href: '/' }, { label: MAIN_NAV.find((n) => n.key === 'partners')!.label }, { label, href }];
 
 export function CompaniesTabs({ current }: { current: CompanyTab }) {
   const tab = COMPANY_TABS.find((t) => t.key === current)!;

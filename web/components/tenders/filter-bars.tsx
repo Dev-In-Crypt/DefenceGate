@@ -139,7 +139,8 @@ export function TenderFilterBar({ filters, basePath, scopeCounts, countsNote }: 
                 defaultChecked={(filters.scope ?? DEFAULT_TENDER_SCOPE) === o} />
             );
           })}
-          <p className="m-0 pt-1 text-small text-ink-muted">
+          {/* WP-130: pb-1, so the padding of its link (globals.css) does not reach the checkbox below (a 24 x 23 px target, WCAG 2.5.8) */}
+          <p className="m-0 pb-1 pt-1 text-small text-ink-muted">
             {asOf ? `${asOf}, for the other filters as they are now.` : 'Counts are for the other filters as they are now.'} {overlap && <>{overlap} </>}<Link href="/glossary#scope" className="font-semibold">What the scopes mean</Link>
           </p>
           <Choice name={PARAM.goods} value="defence" label="Defence goods only" defaultChecked={filters.goods === 'defence'}

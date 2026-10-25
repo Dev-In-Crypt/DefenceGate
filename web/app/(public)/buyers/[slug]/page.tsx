@@ -4,7 +4,7 @@ import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { getBuyer, getBuyerProfile, getBuyerSuppliers, getTenders, isBuyerSlug, REMOVED, UNAVAILABLE, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { displayName, shownVariants } from '@/lib/display-name';
-import { formatDateUtc, formatNumber, variantsLine } from '@/lib/format';
+import { formatDateUtc, formatNumber, plural, variantsLine } from '@/lib/format';
 import { MAX_PAGE, TENDER_PAGE_SIZE, lastPage, parseTenderFilters, toTenderQuery, type SearchParams } from '@/lib/filters';
 import { TextInput } from '@/components/dg/form';
 import { BuyerTopSuppliers } from '@/components/market/buyer-suppliers';
@@ -52,7 +52,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const name = displayName(buyer.name, 'title');
   return buildMetadata({
     title: name,
-    description: `${name}: ${buyer.tenderCount} defence tenders in the archive, ${buyer.openCount} open now.`,
+    description: `${name}: ${formatNumber(buyer.tenderCount)} defence ${plural(buyer.tenderCount, 'tender')} in the archive, ${formatNumber(buyer.openCount)} open now.`,
     path: `/buyers/${buyer.slug}`,
     noindex: pageOf(sp) > 1 || showAll(sp) || buyer.tenderCount === 0,
   });

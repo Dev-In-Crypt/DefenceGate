@@ -10,6 +10,7 @@ import { formatDateUtc, formatMoney, funderLine, openingPhrase, isoDatesToSite }
 import { safeHttpUrl } from '@/lib/safe-url';
 import { sourceDisplay } from '@/lib/source-status';
 import { absoluteUrl, buildMetadata, callJsonLd, meetsMinimumContent } from '@/lib/seo';
+import { titleWithRef } from '@/lib/seo-trim';
 import { PROGRAMMES, REGIMES, isNonEnglish } from '@/lib/taxonomy';
 import { JsonLd } from '@/components/dg/feedback';
 import { AlertsLine } from '@/components/dg/alerts-line';
@@ -69,7 +70,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return buildMetadata({
     // The topic id is a Horizon-style identifier only where the call has a call id; elsewhere it falls back to the
     // source's own key ("[aid] 12345"), which is not a title (site-qa2:N12: 27 calls).
-    title: call.callId ? `${displayName(call.title)} (${call.topicId})` : displayName(call.title),
+    title: call.callId ? titleWithRef(displayName(call.title), call.topicId) : displayName(call.title),
     description,
     path: `/funding/${call.slug}`,
     noindex: !meetsMinimumContent(call),

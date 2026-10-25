@@ -215,7 +215,31 @@ const roundTrips = (c: string) => c === 'ß' || c.toUpperCase().toLowerCase() ==
 function tidyName(text: string): string {
   // A name with no capital is cased as a name, unless some letter would change on the way ("kızılay": the Turkish dotless i).
   const noCapital = LETTER.test(text) && !HAS_UPPER.test(text) && Array.from(text).every(roundTrips);
-  return tidyForms(shoutCase(noCapital ? upperLetters(text) : text, 'title'));
+  return tidyForms(shoutedHead(shoutCase(noCapital ? upperLetters(text) : text, 'title')));
+}
+
+/**
+ * WP-130 (r7 audit: "AKADEMIA MARYNARKI Wojennej im. Bohaterów Westerplatte"): a name that is not shouted as a whole but opens with two
+ * or more words in capitals, followed by at least two words of three letters or more in mixed case that are not legal forms, was
+ * shouted in its head only ("MEYER WERFT GmbH" is a name in capitals with its legal form, and stays). The head's words of five letters or
+ * more are cased as a name, and its small words ("AND", "DE") are lower case after the first; other short ones may be initialisms
+ * ("BAE", "GTS") and stay.
+ */
+function shoutedHead(text: string): string {
+  const head = /^(?:[^\s\p{Ll}]*\p{Lu}[^\s\p{Ll}]*\s+){2,}(?=\S*\p{Ll})/u.exec(text)?.[0];
+  if (!head) return text;
+  const words = text.slice(head.length).split(/\s+/).filter((w) => {
+    const key = w.replace(/[^\p{L}]/gu, '').toLowerCase();
+    return letterCount(w) >= 3 && LOWER.test(w) && !NAME_KNOWN_BY_KEY.has(key) && !KNOWN_BY_KEY.has(key) && !FINAL_FORMS.has(key);
+  });
+  if (words.length < 2) return text;
+  let at = -1;
+  const cased = head.replace(/\S+/g, (w) => {
+    at += 1;
+    if (letterCount(w) >= 5) return shout(w, 'title');
+    return at > 0 && SMALL.has(w.toLowerCase()) ? w.toLowerCase() : w;
+  });
+  return cased + text.slice(head.length);
 }
 
 /** The case of the acronyms and legal forms of a name, token by token; a token with its own mixed case ("GmbH", "iXblue") is left. */
