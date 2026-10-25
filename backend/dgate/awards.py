@@ -29,7 +29,7 @@ import re
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any
 
 import httpx
@@ -908,9 +908,17 @@ def run_awards(*, since: date = DEFAULT_SINCE, limit: int | None = None,
                 load_awards(conn, client, writer, src_id, ted_id, since=since, limit=limit,
                             counters=c, pause=pause, sleep=nap)
                 writer.drain()
-                # WP-103: the floor is every notice asked: one TED did not return makes the run partial, not success
+                # WP-103: the floor is every notice asked: one TED did not return makes the run partial, not success.
+                # WP-139: and never below the day's floor (config `_TED_AWARDS_FLOORS`), less what the day's earlier runs
+                # read: a weekday on which nothing was asked was "success" (run 488 of 25 Oct, expected_min 0).
+                earlier = conn.execute(
+                    """SELECT COALESCE(sum(records_fetched), 0) AS n FROM ingest_run
+                        WHERE source_id = %s AND id <> %s AND status IN ('success', 'partial')
+                          AND started_at >= date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'""",
+                    (src_id, run_id)).fetchone()["n"]
+                day_floor = cfg.floor(SOURCE_CODE, datetime.now(timezone.utc).date()) or 0
                 conn.execute("UPDATE ingest_run SET expected_min = %s WHERE id = %s",
-                             (c["candidates"] - c["skipped_bad_number"], run_id))
+                             (max(c["candidates"] - c["skipped_bad_number"], day_floor - earlier, 0), run_id))
                 refresh_award_twins(conn)
                 db.finish_run(conn, run_id, fetched=c["fetched"], new=c["awards_new"], changed=0,
                               detail=dict(c))

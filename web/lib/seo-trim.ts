@@ -13,9 +13,17 @@ export function trimAtWord(text: string, max: number): string {
   const room = t.slice(0, max - 1);
   // The cut falls on a space or a mark: the last word is whole. Otherwise it falls inside a word: that word goes.
   const at = /[\s,;:.)]/.test(t.charAt(max - 1)) ? room.length : room.search(/\s\S*$/);
-  const head = (at > 0 ? room.slice(0, at) : room).replace(/[\s,;:.\-–(]+$/, '');
+  let head = (at > 0 ? room.slice(0, at) : room).replace(/[\s,;:.\-–(]+$/, '');
+  // WP-139 (r8 audit: "Suministro de repuestos consumibles para…", "Commissariat a L Energie Atomique et Aux…"): a cut never
+  // ends on a word that only leads into the next one; the phrase before it ends the title
+  for (let m = /\s(\S+)$/.exec(head); m && LEAD_WORDS.test(m[1]); m = /\s(\S+)$/.exec(head)) {
+    head = head.slice(0, m.index).replace(/[\s,;:.\-–(]+$/, '');
+  }
   return `${head}…`;
 }
+
+/** Articles, prepositions and conjunctions of the notices' languages, and a lone letter ("L", "à"): never the last word of a cut. */
+const LEAD_WORDS = /^(?:\p{L}|the|an|of|for|and|or|to|in|on|at|by|with|from|as|de|del|la|las|el|los|y|para|por|con|en|al|du|des|le|les|et|aux|au|pour|sur|der|die|das|und|für|von|zur|zum|mit|im|di|della|per|il|dla|oraz|na|do|da|dos|van|het|een|voor|och|för|af)$/iu;
 
 /**
  * A text cut where a phrase ends, so the tab and the search snippet do not stop mid-phrase (WP-59, re-audit NEW-5): the last whole

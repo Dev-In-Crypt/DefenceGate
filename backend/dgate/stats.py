@@ -659,8 +659,14 @@ def buyer_profile(conn, org_id: int, today: date | None = None) -> dict[str, Any
     add up to it too: `earlier` and `undated` hold what the shown years do not."""
     today = today or datetime.now(timezone.utc).date()
     own, one = _buyer_scope(org_id)
-    where = f"{own} AND {collapse_clauses([own])}"
-    params = one * COLLAPSE_REPEATS
+    # WP-139 (r8 audit: buyer pages p95 4.2 s, worst 11.5 s; the profile of 3 RBLog 6.9 s cold): the buyer's notices are
+    # found once, and every figure below counts over their ids. The scope with the collapse rules was the WHERE of each
+    # of a dozen statements (0.2-0.5 s each to find the set; 3.3 s for the amendment share of the Czech ministry).
+    ids = [r["id"] for r in conn.execute(
+        f"SELECT o.id FROM opportunity o WHERE {own} AND {collapse_clauses([own])}", one * COLLAPSE_REPEATS).fetchall()]
+    if not ids:
+        return None
+    where, params = "o.id = ANY(%s)", [ids]
     head = conn.execute(
         f"""SELECT count(*) AS n, count(*) FILTER (WHERE {_api().EFFECTIVE_STATUS_SQL} = 'open')
                    AS open_n
@@ -853,11 +859,14 @@ def last_run_finished(conn, kind: str) -> datetime | None:
 
 def last_run(conn, kind: str) -> tuple[datetime | None, str | None]:
     """(`last_run_finished`, the name of the source whose run that was). WP-87: a list says which source
-    its "updated" time is, so that it does not read as the footer's run of any source."""
+    its "updated" time is, so that it does not read as the footer's run of any source. WP-139: a run that brought data, the
+    rule of the home page and the footer (WP-131, web `lastDataUpdate`): the tenders list said "17:39 (e-Zamówienia)", a
+    run of a refused source that read nothing, while the home page said 06:57."""
     row = conn.execute(
         """SELECT r.finished_at AS t, s.name
              FROM ingest_run r JOIN source s ON s.id = r.source_id
             WHERE s.kind = %s AND s.active AND r.status IN ('success', 'partial') AND r.finished_at IS NOT NULL
+              AND r.records_fetched > 0
             ORDER BY r.finished_at DESC LIMIT 1""",
         (kind,)).fetchone()
     return (row["t"], row["name"]) if row else (None, None)

@@ -91,15 +91,16 @@ export function HeaderBar({ accountsOpen = false }: { accountsOpen?: boolean }) 
         </div>
       </div>
       {open && (
-        // Every item, each a 44 px row: a group's page, then its other pages under it; a group without a page is a heading.
+        // Every item, each a 44 px row: a group is a heading with its pages under it, its own page among them (WP-139, r8 audit:
+        // "Check my company" was a dark link among the grey group headings); an item without pages is a link.
         <nav ref={mobileRef} id="mobile-nav" aria-label="Main menu" className="mt-2 flex flex-col gap-1 rounded-lg border border-edge bg-surface px-6 py-4 xl:hidden">
           <SiteSearchForm id="menu-search" compact className="mb-2" />
           {[...MAIN_NAV, ...(cta ? [{ key: 'signin', ...cta }] : [])].map((n: NavItem) => (
             <div key={n.key} className="flex flex-col">
-              {n.href
-                ? <NavLink href={n.href} label={n.label} active={isActive(n.href)} onClick={() => setOpen(false)} />
-                : <p className="m-0 flex min-h-11 items-center px-1 text-body font-semibold text-ink-muted">{n.label}</p>}
-              {n.children?.filter((c) => c.href !== n.href).map((c) => (
+              {n.children || !n.href
+                ? <p className="m-0 flex min-h-11 items-center px-1 text-body font-semibold text-ink-muted">{n.label}</p>
+                : <NavLink href={n.href} label={n.label} active={isActive(n.href)} onClick={() => setOpen(false)} />}
+              {n.children?.map((c) => (
                 <NavLink key={c.href} href={c.href} label={c.label} active={pathname === c.href} onClick={() => setOpen(false)} className="pl-5" />
               ))}
             </div>

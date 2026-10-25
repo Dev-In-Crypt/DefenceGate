@@ -1051,8 +1051,15 @@ def close_interrupted_runs() -> list[int]:
             if settings().job_runs:
                 # WP-114: the jobs this kind of process left running are `interrupted` (a deploy recreated the worker)
                 with conn.transaction():
-                    conn.execute("UPDATE job_run SET status = 'interrupted', finished_at = clock_timestamp() "
-                                 "WHERE status = 'running' AND owner = %s", (db.RUN_KIND,))
+                    cut = conn.execute("UPDATE job_run SET status = 'interrupted', finished_at = clock_timestamp() "
+                                       "WHERE status = 'running' AND owner = %s RETURNING job, started_at",
+                                       (db.RUN_KIND,)).fetchall()
+                if cut:
+                    # WP-139 (requalify_weekly cut at 13:24 after 1 h 24 min, next slot a week away): said, not silent;
+                    # `catch_up_jobs` starts each of them again
+                    notify("[dgate] a restart cut short: " + ", ".join(
+                        f"{r['job']} (started {r['started_at']:%Y-%m-%d %H:%M} UTC)" for r in cut)
+                        + "; the start-up catch-up runs them again")
             return closed
     except Exception as exc:  # noqa: BLE001 - a start-up tidy must not block start-up
         log.warning("could not close interrupted runs: %s", exc)
@@ -1124,11 +1131,16 @@ def last_slot(trigger, now: datetime) -> tuple[datetime | None, timedelta | None
     return fires[-1], (fires[-1] - fires[-2]) if len(fires) > 1 else None
 
 
-def last_job_start(names: Sequence[str]) -> datetime | None:
-    """When a job (under any of its `names`) last started, by `job_run`."""
+def last_job_start(names: Sequence[str]) -> tuple[datetime | None, datetime | None]:
+    """(when a job, under any of its `names`, last started and was not cut short by a restart; when it last started and
+    was), by `job_run`. WP-139: a run a deploy interrupted is not a run of its slot (requalify_weekly, 25 Oct 2026: cut at
+    13:24, and the catch-up took its 12:00 start for the slot's run, so the next was a week away)."""
     with db.connect(settings().dsn) as conn:
-        row = conn.execute("SELECT max(started_at) AS t FROM job_run WHERE job = ANY(%s)", (list(names),)).fetchone()
-    return row["t"] if row else None
+        row = conn.execute(
+            """SELECT max(started_at) FILTER (WHERE status <> 'interrupted') AS t,
+                      max(started_at) FILTER (WHERE status = 'interrupted') AS cut
+                 FROM job_run WHERE job = ANY(%s)""", (list(names),)).fetchone()
+    return (row["t"], row["cut"]) if row else (None, None)
 
 
 def job_names(job_id: str) -> tuple[str, ...]:
@@ -1155,13 +1167,13 @@ def catch_up_jobs(sched=None, now: datetime | None = None) -> list[JobResult]:
         if slot is None:
             continue
         try:
-            started = last_job_start(job_names(job.id))
+            started, cut = last_job_start(job_names(job.id))
         except Exception as exc:  # noqa: BLE001 - a start-up check must not block start-up
             log.warning("catch-up: cannot read job_run for %s: %s", job.id, type(exc).__name__)
             continue
         if started is not None and started >= slot:
             continue
-        if started is None and (period is None or period > UNRECORDED_MAX_PERIOD):
+        if started is None and cut is None and (period is None or period > UNRECORDED_MAX_PERIOD):
             log.info("catch-up: %s has no recorded run; its next slot runs it", job.id)
             continue
         due.append((slot, job.func, job.id))

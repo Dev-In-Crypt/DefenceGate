@@ -1139,7 +1139,8 @@ def run_topic_details(limit: int | None = None, refresh_after_days: int = 7) -> 
         log.info("%s: %s topic pages to read", code, len(pending))
         if not pending:
             return
-        run_id = db.start_run(conn, code, None)
+        # WP-139: a floor of its own (the run had none, so /v1/health showed the EU portal without a minimum after it)
+        run_id = db.start_run(conn, code, max(1, int(len(pending) * cfg.eu_topics_floor_share)))
         fetched = changed = failed = 0
         client = new_client(headers={"User-Agent": eu_portal.USER_AGENT,
                                        "Accept": "application/json"},
