@@ -20,7 +20,8 @@ logged in `organisation_repair` with what it replaced, and `--undo FROM TO` reve
   winners-check  an award excluded as its buyer's that today's rules no longer exclude is counted again (TED
               109763-2024 SPIE FACILITIES, 841870-2025 DEF OUEST)
   namesakes   the rejoin groups under a name two public bodies bear (`ambiguous_name`: 'powiat tomaszowski', a unit's
-              name without a place) are undone, exactly those rows
+              name without a place) are undone, exactly those rows (WP-129: not a row whose cleared value states its
+              head's number)
   pics        what a rejoined row holds that its head lacks goes to the head (`db.carry_to_head`: PIC and VAT number;
               Universitat de Girona, URV, NCBR, IRB Barcelona); participations are read through the merge (WP-41)
   restore-ids the numbers cleared on 25 October that today's rules keep, from the log: Polish NIP+REGON pairs, a REGON
@@ -98,7 +99,8 @@ def _personal_number(country: str, number: str) -> bool:
 # WP-119: names two public bodies share, never joined by name alone. The Polish powiat names that two counties carry
 # ('powiat tomaszowski': Tomaszow Mazowiecki and Tomaszow Lubelski, 36 rows joined on 25 October 2026), and a unit's
 # name with no place in it ('miejskie przedsiebiorstwo oczyszczania', 'zaklad remontow i konserwacji drog'): every word
-# of three letters or more is one of the words such units are named with.
+# of three letters or more is one of the words such units are named with. WP-129: and the municipal service companies
+# ('miejski zaklad uslug komunalnych': Walbrzych's and at least three others; two rows joined by name on 25 October).
 # ponytail: a vocabulary, not a register; a generic name with a word it lacks is still joined.
 _PL_TWIN_POWIATS = frozenset(f"powiat {n}" for n in (
     "bielski", "brzeski", "grodziski", "krosnienski", "nowodworski", "opolski", "ostrowski", "sredzki", "swidnicki",
@@ -114,6 +116,7 @@ _UNIT_WORDS = frozenset("""
     nieruchomosci nieruchomosciami gospodarowania urzad urzedu starostwo biblioteka przychodnia straz pozarna
     komenda policji administracji obslugi jednostek oswiatowych oswiaty edukacji spolka spoldzielnia wydzial biuro
     zieleni utrzymania domu dom
+    uslug komunalnych komunalna
     junta gobierno local alcaldia presidencia pleno ayuntamiento organo contratacion mesa servicio servicios departamento
     direccion general gerencia consejeria secretaria unidad seccion comision consejo administracion municipal
     """.split())
@@ -391,17 +394,36 @@ def winners_check(conn, *, apply: bool, out=print) -> dict[str, Any]:
     return res
 
 
+def agrees(cleared: str | None, country: str, numbers: tuple[str | None, ...]) -> bool:
+    """WP-129: the cleared value, or a part of it (`register_form`, either half of a Polish NIP+REGON pair), is one of
+    `numbers` (in their register's form)."""
+    if not cleared:
+        return False
+    held = {register_form(n, country) or n for n in numbers if n}
+    parts = {cleared, register_form(cleared, country)}
+    if country == "PL":
+        parts |= set(pl_number_pair(cleared) or ())
+    return bool(parts & held)
+
+
 def namesakes(conn, *, apply: bool, out=print) -> dict[str, Any]:
     """WP-119: the rejoin groups whose name more than one public body bears (`ambiguous_name`) are undone, exactly
-    those rows (`ops.undo_merges` with `only`); the false numbers stay cleared. Every group is listed."""
+    those rows (`ops.undo_merges` with `only`); the false numbers stay cleared. Every group is listed.
+    WP-129: a row whose cleared value states a number its head holds (the NIP of a NIP+REGON pair: 'miejski zarzad
+    uslug komunalnych') was joined by that number, not by the name alone, and stays (`agrees`)."""
     rows = [dict(r) for r in conn.execute(
-        """SELECT m.id, m.merged_into AS head, m.merged_at, t.country, t.canonical_name
+        """SELECT m.id, m.merged_into AS head, m.merged_at, t.country, t.canonical_name, t.national_reg_no, t.vat_number,
+                  (SELECT r.old_value FROM organisation_repair r WHERE r.organisation_id = m.id
+                      AND r.action = 'clear_false_identifier' ORDER BY r.id DESC LIMIT 1) AS cleared
              FROM organisation m JOIN organisation t ON t.id = m.merged_into
             WHERE m.merge_method = %s ORDER BY m.id""", (REJOIN,)).fetchall()]
-    hit = [r for r in rows if ambiguous_name(r["country"], r["canonical_name"])]
+    named = [r for r in rows if ambiguous_name(r["country"], r["canonical_name"])]
+    hit = [r for r in named if not agrees(r["cleared"], r["country"], (r["national_reg_no"], r["vat_number"]))]
     groups = Counter((r["head"], r["country"], r["canonical_name"]) for r in hit)
-    res: dict[str, Any] = {"rejoined_rows": len(rows), "groups": len(groups), "rows": len(hit)}
-    out(f"rejoin groups under a name two public bodies bear: {res['groups']} groups, {res['rows']} rows")
+    res: dict[str, Any] = {"rejoined_rows": len(rows), "groups": len(groups), "rows": len(hit),
+                           "kept_number_agrees": len(named) - len(hit)}
+    out(f"rejoin groups under a name two public bodies bear: {res['groups']} groups, {res['rows']} rows "
+        f"({res['kept_number_agrees']} rows stay: their cleared value states their head's number)")
     for (head, country, name), n in groups.most_common():
         out(f"  {country} head {head} {name[:70]!r}: {n} rows")
     if not hit:

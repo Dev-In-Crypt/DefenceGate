@@ -170,9 +170,11 @@ def plan(conn, rows: list[dict[str, Any]], methods: tuple[str, ...] = (METHOD,))
 
     numbers = []                      # (head, donor, number)
     for h in hrows.values():
+        # the stamp tells a merge's 'identifier' from resolution's (0.90); WP-129: any other method is a merge's own
+        # ('person_review' stamps the reviewer's confidence, 0.80 .. 0.95)
         if not (h["national_reg_no"] and h["identifier_method"] in methods
                 and h["identifier_confidence"] is not None
-                and float(h["identifier_confidence"]) >= MERGE_STAMP):
+                and (h["identifier_method"] != METHOD or float(h["identifier_confidence"]) >= MERGE_STAMP)):
             continue
         donors = [m for m in members.values() if m["head"] == h["id"]
                   and m["identifier_method"] is not None and m["national_reg_no"] is None]

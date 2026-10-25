@@ -50,11 +50,26 @@ merged: different identifiers. The buyer list shows them as one buyer through th
 WP-115: pairs of two rows that nothing references (no notice, award or participation) are skipped and stay
 pending (`unlinked`); details are read 1,000 ids at a time; every statement stops after 60 s; a run merges at most 200
 groups unless `--limit` says otherwise.
+
+WP-129: `--ids-file PATH` takes the candidates a person reviewed instead (`run_reviewed`, `read_reviewed` for the
+format), of any method. For those ids only the judgement rules are a person's (public body, acting for another,
+short name, legal form, sister company, no second signal: the report counts what they would have said); the facts
+still refuse: one organisation already, different countries, suppressed, a natural person, and two different numbers
+of one kind in the group (two VAT numbers, two PICs, two NIPs, two REGONs; a NIP on one row and a REGON on the other is
+one body's two registers and is merged). The head is the row named after the body, not a generic name ('zaklad
+karny' beside 'zaklad karny we wronki'), then the most notices; a head column overrides. Each merge stores method
+`person_review` and the reviewer's confidence (else the candidate's); every other pending candidate between rows that
+are now one is marked `merged`; REJECT rows become `rejected` with the reviewer's reason after the evidence; UNSURE
+rows stay pending. `--undo-batch` reverses such a batch too.
+
+    python -m dgate.ops.accept_merge_candidates --ids-file decisions.csv          # report: groups, heads, refusals
+    python -m dgate.ops.accept_merge_candidates --ids-file decisions.csv --yes    # merge, reject; prints the undo
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import logging
 import re
@@ -77,7 +92,9 @@ MIN_CONFIDENCE = 0.97
 IDENTIFIERS = ("reg", "vat", "pic")
 # WP-76: the merge methods this script writes (the plain 'identifier' of WP-72 and the two-signal
 # ones); `--undo-batch` undoes any of them
-MERGE_METHODS = ("identifier", "identifier+name", "identifier+legal_form", "identifier+name+legal_form")
+MERGE_METHODS = ("identifier", "identifier+name", "identifier+legal_form", "identifier+name+legal_form", "person_review")
+REVIEWED = "person_review"          # WP-129: a pair a person read and accepted (`--ids-file`)
+DECISIONS = ("ACCEPT", "REJECT", "UNSURE")
 # read on the production pairs of 22 October 2026: at 0.85 a typo, a hyphen, a dropped article or
 # an added abbreviation still agree ('xestion do solo de galicia' / '.. xestur'); two units of one
 # body whose names share only the body's abbreviation do not ('ssc iuc dji' / 'sic dji': 0.67)
@@ -118,17 +135,25 @@ def pending_by_method(conn) -> list[dict[str, Any]]:
             GROUP BY 1, 2 ORDER BY n DESC""").fetchall()]
 
 
+_PAIRS = """SELECT c.id, c.match_method, c.confidence, c.evidence, c.status,
+                   COALESCE(la.live_id, c.organisation_id) AS a,
+                   COALESCE(lb.live_id, c.candidate_org_id) AS b
+              FROM organisation_merge_candidate c
+              LEFT JOIN organisation_merged_live la ON la.id = c.organisation_id
+              LEFT JOIN organisation_merged_live lb ON lb.id = c.candidate_org_id
+             WHERE {} ORDER BY c.id"""
+
+
 def strong_pairs(conn) -> list[dict[str, Any]]:
     """The pending candidates of a strong method, with both ends taken to their live row."""
     return [dict(r) for r in conn.execute(
-        """SELECT c.id, c.match_method, c.confidence, c.evidence,
-                  COALESCE(la.live_id, c.organisation_id) AS a,
-                  COALESCE(lb.live_id, c.candidate_org_id) AS b
-             FROM organisation_merge_candidate c
-             LEFT JOIN organisation_merged_live la ON la.id = c.organisation_id
-             LEFT JOIN organisation_merged_live lb ON lb.id = c.candidate_org_id
-            WHERE c.status = 'pending' AND c.match_method = ANY(%s) AND c.confidence >= %s
-            ORDER BY c.id""", (list(STRONG_METHODS), MIN_CONFIDENCE)).fetchall()]
+        _PAIRS.format("c.status = 'pending' AND c.match_method = ANY(%s) AND c.confidence >= %s"),
+        (list(STRONG_METHODS), MIN_CONFIDENCE)).fetchall()]
+
+
+def reviewed_pairs(conn, ids: list[int]) -> list[dict[str, Any]]:
+    """WP-129: the candidates `ids`, of any method and status, with both ends taken to their live row."""
+    return [dict(r) for r in conn.execute(_PAIRS.format("c.id = ANY(%s)"), (ids,)).fetchall()]
 
 
 # WP-115: ids per detail query, and the longest any statement of this script may run. On 22-24 October 2026 one
@@ -309,10 +334,8 @@ def _public(o: dict[str, Any]) -> bool:
                           identifiers=(o.get("reg"), o.get("vat")))
 
 
-def plan(pairs: list[dict[str, Any]], orgs: dict[int, dict[str, Any]]
-         ) -> tuple[list[dict[str, Any]], Counter[str]]:
-    """The groups to merge ({head, members, candidates, confidence}) and the refusals by reason."""
-    refused: Counter[str] = Counter()
+def _components(pairs: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+    """The pairs grouped by shared members (union-find over their ends `a` and `b`)."""
     parent: dict[int, int] = {}
 
     def find(x: int) -> int:
@@ -321,6 +344,18 @@ def plan(pairs: list[dict[str, Any]], orgs: dict[int, dict[str, Any]]
             x = parent[x]
         return x
 
+    for p in pairs:
+        parent[find(p["a"])] = find(p["b"])
+    by_root: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for p in pairs:
+        by_root[find(p["a"])].append(p)
+    return list(by_root.values())
+
+
+def plan(pairs: list[dict[str, Any]], orgs: dict[int, dict[str, Any]]
+         ) -> tuple[list[dict[str, Any]], Counter[str]]:
+    """The groups to merge ({head, members, candidates, confidence}) and the refusals by reason."""
+    refused: Counter[str] = Counter()
     kept: list[dict[str, Any]] = []
     for p in pairs:
         why = _pair_refusal(orgs.get(p["a"]), orgs.get(p["b"]))
@@ -330,12 +365,8 @@ def plan(pairs: list[dict[str, Any]], orgs: dict[int, dict[str, Any]]
         p = {**p}
         p["method"], p["merge_confidence"] = agreement(orgs[p["a"]], orgs[p["b"]])  # type: ignore[misc]
         kept.append(p)
-        parent[find(p["a"])] = find(p["b"])
-    by_root: dict[int, list[dict[str, Any]]] = defaultdict(list)
-    for p in kept:
-        by_root[find(p["a"])].append(p)
     groups: list[dict[str, Any]] = []
-    for cands in by_root.values():
+    for cands in _components(kept):
         ids = sorted({i for p in cands for i in (p["a"], p["b"])})
         rows = [orgs[i] for i in ids]
         clash = next((k for k in IDENTIFIERS if len({r[k] for r in rows if r[k]}) > 1), None)
@@ -473,11 +504,218 @@ def run(conn, *, apply: bool = False, limit: int | None = None, sample: int = 30
     return result
 
 
+# ----------------------------------------------------------------------------- WP-129: a person's review
+
+def read_reviewed(path: str) -> dict[int, dict[str, Any]]:
+    """The candidates of an ids file, by candidate id: {decision, head, confidence, reason}.
+
+    CSV, one candidate per line; blank lines and lines beginning with '#' are skipped. Without a header line each
+    line is `candidate_id[,head_org_id]`, every one ACCEPT. With one (its first cell is no number, e.g. the reviewer's
+    decisions.csv as it is) the columns read are `candidate_id` and, when present, `decision` (ACCEPT, REJECT or
+    UNSURE; empty is ACCEPT), `head` (an organisation id), `confidence` (0..1) and `evidence` or `reason`.
+    `-` reads standard input (`docker compose run -T worker ... --ids-file - < decisions.csv`)."""
+    with (open(path, newline="", encoding="utf-8-sig") if path != "-" else sys.stdin) as f:
+        rows = [r for r in csv.reader(f) if r and r[0].strip() and not r[0].lstrip().startswith("#")]
+    if rows:
+        rows[0][0] = rows[0][0].lstrip("﻿")            # a byte-order mark on standard input
+    cols =(["candidate_id", "head"] if not rows or rows[0][0].strip().isdigit()
+            else [c.strip().lower() for c in rows.pop(0)])
+    out: dict[int, dict[str, Any]] = {}
+    for r in rows:
+        d = {k: v.strip() for k, v in zip(cols, r, strict=False)}
+        decision = (d.get("decision") or "ACCEPT").upper()
+        conf = float(d["confidence"]) if d.get("confidence") else None
+        if decision not in DECISIONS or (conf is not None and not 0 < conf <= 1):
+            raise ValueError(f"candidate {d['candidate_id']}: decision {decision!r} / confidence {conf} not allowed")
+        out[int(d["candidate_id"])] = {"decision": decision, "head": int(d["head"]) if d.get("head") else None,
+                                       "confidence": conf, "reason": d.get("evidence") or d.get("reason") or ""}
+    return out
+
+
+def number_kinds(o: dict[str, Any]) -> list[tuple[str, str]]:
+    """The row's numbers as (kind, value): a Polish registration number by its register (NIP, KRS written with its
+    leading zeros, REGON of 9 or 14 digits) and a Polish VAT number as the NIP it is; elsewhere one kind per column."""
+    out = []
+    reg, vat, pl = o.get("reg"), o.get("vat"), o["country"] == "PL"
+    if reg:
+        kind = "reg"
+        if pl and reg.isdigit():
+            kind = {9: "regon", 14: "regon", 10: "krs" if reg.startswith("000") else "nip"}.get(len(reg), "reg")
+        out.append((kind, reg))
+    if vat:
+        v = vat.removeprefix("PL") if pl else vat
+        out.append(("nip" if pl and len(v) == 10 and v.isdigit() else "vat", v))
+    if o.get("pic"):
+        out.append(("pic", o["pic"]))
+    return out
+
+
+def _number_clash(rows: list[dict[str, Any]]) -> str | None:
+    """Two different numbers of one kind among `rows` (two bodies: the owner's rule), as `different_<kind>`."""
+    seen: dict[str, set[str]] = defaultdict(set)
+    for r in rows:
+        for kind, value in number_kinds(r):
+            seen[kind].add(value)
+    return next((f"different_{k}" for k, v in sorted(seen.items()) if len(v) > 1), None)
+
+
+def _fact_refusal(a: dict[str, Any] | None, b: dict[str, Any] | None) -> str | None:
+    """What refuses a reviewed pair: the facts a person's reading cannot change."""
+    if a is None or b is None:
+        return "unknown_organisation"
+    if a["id"] == b["id"]:
+        return "already_one"
+    if a["country"] != b["country"]:
+        return "different_countries"
+    if a["suppressed"] or b["suppressed"]:
+        return "suppressed"
+    if a["person"] or b["person"]:
+        return "natural_person"
+    return _number_clash([a, b])
+
+
+def _generic(o: dict[str, Any], rows: list[dict[str, Any]]) -> bool:
+    """A name that is no one body's: one more than one public body bears (`org_repair.ambiguous_name`), or another
+    row's name without its place ('zaklad karny' beside 'zaklad karny we wronki')."""
+    # imported here: org_repair imports supplier_dedupe, which imports this module
+    from .org_repair import ambiguous_name
+    n = o["name"] or ""
+    return ambiguous_name(o["country"], n) or any(
+        (r["name"] or "").startswith(f"{n} {p} ") for r in rows if r is not o for p in ("w", "we"))
+
+
+def plan_reviewed(pairs: list[dict[str, Any]], orgs: dict[int, dict[str, Any]], reviewed: dict[int, dict[str, Any]]
+                  ) -> tuple[list[dict[str, Any]], Counter[str], Counter[str]]:
+    """The groups of the ACCEPT pairs ({head, members, candidates, confidence}), the refusals by reason, and what the
+    judgement rules of `_pair_refusal` would have said of the accepted pairs (the review decided instead)."""
+    refused: Counter[str] = Counter()
+    overridden: Counter[str] = Counter()
+    kept = []
+    for p in pairs:
+        r = reviewed.get(p["id"])
+        if r is None or r["decision"] != "ACCEPT":
+            continue
+        why = "not_pending" if p["status"] != "pending" else _fact_refusal(orgs.get(p["a"]), orgs.get(p["b"]))
+        if why:
+            refused[why] += 1
+            continue
+        overridden[_pair_refusal(orgs[p["a"]], orgs[p["b"]]) or "none"] += 1
+        kept.append({**p, "method": REVIEWED, "merge_confidence": r["confidence"] or float(p["confidence"]),
+                     "review": r["reason"], "head_hint": r["head"]})
+    groups = []
+    for cands in _components(kept):
+        ids = sorted({i for p in cands for i in (p["a"], p["b"])})
+        rows = [orgs[i] for i in ids]
+        clash = _number_clash(rows)
+        hints = {p["head_hint"] for p in cands if p["head_hint"]}
+        if clash or len(hints) > 1 or not hints <= set(ids):
+            refused[f"group_{clash}" if clash else "head_not_in_group"] += len(cands)
+            continue
+        head = hints.pop() if hints else min(
+            rows, key=lambda r: (_generic(r, rows), -r["notices"], r["reg"] is None, r["pic"] is None, r["id"]))["id"]
+        groups.append({"head": head, "members": [i for i in ids if i != head], "candidates": cands,
+                       "confidence": min(p["merge_confidence"] for p in cands)})
+    groups.sort(key=lambda g: (-len(g["members"]), g["head"]))
+    return groups, refused, overridden
+
+
+def _pending_between(conn, ids: list[int]) -> list[int]:
+    """The pending candidates between two of the live rows `ids` (either end may be a row merged into one): one
+    organisation once `ids` are. A stale one between a live row and a row already merged into it is not touched."""
+    live = {i: i for i in ids} | {r["id"]: r["merged_into"] for r in conn.execute(
+        "SELECT id, merged_into FROM organisation WHERE merged_into = ANY(%s)", (ids,)).fetchall()}
+    return [r["id"] for r in conn.execute(
+        """SELECT id, organisation_id AS a, candidate_org_id AS b FROM organisation_merge_candidate
+            WHERE status = 'pending' AND organisation_id = ANY(%s) AND candidate_org_id = ANY(%s)""",
+        (list(live), list(live))).fetchall() if live[r["a"]] != live[r["b"]]]
+
+
+def run_reviewed(conn, reviewed: dict[int, dict[str, Any]], *, apply: bool = False, limit: int | None = None,
+                 out=print) -> dict[str, Any]:
+    """WP-129: merge the ACCEPT candidates of a person's review, reject the REJECT ones, leave UNSURE pending."""
+    conn.execute(f"SET statement_timeout = '{STATEMENT_TIMEOUT}'")
+    pairs = reviewed_pairs(conn, sorted(reviewed))
+    orgs = organisations(conn, {i for p in pairs for i in (p["a"], p["b"])})
+    groups, refused, overridden = plan_reviewed(pairs, orgs, reviewed)
+    if missing := set(reviewed) - {p["id"] for p in pairs}:
+        refused["unknown_candidate"] = len(missing)
+    by = {d: [p for p in pairs if reviewed[p["id"]]["decision"] == d] for d in DECISIONS}
+    rejects = [p for p in by["REJECT"] if p["status"] == "pending"]
+    for g in groups:
+        g["between"] = _pending_between(conn, [g["head"], *g["members"]])
+    res: dict[str, Any] = {
+        "reviewed": {d: len(v) for d, v in by.items()}, "groups": len(groups),
+        "accepted_candidates": sum(len(g["candidates"]) for g in groups),
+        "rows_to_merge": sum(len(g["members"]) for g in groups), "refused": dict(refused),
+        "judgement_rules_overridden": dict(overridden),
+        "other_candidates_to_merged": sum(len(g["between"]) - len(g["candidates"]) for g in groups),
+        "to_reject": len(rejects), "unsure_left_pending": len(by["UNSURE"]), "merged": 0,
+        "heads": [(g["head"], g["members"]) for g in groups]}
+    out(f"reviewed {res['reviewed']}: {res['accepted_candidates']} accepted in {len(groups)} groups "
+        f"({res['rows_to_merge']} rows to merge); refused {res['refused']}; the review decided where the rules said "
+        f"{res['judgement_rules_overridden']}; other pending candidates of those pairs to merged "
+        f"{res['other_candidates_to_merged']}; to reject {len(rejects)}; unsure left pending {len(by['UNSURE'])}")
+    for g in groups:
+        out(f"  head {g['head']} {str(orgs[g['head']]['name'])[:60]!r} <- " + ", ".join(
+            f"{m} {str(orgs[m]['name'])[:40]!r}" for m in g["members"]) +
+            f" (candidates {[p['id'] for p in g['candidates']]})")
+    if not apply:
+        conn.rollback()
+        out("dry run: nothing written (add --yes)")
+        return res
+    batch = groups[:limit]
+    started = conn.execute("SELECT now() AS t").fetchone()["t"]
+    conn.commit()
+    for g in batch:
+        for member in g["members"]:
+            p = next(p for p in g["candidates"] if member in (p["a"], p["b"]))
+            # the plan refused any group with two numbers of one kind: a number beside another is of another kind
+            db.merge_organisations(
+                conn, g["head"], member, method=REVIEWED, confidence=p["merge_confidence"],
+                evidence=f"candidate {p['id']} ({p['match_method']}): {p['evidence']}; accepted by a person's review: "
+                         f"{p['review']}", detected_by=DETECTED_BY, allow_identifier_conflict=True)
+            res["merged"] += 1
+        conn.execute("""UPDATE organisation_merge_candidate SET status = 'merged', decided_at = now()
+                         WHERE id = ANY(%s) AND status = 'pending'""", (g["between"],))
+        conn.commit()
+    for p in rejects:
+        conn.execute("""UPDATE organisation_merge_candidate SET status = 'rejected', decided_at = now(),
+                               evidence = evidence || %s WHERE id = %s AND status = 'pending'""",
+                     (f" | rejected by a person's review: {reviewed[p['id']]['reason']}", p["id"]))
+    ended = conn.execute("SELECT now() AS t").fetchone()["t"]
+    conn.commit()
+    res["rejected"] = len(rejects)
+    res["batch_window"] = (started.isoformat(), ended.isoformat())
+    res["families_written"] = buyer_families.run(conn, write=True)
+    res["directory_rows"] = networks.refresh_organisation_network(conn)["organisations"]
+    out(f"merged {res['merged']} rows in {len(batch)} groups ({len(groups) - len(batch)} left for the next run); "
+        f"rejected {len(rejects)}")
+    out(f"to undo the merges: python -m dgate.ops.accept_merge_candidates --undo-batch "
+        f"'{started.isoformat()}' '{ended.isoformat()}' [--yes]")
+    return res
+
+
 def undo_batch(conn, start: str, end: str, *, apply: bool = False, out=print) -> dict[str, Any]:
     """Undo every merge this script wrote between `start` and `end` (`ops.undo_merges`, WP-74's
-    logic, for any window and any of MERGE_METHODS; no expected count: the window is the batch)."""
-    return undo_merges.run(conn, apply=apply, start=start, end=end, methods=MERGE_METHODS,
-                           expected=None, out=out)
+    logic, for any window and any of MERGE_METHODS; no expected count: the window is the batch).
+    WP-129: the candidates of other methods a reviewed merge marked `merged` (between rows it made one) go back to
+    pending too; rejections stay (a person's decision, not a merge)."""
+    rows = undo_merges.batch(conn, start, end, MERGE_METHODS)
+    ids = sorted({i for r in rows for i in (r["id"], r["head"])})
+    ids += [r["id"] for r in conn.execute("SELECT id FROM organisation WHERE merged_into = ANY(%s)", (ids,)).fetchall()]
+    others = [r["id"] for r in conn.execute(
+        """SELECT id FROM organisation_merge_candidate
+            WHERE status = 'merged' AND decided_at >= %s AND decided_at < %s AND NOT (match_method = ANY(%s))
+              AND organisation_id = ANY(%s) AND candidate_org_id = ANY(%s)""",
+        (start, end, list(MERGE_METHODS), ids, ids)).fetchall()]
+    res = undo_merges.run(conn, apply=apply, start=start, end=end, methods=MERGE_METHODS, expected=None, out=out)
+    res["other_candidates_pending"] = len(others)
+    out(f"candidates of other methods back to pending: {len(others)}")
+    if apply and others:
+        conn.execute("""UPDATE organisation_merge_candidate SET status = 'pending', decided_at = NULL
+                         WHERE id = ANY(%s) AND status = 'merged'""", (others,))
+        conn.commit()
+    return res
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -493,11 +731,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--undo-batch", nargs=2, metavar=("FROM", "TO"),
                    help="undo the merges this script wrote in [FROM, TO) (timestamps with zone); "
                         "dry run unless --yes")
+    p.add_argument("--ids-file", metavar="PATH",
+                   help="WP-129: decide the candidates a person reviewed (CSV, see read_reviewed) instead")
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     with db.connect(settings().dsn) as conn:
         if a.undo_batch:
             undo_batch(conn, *a.undo_batch, apply=a.yes)
+        elif a.ids_file:
+            run_reviewed(conn, read_reviewed(a.ids_file), apply=a.yes, limit=a.limit)
         else:
             run(conn, apply=a.yes, limit=a.limit, sample=a.sample,
                 with_office_splits=not a.no_office_splits)
