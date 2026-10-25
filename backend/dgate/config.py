@@ -363,6 +363,9 @@ class Settings:
     # DGATE_INTERNAL_SECRET. Without it (development) the internal secret is the key; in production accounts
     # stay closed until it is set (accounts.accounts_problem).
     account_key: str = field(repr=False, default_factory=lambda: _env("DGATE_ACCOUNT_KEY", ""))
+    # WP-126: the file the accounts security log is written to (JSON lines), kept to 90 days by
+    # dgate.ops.logprune. Unset (development, tests): the log goes to stderr as before.
+    security_log: str | None = field(default_factory=lambda: os.environ.get("DGATE_SECURITY_LOG") or None)
     # The public address links in mail point at.
     site_url: str = field(default_factory=lambda: _env("DGATE_SITE_URL", "https://defencegatehub.com"))
 

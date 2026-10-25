@@ -168,6 +168,11 @@ services:
       DGATE_TELEGRAM_CHAT_ID: ${DGATE_TELEGRAM_CHAT_ID:-}
       # PLACSP winners on the supplier map (WP-60/61): an owner decision, off until `true` (docs/sources/es_placsp.md).
       DGATE_PLACSP_AWARDS_PUBLIC: ${DGATE_PLACSP_AWARDS_PUBLIC:-false}
+      # WP-126: the accounts security log goes to this file (volume `securitylog`), not to stdout, which Docker
+      # rotates by size only; `logprune` cuts its lines older than 90 days (owner decision of 25 Oct 2026).
+      DGATE_SECURITY_LOG: /var/log/dgate/security.log
+    volumes:
+      - securitylog:/var/log/dgate
     mem_limit: 512m
     pids_limit: 256
     cap_drop: [ALL]
@@ -365,10 +370,10 @@ services:
       edge:
         ipv4_address: 10.250.71.2
 
-  # Keeps the proxy's request logs to 14 days (Privacy notice, section 2): cuts old lines
-  # from the active files and deletes rolled ones, hourly. It reads only each line's
-  # timestamp. Root inside the container so it can rewrite Caddy's files; no capabilities
-  # and no network.
+  # Keeps the proxy's request logs to 14 days (Privacy notice, section 2) and the API's
+  # accounts security log to 90 days (WP-126): cuts old lines from the active files and
+  # deletes rolled ones, hourly. It reads only each line's timestamp. Root inside the
+  # container so it can rewrite Caddy's and the API's files; no capabilities and no network.
   logprune:
     logging:
       driver: json-file
@@ -379,13 +384,18 @@ services:
       context: ../backend
     user: "0:0"
     command: ["python", "-m", "dgate.ops.logprune", "--dir", "/logs", "--days", "14",
-              "--every", "3600"]
+              "--dir", "/security=90", "--every", "3600"]
     volumes:
       - caddylogs:/logs
+      - securitylog:/security
     network_mode: none
     mem_limit: 128m
     pids_limit: 32
     cap_drop: [ALL]
+    # WP-126: the security log belongs to the API's user (10001) with mode 644, and root without this capability may
+    # not write it (EACCES, tried 25 Oct 2026). It reaches only what is mounted here: the two log volumes (no network,
+    # read-only root file system).
+    cap_add: [DAC_OVERRIDE]
     security_opt: ["no-new-privileges:true"]
     read_only: true
     restart: unless-stopped
@@ -406,3 +416,4 @@ volumes:
   caddydata:
   caddyconfig:
   caddylogs:
+  securitylog:
