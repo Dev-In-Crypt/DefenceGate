@@ -22,4 +22,10 @@ if __name__ == "__main__":
     if os.environ.get("DGATE_ENV", "").lower() == "production" or not os.environ.get("DGATE_MAIL_CATCHER_DIR"):
         sys.exit("e2e_api: development only, and DGATE_MAIL_CATCHER_DIR must be set")
     accounts.PASSWORD_PRIVACY_VERSION = accounts.PRIVACY_VERSION
+    # WP-124 (web/e2e/wp124.spec.ts): Creem's API answered by a local stand-in; the billing settings come from the
+    # environment as on the server (test values only), with DGATE_CREEM_API_URL pointing at the stand-in.
+    if os.environ.get("E2E_CREEM_MOCK_PORT"):
+        from tests.creem_mock import serve
+
+        serve(int(os.environ["E2E_CREEM_MOCK_PORT"]))
     uvicorn.run(app, host="127.0.0.1", port=int(sys.argv[1] if len(sys.argv) > 1 else 8123), log_level="warning")

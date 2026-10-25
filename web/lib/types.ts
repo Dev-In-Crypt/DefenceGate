@@ -875,7 +875,14 @@ export interface Me {
   totp: boolean;
   /** WP-123: the plan picked on the pricing page before registering, remembered; the plan in force is Free until payment opens. */
   planChoice: import('./plans').PlanChoice | null;
+  /** WP-124: the plan in force, from verified payment events only. */
+  plan: import('./plans').PlanId;
+  /** WP-124: the paid features this account may use (every one while no plan is on sale). */
+  features: PaidFeature[];
 }
+
+/** WP-124: the paid features that exist (backend billing.FEATURES). */
+export type PaidFeature = 'saved_searches' | 'email_alerts';
 
 /** GET /v1/account/sessions */
 export interface AccountSession {
@@ -896,10 +903,13 @@ export interface SavedSearch {
   filters: SearchFilters;
   cadence: Cadence;
   createdAt: IsoDateTime;
-  matchCount: number;
+  /** Null while the search is paused (WP-124). */
+  matchCount: number | null;
   /** Matches published since the account's lastVisitAt. */
   newCount: number;
   lastMatchAt: IsoDateTime | null;
+  /** WP-124: kept after a downgrade but not run, and no alerts, until the account has a plan with saved searches again. */
+  paused?: boolean;
 }
 
 export type ShortlistStatus = 'watching' | 'evaluating' | 'bidding' | 'submitted' | 'dropped';

@@ -48,6 +48,12 @@ const NOTICES: Record<string, { text: string; error?: true }> = {
   weak: { text: 'Choose another new password: at least 12 characters, and not a common or easily guessed one.', error: true },
   rate_limited: { text: 'Too many attempts. Wait a little and try again.', error: true },
   totp_off: { text: 'Two-step sign-in is off.' },
+  // WP-124
+  subscription_active: { text: 'Your subscription is still running. Cancel it first under Billing (Manage subscription), then delete the account. Nothing was deleted.', error: true },
+  founding_full: { text: 'All Founding customer places are taken. Choose another plan.', error: true },
+  already_subscribed: { text: 'This account already has a plan. Manage it below.', error: true },
+  billing_closed: { text: 'Payment opens soon. Nothing was charged.', error: true },
+  payment_error: { text: 'The payment service did not answer. Nothing was charged. Try again in a moment.', error: true },
 };
 
 /** Result of the last action, from `?n=`. Only codes in the table above are ever shown. */

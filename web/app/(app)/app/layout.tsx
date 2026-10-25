@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { safeReturnPath } from '@/lib/safe-url';
 import { LogOut } from 'lucide-react';
 import { getAccountStatus, getUserState } from '@/lib/account';
+import { billingOpen, PLAN_LABELS } from '@/lib/plans';
+import { BILLING_OPEN } from '@/lib/pricing';
 import { AppNav } from '@/components/account/app-nav';
 import { Button } from '@/components/dg/button';
 import { ErrorState } from '@/components/dg/feedback';
@@ -55,9 +57,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     );
   }
 
-  const { email, termsCurrent } = state.user;
+  const { email, termsCurrent, plan, planChoice } = state.user;
+  // WP-124: a paid plan chosen on the pricing page and not paid yet: the next step is payment, said on every account page.
+  const toPay = plan === 'free' && planChoice && planChoice.plan !== 'free' && BILLING_OPEN;
   // A new version of the terms or the privacy notice: asked again here, as the sign-in form does.
-  const status = termsCurrent ? null : await getAccountStatus();
+  const status = termsCurrent && !toPay ? null : await getAccountStatus();
+  const payNow = toPay && status && billingOpen(BILLING_OPEN, status) ? planChoice : null;
   return (
     <>
       {skip}
@@ -90,7 +95,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </aside>
 
         <main id="main" className="flex min-w-0 flex-col gap-6">
-          {status?.termsVersion && status.privacyVersion && (
+          {payNow && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-transparent bg-surface p-5" data-pay-now>
+              <p className="m-0 text-body">You chose {PLAN_LABELS[payNow.plan]}{payNow.billing ? `, ${payNow.billing}` : ''}. Your plan is Free until it is paid.</p>
+              <Button href={`/app/billing${payNow.billing ? `?plan=${payNow.plan}&billing=${payNow.billing}` : ''}`}>Continue to payment</Button>
+            </div>
+          )}
+          {!termsCurrent && status?.termsVersion && status.privacyVersion && (
             <form action={acceptCurrentTerms} className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5">
               <p className="m-0 text-body">
                 The <a href="/terms" className="font-semibold">terms of use</a> (version {status.termsVersion}) and the{' '}

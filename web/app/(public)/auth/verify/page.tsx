@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
-import { isTokenShaped } from '@/lib/account';
+import { getAccountStatus, isTokenShaped } from '@/lib/account';
+import { billingOpen } from '@/lib/plans';
+import { BILLING_OPEN } from '@/lib/pricing';
 import { ContentPage } from '@/components/dg/content-page';
 import { ConfirmForm, InvalidLink } from '@/components/account/confirm-form';
 
@@ -11,14 +13,14 @@ type Props = { searchParams: Promise<{ token?: string | string[] }> };
 
 /** Rendering this page does not consume the token: mail scanners open links. The button does. */
 export default async function VerifyPage({ searchParams }: Props) {
-  const raw = (await searchParams).token;
+  const [{ token: raw }, status] = await Promise.all([searchParams, getAccountStatus()]);
   const token = Array.isArray(raw) ? raw[0] : raw;
   return (
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Create an account', href: '/signup' }]}
       title="Confirm your address"
     >
-      {isTokenShaped(token) ? <ConfirmForm token={token} /> : <InvalidLink />}
+      {isTokenShaped(token) ? <ConfirmForm token={token} payOpen={billingOpen(BILLING_OPEN, status)} /> : <InvalidLink />}
     </ContentPage>
   );
 }

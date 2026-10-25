@@ -42,10 +42,16 @@ export default async function SearchesPage({ searchParams }: Props) {
                 <ul className="m-0 flex list-none flex-wrap gap-x-3 gap-y-1 p-0 text-small text-ink-muted">
                   {describeFilters(s.kind, s.filters ?? {}).map((d) => <li key={d}>{d}</li>)}
                 </ul>
-                <p className="m-0 font-mono text-mono text-ink-muted">
-                  {formatNumber(s.matchCount)} {plural(s.matchCount, 'match', 'matches')} · {formatNumber(s.newCount)} new since your last visit
-                  {s.lastMatchAt ? ` · latest ${formatDateUtc(s.lastMatchAt)}` : ''}
-                </p>
+                {s.paused || s.matchCount === null ? (
+                  <p className="m-0 text-small text-ink-muted" data-paused>
+                    Paused: your plan has no saved searches or alerts. The search is kept; it runs again with a plan that has them (<Link href="/app/billing" className="font-semibold">Billing</Link>).
+                  </p>
+                ) : (
+                  <p className="m-0 font-mono text-mono text-ink-muted">
+                    {formatNumber(s.matchCount)} {plural(s.matchCount, 'match', 'matches')} · {formatNumber(s.newCount)} new since your last visit
+                    {s.lastMatchAt ? ` · latest ${formatDateUtc(s.lastMatchAt)}` : ''}
+                  </p>
+                )}
               </div>
               <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
                 <form action={setSearchCadence} className="flex flex-wrap items-end gap-3">

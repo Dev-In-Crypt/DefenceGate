@@ -48,7 +48,14 @@
 	}
 
 	# This API takes GET requests with short query strings and nothing else.
-	request_body {
+	# WP-124: except Creem's webhook events to the site (web/app/api/billing/webhook), which carry the checkout with
+	# its product, customer and subscription: 64KB on that one path, the cap the site and the API hold it to as well.
+	@billing_webhook path /api/billing/webhook
+	request_body @billing_webhook {
+		max_size 64KB
+	}
+	@not_billing_webhook not path /api/billing/webhook
+	request_body @not_billing_webhook {
 		max_size 4KB
 	}
 

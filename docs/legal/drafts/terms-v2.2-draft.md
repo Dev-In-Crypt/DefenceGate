@@ -42,4 +42,57 @@ Until then every account is on the free plan."
 
 1. Approve or edit the wording; the lawyer's review together with privacy 1.7.
 2. The paid-plan terms themselves (price, billing, cancellation, refunds, the merchant of record) belong to WP-124 and are
-   not in this draft.
+   not in this draft. WP-124 added them below as a draft of a new term.
+
+## WP-124 (25 October 2026): a new term "Paid plans", DRAFT
+
+Payment is built (Creem, merchant of record, test mode, switched off): `backend/dgate/billing.py`,
+`docs/verification/accounts/wp124-selfcheck.md`. It stays off until the owner has the Creem account and products, sets
+the settings on the server and publishes this term with the privacy notice 1.7. Where the term goes (after term 14, as
+14a, or renumbered) is the owner's choice; the text refers to "these terms" and to term 14 only.
+
+**Draft text:**
+
+"Paid plans. The free plan stays free. The paid plans (Pro, Team, Consultant and Founding customer) and their prices are
+those shown on the pricing page when you buy; prices are in euros and exclude VAT.
+
+Paid plans are sold by our reseller and merchant of record, Creem [legal entity and address to be
+completed], which takes the payment, charges the VAT that applies, issues the invoice and handles refunds and payment
+disputes. When you buy, you enter into the purchase with Creem on its own terms, shown at checkout; these terms govern
+your use of DefenceGate. We never see or store your card details.
+
+A plan is billed in advance for its period (a month or a year) and renews at the end of each period until it is
+cancelled. You can cancel at any time in Billing, Manage subscription (Creem's customer portal); a cancellation there
+takes effect at once and the paid features stop then. [Refunds: to be decided by the owner with Creem's refund policy,
+e.g. no refund for a part of a period, except where the law requires one.] If a payment fails, Creem tries again for a
+time and the plan stays available meanwhile; if the payment is not made, the plan ends.
+
+When a plan ends or is cancelled, your account returns to the free plan: your saved searches and other data stay, but
+the paid features (saved searches and their e-mail alerts) stop until you have a paid plan again.
+
+The Founding customer plan is offered to the first 20 customers at a fixed yearly price for as long as the subscription
+continues without interruption [owner to confirm: 'price fixed' means for the life of the subscription].
+
+An account with a running subscription cannot be deleted: cancel the subscription first, then delete the account (term 14).
+
+Paid plans are offered only to customers who act for their trade, business or profession."
+
+### Why each part
+
+| Part | Why |
+|---|---|
+| merchant of record, Creem's own terms at checkout | Creem is the seller: it charges VAT and issues invoices (owner's choice, 25 Oct 2026); its checkout shows its terms |
+| renewal, cancellation "at once" | Creem's customer portal cancels immediately (docs.creem.io, customer portal); the code closes the plan on Creem's `subscription.canceled` event |
+| failed payments | Creem's `subscription.past_due` (Creem retries; the plan stays open) and `unpaid` / `expired` (the plan ends): `billing.plan_in_force` |
+| downgrade keeps the data | the owner's brief: "Downgrade keeps the user's data but stops the paid feature" |
+| deletion needs cancellation first | the safe option: deleting would leave Creem charging an account nobody can manage |
+| business customers only | the registration tick already says "I act for a trade, business or profession"; no consumer withdrawal right is offered in this draft (lawyer to confirm) |
+
+### Open items (WP-124)
+
+1. Creem's legal entity name and address as it appears on its invoices.
+2. The refund rule (bracket above) and whether a cancellation should instead run to the end of the paid period (Creem's
+   API also has a scheduled cancellation, `subscription.scheduled_cancel`, which the code already honours to the end of the
+   period; the portal's cancel is immediate).
+3. "Price fixed" for Founding customer: for how long.
+4. The lawyer's review: merchant-of-record wording, consumer exclusion, the reference to Creem's terms.

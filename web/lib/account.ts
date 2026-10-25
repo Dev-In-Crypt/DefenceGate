@@ -15,9 +15,9 @@ import { redirect } from 'next/navigation';
 import type {
   AccountSession, Cadence, Dashboard, DashboardChange, DashboardClosing, DashboardFollowing, DashboardMatch, DashboardPulse,
   Follow, FollowKind, Me, Profile, ProfileScope, Role, SavedSearch, SearchFilters, SearchKind, ShortlistItem, ShortlistKind,
-  ShortlistStatus, StateItem, StateKey, Track,
+  ShortlistStatus, StateItem, StateKey, Track, PaidFeature as Feature,
 } from './types';
-import { readPlanChoice, type PlanChoice } from './plans';
+import { PLAN_LABELS, readPlanChoice, type Billing, type PlanChoice, type PlanId } from './plans';
 
 const API_BASE = process.env.DG_API_URL;
 const INTERNAL_SECRET = process.env.DG_INTERNAL_SECRET;
@@ -176,6 +176,8 @@ function toMe(raw: unknown): Me {
     hasPassword: isRecord(raw.security) && raw.security.hasPassword === true,
     totp: isRecord(raw.security) && raw.security.totp === true,
     planChoice: isRecord(raw.plan) ? readPlanChoice(raw.plan.chosen, raw.plan.billing) : null,
+    plan: isRecord(raw.plan) ? toPlan(raw.plan.current) : 'free',
+    features: toFeatures(raw.features),
   };
 }
 
@@ -214,10 +216,14 @@ export function dataOrNull<T>(r: AccountResult<T>): T | null {
  * GET /v1/account/status, cached 60 seconds. Reads no cookie, so a static page can call it. Any failure is
  * "not open": the site then shows "Sign-in is not open yet" and sends nothing else.
  */
-export interface AccountStatus { open: boolean; termsVersion: string | null; privacyVersion: string | null }
+export interface AccountStatus {
+  open: boolean; termsVersion: string | null; privacyVersion: string | null;
+  /** WP-124: the API has every Creem setting (and accounts are open). The site also needs NEXT_PUBLIC_BILLING_OPEN (lib/plans billingOpen). */
+  billing: boolean;
+}
 
 export async function getAccountStatus(): Promise<AccountStatus> {
-  const closed = { open: false, termsVersion: null, privacyVersion: null };
+  const closed = { open: false, termsVersion: null, privacyVersion: null, billing: false };
   if (!API_BASE) return closed;
   try {
     const res = await fetch(`${API_BASE}/v1/account/status`, {
@@ -229,7 +235,8 @@ export async function getAccountStatus(): Promise<AccountStatus> {
     const body: unknown = await res.json();
     if (!isRecord(body)) return closed;
     const version = (v: unknown) => (typeof v === 'string' && /^[0-9.]{1,20}$/.test(v) ? v : null);
-    return { open: body.open === true, termsVersion: version(body.termsVersion), privacyVersion: version(body.privacyVersion) };
+    return { open: body.open === true, termsVersion: version(body.termsVersion), privacyVersion: version(body.privacyVersion),
+      billing: body.open === true && body.billing === true };
   } catch {
     return closed;
   }
@@ -364,6 +371,61 @@ export const deleteFollow = (kind: FollowKind, ref: string) =>
 /** At most 50 keys. */
 export const getState = (keys: StateKey[]) =>
   call<StateItem[]>('/state', { method: 'POST', json: { keys } }, (raw) => items<StateItem>(raw));
+
+/* ---- billing (WP-124): Creem, merchant of record ---- */
+
+const toPlan = (v: unknown): PlanId => (typeof v === 'string' && Object.hasOwn(PLAN_LABELS, v) ? (v as PlanId) : 'free');
+const toFeatures = (v: unknown): Feature[] => arr<unknown>(v).filter((f): f is Feature => f === 'saved_searches' || f === 'email_alerts');
+
+export interface BillingState {
+  open: boolean;
+  testMode: boolean;
+  plan: PlanId;
+  features: Feature[];
+  subscription: { plan: PlanId; period: Billing; status: string; periodEnd: string | null; refundedAt: string | null; canManage: boolean } | null;
+  /** Founding customer places left: only while billing is open, and then true at the time of the request. */
+  foundingLeft: number | null;
+  foundingCap: number;
+}
+
+function toBilling(raw: unknown): BillingState {
+  if (!isRecord(raw)) throw new Error('bad billing');
+  const s = isRecord(raw.subscription) ? raw.subscription : null;
+  const text = (v: unknown) => (typeof v === 'string' ? v : null);
+  return {
+    open: raw.open === true,
+    testMode: raw.testMode !== false,
+    plan: toPlan(raw.plan),
+    features: toFeatures(raw.features),
+    subscription: s ? {
+      plan: toPlan(s.plan), period: s.period === 'yearly' ? 'yearly' : 'monthly', status: text(s.status)?.slice(0, 32) ?? 'unknown',
+      periodEnd: text(s.periodEnd), refundedAt: text(s.refundedAt), canManage: s.canManage === true,
+    } : null,
+    foundingLeft: typeof raw.foundingLeft === 'number' ? raw.foundingLeft : null,
+    foundingCap: typeof raw.foundingCap === 'number' ? raw.foundingCap : 20,
+  };
+}
+
+export const getBilling = () => call<BillingState>('/billing', {}, toBilling);
+
+/**
+ * The address of Creem's hosted page, checked again here before the browser is sent to it: https on creem.io, or the origin of the
+ * e2e test's local stand-in (DG_E2E_CREEM_ORIGIN, set only by that test, never in infra/docker-compose.yml).
+ */
+function providerUrl(raw: unknown): string {
+  const v = isRecord(raw) ? raw.url : null;
+  if (typeof v !== 'string') throw new Error('bad url');
+  const u = new URL(v);
+  const creem = u.protocol === 'https:' && !u.username && !u.password && (u.hostname === 'creem.io' || u.hostname.endsWith('.creem.io'));
+  if (!creem && !(process.env.DG_E2E_CREEM_ORIGIN && u.origin === process.env.DG_E2E_CREEM_ORIGIN)) throw new Error('bad url');
+  return u.toString();
+}
+
+/** A Creem checkout for this account, created by the API (the key never reaches the browser). */
+export const createCheckout = (plan: Exclude<PlanId, 'free'>, billing: Billing) =>
+  call<string>('/billing/checkout', { method: 'POST', json: { plan, billing } }, providerUrl);
+/** Creem's customer portal of this account: cancel, invoices, payment method. */
+export const openPortal = () => call<string>('/billing/portal', { method: 'POST' }, providerUrl);
 
 /* ---- dashboard ---- */
 

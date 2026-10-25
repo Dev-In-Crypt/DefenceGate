@@ -251,6 +251,18 @@ def get_conn():
         yield conn
 
 
+def internal_headers(request: Request) -> None:
+    """`internal_only` without the size check: for the billing webhook (WP-124), whose own cap is
+    larger (billing.WEBHOOK_MAX, hardening.BodyLimit)."""
+    secret = settings().internal_secret
+    if secret:
+        given = request.headers.get("x-dg-internal")
+        if given is None or not hmac.compare_digest(given.encode("utf-8"), secret.encode("utf-8")):
+            raise AccountError(403, "forbidden", "not available from here")
+    if request.headers.get("origin") is not None or request.headers.get("x-forwarded-for") is not None:
+        raise AccountError(403, "forbidden", "not available from here")
+
+
 def internal_only(request: Request) -> None:
     """A6, defence in depth: the site's server calls this over the compose network and adds
     neither header. A browser sends `Origin` on a cross-site write; a request that came
@@ -259,13 +271,7 @@ def internal_only(request: Request) -> None:
     site's own header `X-DG-Internal` must match it as well (a second control, not the
     network alone). The size check is a first look at a declared length; BodyLimit counts
     the bytes that really arrive."""
-    secret = settings().internal_secret
-    if secret:
-        given = request.headers.get("x-dg-internal")
-        if given is None or not hmac.compare_digest(given.encode("utf-8"), secret.encode("utf-8")):
-            raise AccountError(403, "forbidden", "not available from here")
-    if request.headers.get("origin") is not None or request.headers.get("x-forwarded-for") is not None:
-        raise AccountError(403, "forbidden", "not available from here")
+    internal_headers(request)
     declared = request.headers.get("content-length")
     if declared and declared.isdigit() and int(declared) > MAX_BODY:
         raise AccountError(413, "too_large", "request body too large")
@@ -282,12 +288,15 @@ internal_router = APIRouter(dependencies=[Depends(internal_only)])
 
 def current(request: Request, conn=Depends(get_conn),
             x_dg_session: str | None = Header(None)) -> dict[str, Any]:
-    """The authenticated account and the session it came with, or 401."""
+    """The authenticated account and the session it came with, or 401. With the subscription
+    (WP-124), so every gate reads the plan in force through `billing.plan_of`."""
     if not x_dg_session or not _SESSION.match(x_dg_session):
         raise AccountError(401, "unauthenticated", "sign in required")
     row = conn.execute(
-        """SELECT s.public_id AS session_id, s.id_hash, u.*
+        """SELECT s.public_id AS session_id, s.id_hash, u.*, b.plan AS sub_plan, b.status AS sub_status,
+                  b.current_period_end AS sub_period_end
              FROM app_session s JOIN app_user u ON u.id = s.user_id
+             LEFT JOIN billing_subscription b ON b.account_id = u.id
             WHERE s.id_hash = %s AND s.expires_at > now()
               AND s.last_seen_at > now() - %s::interval""",
         (_hash(x_dg_session), SESSION_IDLE)).fetchone()
@@ -457,7 +466,11 @@ def status(conn=Depends(get_conn)) -> JSONResponse:
         prune_expired(conn)
     except Exception:  # noqa: BLE001 - the status answer must not depend on housekeeping
         log.warning("status: prune failed")
-    return JSONResponse({"open": accounts_problem() is None, "termsVersion": TERMS_VERSION,
+    from .billing import billing_problem
+
+    is_open = accounts_problem() is None
+    return JSONResponse({"open": is_open, "billing": is_open and billing_problem() is None,
+                         "termsVersion": TERMS_VERSION,
                          "privacyVersion": PRIVACY_VERSION},
                         headers={"Cache-Control": "public, max-age=60"})
 
@@ -950,6 +963,8 @@ def totp_disable(body: PasswordOnly, conn=Depends(get_conn), user=Depends(curren
 
 # ------------------------------------------------------------------ account
 def _user_out(u: dict[str, Any]) -> dict[str, Any]:
+    from . import billing
+
     return {
         "id": str(u["id"]), "email": u["email_display"], "createdAt": u["created_at"],
         "profile": {"role": u["role"], "tracks": list(u["tracks"]), "countries": list(u["countries"]),
@@ -961,10 +976,12 @@ def _user_out(u: dict[str, Any]) -> dict[str, Any]:
                   "acceptedAt": u.get("accepted_at"),
                   "current": (u.get("terms_version") == TERMS_VERSION
                               and u.get("privacy_version") == PRIVACY_VERSION)},
-        # WP-123: `current` is the plan in force (only billing will change it, WP-124); `chosen` and
-        # `billing` are what the person picked on the pricing page, remembered and nothing more.
-        "plan": {"current": u.get("plan") or "free", "chosen": u.get("plan_choice"),
+        # WP-123: `chosen` and `billing` are what the person picked on the pricing page, remembered and nothing
+        # more. WP-124: `current` is the plan in force from the verified payment events (billing.plan_of),
+        # `features` the paid features the account may use (all of them while no plan is on sale).
+        "plan": {"current": billing.plan_of(u), "chosen": u.get("plan_choice"),
                  "billing": u.get("billing_choice")},
+        "features": billing.features(u),
     }
 
 
@@ -1030,6 +1047,13 @@ def delete_me(body: DeleteAccount, conn=Depends(get_conn), user=Depends(current)
         raise AccountError(422, "confirmation_mismatch", "type your e-mail address to confirm")
     if user["password_hash"] is not None:
         _require_password(conn, user, body.password or "", _client_ip(x_dg_client_ip))
+    # WP-124: a subscription Creem may still charge is cancelled first (Billing, Manage subscription): deleting
+    # the account would leave it running with nobody able to manage it here. Once cancelled, the row goes too.
+    from .billing import ENDED
+
+    if user["sub_status"] is not None and user["sub_status"] not in ENDED:
+        raise AccountError(409, "subscription_active",
+                           "cancel your subscription first (Billing, Manage subscription), then delete the account")
     conn.execute("DELETE FROM app_user WHERE id = %s", (user["id"],))   # cascades to everything owned
     _audit("deleted", user["id"])
     return Response(status_code=204)
@@ -1065,6 +1089,12 @@ def export(conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
                       for r in conn.execute(
                           "SELECT * FROM app_shortlist WHERE owner_id = %s ORDER BY created_at LIMIT %s",
                           (uid, MAX_SHORTLIST)).fetchall()],
+        "subscription": [{"plan": r["plan"], "period": r["period"], "status": r["status"],
+                          "currentPeriodEnd": r["current_period_end"], "refundedAt": r["refunded_at"],
+                          "creemCustomerId": r["creem_customer_id"],
+                          "creemSubscriptionId": r["creem_subscription_id"], "updatedAt": r["updated_at"]}
+                         for r in conn.execute("SELECT * FROM billing_subscription WHERE account_id = %s",
+                                               (uid,)).fetchall()],
         "follows": [{"kind": r["kind"], "ref": r["ref"], "createdAt": r["created_at"]}
                     for r in conn.execute(
                         "SELECT * FROM app_follow WHERE owner_id = %s ORDER BY created_at LIMIT %s",
@@ -1286,7 +1316,14 @@ def _search_row(r: dict[str, Any]) -> dict[str, Any]:
 
 
 def _search_out(conn, r: dict[str, Any], user: dict[str, Any]) -> dict[str, Any]:
+    from .billing import may
+
     out = _search_row(r)
+    # WP-124: a search kept after a downgrade is not run (the paid feature stops, the data stays).
+    out["paused"] = not may(user, "saved_searches")
+    if out["paused"]:
+        out.update(matchCount=None, newCount=0, lastMatchAt=None)
+        return out
     result = run_search(conn, r["kind"], r["filters"])
     since = _since(user)
     out["matchCount"] = result["total"]
@@ -1314,6 +1351,9 @@ def list_searches(conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, 
 
 @router.post("/searches", status_code=201)
 def create_search(body: SearchIn, conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, Any]:
+    from .billing import require
+
+    require(user, "saved_searches")
     n = conn.execute("SELECT count(*) AS n FROM app_saved_search WHERE owner_id = %s",
                      (user["id"],)).fetchone()["n"]
     if n >= MAX_SEARCHES:
@@ -1330,7 +1370,10 @@ def create_search(body: SearchIn, conn=Depends(get_conn), user=Depends(throttled
 @router.patch("/searches/{search_id}")
 def patch_search(search_id: str, body: SearchPatch, conn=Depends(get_conn),
                  user=Depends(throttled)) -> dict[str, Any]:
+    from .billing import require
+
     row = _owned_search(conn, search_id, user)
+    require(user, "saved_searches")
     name = body.name.strip() if body.name is not None else row["name"]
     cadence = body.cadence if body.cadence is not None else row["cadence"]
     filters = row["filters"]
@@ -1636,9 +1679,11 @@ def dashboard(conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, Any]
     since = _since(user)
     horizon = now + timedelta(days=14)
 
+    from .billing import may
+
     searches = conn.execute(
         "SELECT * FROM app_saved_search WHERE owner_id = %s ORDER BY created_at DESC LIMIT 6",
-        (user["id"],)).fetchall()
+        (user["id"],)).fetchall() if may(user, "saved_searches") else []   # WP-124: kept, not run
     matches, searched_items = [], []
     for s in searches:
         res = run_search(conn, s["kind"], s["filters"])
