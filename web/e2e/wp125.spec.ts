@@ -120,7 +120,7 @@ test('3: the five steps ask 24 questions at least, and the pages that count them
   await visit(page, '/check', { title: /Check my company/, h1: 'Check my company', text: [/Five steps of 24 to 35 questions/] });
 });
 
-test('3: the services route of the supplier profile asks 18 to 23 questions, within what the tile says (18 to 35)', async ({ page }) => {
+test('3: the services route of the supplier profile asks 18 to 23 questions, within what the tile says (17 to 53, WP-131)', async ({ page }) => {
   await visit(page, '/readiness/supplier?offer=services', { title: /supplier/i, h1: /supplier/i });
   const form = page.locator('main form').first();
   await page.getByLabel('Country where your company is established').selectOption('NL');
@@ -128,7 +128,7 @@ test('3: the services route of the supplier profile asks 18 to 23 questions, wit
   await page.getByLabel('Country where your company is established').selectOption('ES');
   expect(await countQuestions(form), 'services, in Spain').toBe(23);
   await visit(page, '/', { title: /DefenceGate/, h1: 'Win, partner, qualify.' });
-  await expect(page.locator('[data-tile]').nth(2)).toContainText('To supply defence buyers, one page of 18 to 35 questions.');
+  await expect(page.locator('[data-tile]').nth(2)).toContainText('To supply defence buyers, one page of 17 to 53 questions.');
 });
 
 test('2: step 1 asks one question of what the organisation is, and its answer sets both inputs of the rules', async ({ page }) => {

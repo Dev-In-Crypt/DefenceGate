@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { getHealth } from '@/lib/api';
+import { FEED_PAGE_ENTRIES, getHealth } from '@/lib/api';
 import { now } from '@/lib/deadline';
 import { formatDateTimeUtc, formatNumber } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
@@ -34,7 +34,7 @@ const GROUPS: { type: SourceType; title: string }[] = [
 function SourceCard({ s, asOf }: { s: SourceHealth; asOf: Date }) {
   const url = safeHttpUrl(sourcePage(s.id, s.url));
   const fresh = sourceFreshness(s, asOf);
-  const reason = statusReasonLine(s);
+  const reason = statusReasonLine(s, fresh.kind);
   const held = typeof s.heldCount === 'number';
   const span = heldSpan(s.heldFrom, s.heldTo);
   const noun = s.type === 'grants' ? 'Calls' : 'Notices';
@@ -77,6 +77,8 @@ export default async function DataPage() {
   const lateRule = lateRuleSentence(health.sources);
   const portals = portalWords(health.sources);
   const germany = health.sources.find((s) => s.id === 'de_bkms');
+  // WP-131: the start date from the data (the card's first publication date held), not a second date written by hand
+  const germanyStart = germany ? heldSpan(germany.heldFrom, null) : null;
   const count = (...k: FreshnessKind[]) => kinds.filter((x) => k.includes(x)).length;
   return (
     <ContentPage
@@ -92,7 +94,7 @@ export default async function DataPage() {
         <span className="font-semibold text-ink">What OK means:</span> the last run finished and fetched at least that minimum, and it was not late for how often that source is collected
         ({lateRule ? `a run is late for ${lateRule}` : `a run is late after ${STALE_AFTER_DAYS} days`}). It does not mean the source is fully collected. A late run is shown as stale, a load made once as a one-off load,
         and a source that failed or has never run as such. A run that finished with a problem is partial, and its card says why, also when it fetched the minimum.
-        A daily source whose every run of the last day fetched nothing is stale at once.
+        A daily source whose every run of the last day fetched nothing is stale at once. Each card shows one status: a late run is stale even when it was partial.
       </p>
       </AboutData>
 
@@ -145,7 +147,7 @@ export default async function DataPage() {
         <ClauseList items={[
           `National tender portals and feeds are collected for ${portals.count} countries: ${portals.names}. For every other country, Italy and the Nordic and Baltic countries among them, we hold only what TED carries.`,
           germany
-            ? `Germany: the federal notice service (Bekanntmachungsservice, published as open data under CC0) is collected every day${typeof germany.heldCount === 'number' ? ` and we hold ${formatNumber(germany.heldCount)} of its notices` : ''}. It starts on 25 October 2023, when German notices moved to eForms: older German notices are here only if TED carries them, and so is anything published only on a state or municipal portal.`
+            ? `Germany: the federal notice service (Bekanntmachungsservice, published as open data under CC0) is collected every day${typeof germany.heldCount === 'number' ? ` and we hold ${formatNumber(germany.heldCount)} of its notices` : ''}. ${germanyStart ? `What we hold of it starts on ${germanyStart}, with` : 'It starts with'} the move of German notices to eForms in October 2023: older German notices are here only if TED carries them, and so is anything published only on a state or municipal portal.`
             : 'Germany: we hold only what TED carries.',
           'TED: notices from April 2024 on have been re-checked with the current classification rules; the older ones (back to 2017) are being re-checked now, so until that finishes an older notice may be mislabelled or missing.',
           'Poland (Atlas): a one-off research dataset, not a live portal. It stops where its dates stop, and the national counts fall there.',
@@ -158,7 +160,7 @@ export default async function DataPage() {
         <ClauseList items={[
           'CSV: the Download CSV button under the filters of Tenders and of Funding gives the public fields of the current result, with the source, licence and attribution on every row. A tenders file holds at most 2,000 rows (1,000 when the status is All), in the list’s order; a result cut at the limit holds the most recently added notices, every row then says result_truncated = true, and the file’s Link header is the address of the next part. publishedFrom and publishedTo (YYYY-MM-DD) take a result a span of publication dates at a time. value_kind says what each value is (as the notice states it, or estimated for a call that states none). The last column of a tenders file, confidence, is the notice’s level (high, medium or low; see Methodology, “How sure are we”).',
           'CSV: a supplier page gives every contract of the supplier (buyer, date, value, what the value is and whether the page sums it), and the market overview its tables, with the same source, licence and attribution columns.',
-          'Atom: What changed has a feed (/changes.atom) of the same list, with the same country and scope choices, named after the search. It holds the newest 400 changes; the older ones are on its next pages (page=2, and a next link in the feed). No account is needed.',
+          `Atom: What changed has a feed (/changes.atom) of the same list, with the same country and scope choices, named after the search. Its first page holds the newest ${formatNumber(FEED_PAGE_ENTRIES)} notice changes, and the unfiltered feed also carries the new funding calls and moved funding dates on top of them; the older notice changes are on its next pages (page=2, and a next link in the feed). No account is needed.`,
           'Atom: the weekly digest has a feed (/digest.atom), one entry per week with the counts and the first headlines; a country can be added (/digest.atom?country=ES). Each week is also a page (/digest/2026-W41), and an issue does not change once its week has ended.',
           'Calendar: the deadlines of open tenders and funding calls as an .ics feed (/calendar.ics), for your calendar program.',
           'API: the site reads a JSON interface that is not documented and not supported for use by others; the terms say what automated use is allowed.',

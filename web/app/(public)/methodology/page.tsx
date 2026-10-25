@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getHealth } from '@/lib/api';
 import { portalWords } from '@/lib/coverage-copy';
+import { heldSpan } from '@/lib/source-status';
 import { SCOPE_CHOICES } from '@/lib/taxonomy';
 import { buildMetadata } from '@/lib/seo';
 import { Callout, ClauseList, Steps } from '@/components/dg/blocks';
@@ -16,13 +17,16 @@ export const metadata: Metadata = buildMetadata({
 });
 
 const PIPELINE = [
-  { title: 'Collect', body: 'Each source is fetched through its public interface on its own schedule: tender sources and funding portals daily, the EU research datasets (CORDIS and the EDF results) monthly; the status page shows each one. The payload is kept in a private archive, with contact fields removed, before anything else is done to it. A small number of payloads landed before 22 September 2026 still hold some; they are never shown.' },
+  { title: 'Collect', body: 'Each source is fetched through its public interface on its own schedule: tender sources and funding portals daily, the EU research datasets (CORDIS and the EDF results) monthly; the status page shows each one. The payload is kept in a private archive, with contact fields removed, before anything else is done to it. Payloads landed before that was done for every source still hold some: about 100 TED notices of mid-September 2026, and Spanish payloads landed before 12 October 2026, which were not counted. Some earlier versions of notices in the archive also hold e-mail addresses (221 on 21 October 2026, 113 of them written on 12 and 14 October), and about 1,000 buyer names hold a telephone, fax or e-mail block as the source wrote it. None of it is shown.' },
   { title: 'Normalise', body: 'Fields are mapped to one shape: title, buyer, country, dates, value, codes. The contact fields a source publishes are dropped, and e-mail addresses are also removed from free text.' },
   { title: 'Classify and link', body: 'Each notice is checked for defence and dual-use signals and linked to the same notice on other sources where a shared reference or identifier exists.' },
 ];
 
 export default async function MethodologyPage() {
-  const portals = portalWords((await getHealth()).sources);
+  const { sources } = await getHealth();
+  const portals = portalWords(sources);
+  // WP-131: the German start date from the data, as /data says it (the first publication date held)
+  const germanyStart = heldSpan(sources.find((s) => s.id === 'de_bkms')?.heldFrom, null) ?? 'October 2023';
   return (
     <ContentPage
       toc
@@ -101,7 +105,7 @@ export default async function MethodologyPage() {
         <ClauseList items={[
           'Collection is scheduled, not real time: tender sources and funding portals daily, the EU research datasets (CORDIS, EDF results) monthly. The status page shows when each source last ran.',
           'A source can fail, change format or publish late. A run that fell short is marked partial.',
-          `National tender portals and feeds are collected for ${portals.count} countries (${portals.names}); elsewhere we hold only what TED carries. For Germany that is the federal notice service, from 25 October 2023. Below-threshold procurement is often not published centrally. Known gaps are listed on the source status page.`,
+          `National tender portals and feeds are collected for ${portals.count} countries (${portals.names}); elsewhere we hold only what TED carries. For Germany that is the federal notice service, from ${germanyStart}. Below-threshold procurement is often not published centrally. Known gaps are listed on the source status page.`,
           'A field a source does not give, or that we do not read from it, is shown as not available or not read from this source, never as a finding.',
           'A record that cannot be read is skipped and logged instead of being guessed. It is not shown.',
         ]} />

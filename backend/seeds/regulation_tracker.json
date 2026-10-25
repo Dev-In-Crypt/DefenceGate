@@ -236,7 +236,7 @@
    "code": "edf-ukraine-legal-basis",
    "instrument": "EDF",
    "title": "EDF: Ukraine can be an associated country",
-   "what_changed": "Regulation (EU) 2025/2653, published on 22 December 2025 and in force from 23 December 2025, replaced Article 5 of the European Defence Fund Regulation. The Fund is now open to the participation of EEA EFTA members, and of Ukraine in accordance with the conditions laid down in the EU-Ukraine Association Agreement. The text makes Ukraine's participation possible; it does not say that the conditions are met (next entry).",
+   "what_changed": "Regulation (EU) 2025/2653, published on 22 December 2025 and in force from 23 December 2025, replaced Article 5 of the European Defence Fund Regulation. The Fund is now open to the participation of EEA EFTA members, and of Ukraine in accordance with the conditions laid down in the EU-Ukraine Association Agreement. The text makes Ukraine's participation possible; it does not say that the conditions are met (see the entry on Ukraine's association to the EDF, not confirmed in force).",
    "event_date": "2025-12-23",
    "status": "in_force",
    "affected": "Ukrainian companies and EU companies that would form consortia with them in EDF calls.",
@@ -244,6 +244,11 @@
    "source_ref": "Regulation (EU) 2025/2653, Article 3(1), replacing Article 5 of Regulation (EU) 2021/697",
    "source_quote": "Ukraine, in accordance with the conditions laid down in the EU-Ukraine Association Agreement.",
    "links": [
+    {
+     "kind": "page",
+     "code": "/regulation#edf-ukraine-in-force-unconfirmed",
+     "label": "Tracker: Ukraine's EDF association, not confirmed in force"
+    },
     {
      "kind": "requirement",
      "code": "REQ-EDF-ELIG",

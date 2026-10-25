@@ -5,6 +5,7 @@ import { approachSentence, buyerLine, directiveShare, type Demand } from '@/lib/
 import { formatDateUtc } from '@/lib/format';
 import { getDemandSample } from '@/lib/readiness-api';
 import { buildMetadata } from '@/lib/seo';
+import { WHAT_IS_SENT } from '@/lib/sent-copy';
 import { countryName } from '@/lib/taxonomy';
 import { Button } from '@/components/dg/button';
 import { Callout } from '@/components/dg/blocks';
@@ -128,7 +129,7 @@ export default async function SpainAutomotivePage() {
       {sample && <Sample d={sample} />}
 
       <Callout title="Your answers are not stored on our server">
-        <p className="m-0">They stay in this browser: there is no account and no copy on our server. Two requests leave your browser: the one that computes the verdict, with the answers the rules read, and the one for the demand map, with your CPV codes and nothing else. The server does not store or log them.</p>
+        <p className="m-0" data-what-is-sent>They are saved in this browser: there is no account and no copy on our server. {WHAT_IS_SENT}</p>
       </Callout>
 
       <section lang="es" aria-labelledby="s-resumen" className="flex min-w-0 flex-col gap-2" data-summary-es>

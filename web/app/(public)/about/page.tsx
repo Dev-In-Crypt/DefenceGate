@@ -24,7 +24,7 @@ const PRINCIPLES = [
   { icon: FileSearch, title: 'Source first', body: 'Every record links to the original publication. We make notices easier to find; the source stays the authority.' },
   { icon: Eye, title: 'Gaps in the open', body: 'We publish which sources we collect, when each last ran, whether the run met the minimum we expect and which gaps we know of, including when a run failed.' },
   { icon: Scale, title: 'Facts, not opinions', body: 'We show what notices say and what changed. We do not rate buyers, predict outcomes or advise on bids.' },
-  { icon: ShieldCheck, title: 'Commercial information only', body: 'We show dates, buyers, values and codes. We do not display, summarise or extract technical specifications. We do not keep the contact fields a source publishes; a few older records in our private archive still contain them and are never shown.' },
+  { icon: ShieldCheck, title: 'Commercial information only', body: 'We show dates, buyers, values and codes. We do not display, summarise or extract technical specifications. Our collection drops the contact fields a source publishes. Older payloads and earlier versions in our private archive still hold some, and about 1,000 buyer names hold a telephone or e-mail block as the source wrote it; none of it is shown (see the methodology).' },
 ];
 
 const RESOURCES = [

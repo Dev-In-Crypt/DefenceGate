@@ -37,7 +37,8 @@ test('/pricing says browsing stays free and the Free plan lists only what exists
   }
   await expect(free.locator('[data-coming]')).toHaveCount(0);
   const pro = page.getByRole('list', { name: 'Plans' }).locator(':scope > li').filter({ has: page.getByRole('heading', { name: 'Pro', exact: true }) });
-  await expect(pro.getByRole('listitem').filter({ hasText: 'E-mail alerts' })).toContainText('Coming');
+  // WP-131: alerts are built and open with sign-in (/alerts says so): their tag says that, not "Coming"
+  await expect(pro.getByRole('listitem').filter({ hasText: 'E-mail alerts' })).toContainText('Opens with sign-in');
   await expect(page.locator('main')).not.toContainText(/Not announced|Not available yet|Scope is not defined|Pro archive/);
 });
 

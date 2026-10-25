@@ -267,8 +267,8 @@ export function SupplierForm({ offer = null }: { offer?: 'services' | 'products'
 
       <div className="flex flex-col gap-3">
         <p className="m-0 max-w-prose text-small text-ink-muted">
-          Saved in this browser as you go. The processes, region, NACE code and investor country never leave it; the results page sends only the answers the
-          rules read, and the CPV codes alone (nothing else of the profile) for the map of who buys what you make. The server stores and logs neither.
+          Saved in this browser as you go. The processes, region, NACE code and investor country never leave it; what the results page sends is listed
+          under “What is kept and what is sent” at the top of this page. The server stores and logs neither request.
         </p>
         <div><Button type="submit" iconRight={ArrowRight}>Save and see my results</Button></div>
       </div>

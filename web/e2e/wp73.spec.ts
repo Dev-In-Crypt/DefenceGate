@@ -128,7 +128,7 @@ test('/pricing fits a phone without scrolling sideways', async ({ page }) => {
     const { scroll, client } = await card.evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }));
     expect(scroll).toBeLessThanOrEqual(client + 1);
   }
-  await expect(cards.getByRole('listitem').filter({ hasText: 'E-mail alerts' })).toContainText('Coming');
+  await expect(cards.getByRole('listitem').filter({ hasText: 'E-mail alerts' })).toContainText('Opens with sign-in');   // WP-131: the tag of a built feature
 });
 
 test('a funding call opens its disclosures when printed', async ({ page }) => {

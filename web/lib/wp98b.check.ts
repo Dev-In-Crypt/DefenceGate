@@ -93,7 +93,7 @@ assert.equal(coverageLine('PT'), 'Portugal: TED only; the national portal is not
 assert.equal(coverageLine('IT'), 'Italy: TED only; the national portal is not collected');
 assert.equal(coverageLine('ES'), 'Spain: TED + PLACSP, awards too');
 assert.match(coverageLine('NL'), /^Netherlands: TED \+ TenderNed \(since January 2026\); .*one buyer/);
-assert.match(coverageLine('DE'), /^Germany: TED \+ the federal notice service \(since 25 October 2023\)/);
+assert.match(coverageLine('DE'), /^Germany: TED \+ the federal notice service \(since October 2023\)/);
 assert.equal(coverageLine('ES', 'awards'), "Spain: winners from TED and from PLACSP's award results");
 assert.equal(coverageLine('FR', 'awards'), "France: winners from TED only; BOAMP's award notices are not read");
 assert.equal(coverageLine('IT', 'awards'), 'Italy: winners from TED only; the national portal is not collected');

@@ -125,7 +125,7 @@ export function FitFilter({ className, whole }: { className?: string; whole?: Wh
   if (!s.hasProfile) {
     return (
       <p className={cn('m-0 text-small text-ink-muted', className)}>
-        <Link href="/readiness" className="font-semibold">Answer the readiness check</Link> to see which of these calls fit your company. Your answers stay in your browser.
+        <Link href="/readiness" className="font-semibold">Answer the readiness check</Link> to see which of these calls fit your company. Your answers are saved in your browser, not on our server.
       </p>
     );
   }

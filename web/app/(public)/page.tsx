@@ -6,6 +6,8 @@ import { getCalls, getHealth, getSiteStats, getTenders, lastDataUpdate } from '@
 import { getOrganisations } from '@/lib/networks-api';
 import { parseOrgFilters } from '@/lib/networks';
 import { portalWords } from '@/lib/coverage-copy';
+import { sourceKinds } from '@/lib/source-status';
+import { STEPS_QUESTIONS, SUPPLIER_QUESTIONS, rangeWords } from '@/lib/question-counts';
 import { getCallDeadline, getTenderDeadline, now, soonestOpen, type DeadlineInfo } from '@/lib/deadline';
 import { displayName } from '@/lib/display-name';
 import { formatDateTimeUtc, formatDateUtc, formatMoney, formatNumber, isPlaceholderAmount, plural, repeatedCallBudgets } from '@/lib/format';
@@ -25,12 +27,6 @@ export const revalidate = 60;
 const SAMPLE_SIZE = 3;
 /** WP-121: the rows asked for each closing list, of which the SAMPLE_SIZE soonest still open are shown. */
 const CANDIDATES = 20;
-/**
- * WP-121: the supplier profile's questions (components/readiness/supplier.tsx) as counted on the page (e2e/wp121.spec.ts): 19 for a company
- * outside Spain, 23 in Spain, 35 in Spain with EU funding too (docs/verification/round6/wp121-selfcheck.md). WP-125: the services route
- * (`?offer=services`) asks 18 outside Spain and 23 in Spain (e2e/wp125.spec.ts).
- */
-const SUPPLIER_QUESTIONS = '18 to 35 questions';
 
 export const metadata: Metadata = buildMetadata({
   title: 'Defence and dual-use tenders and funding calls',
@@ -160,7 +156,6 @@ export default async function LandingPage() {
   const budgetRepeats = repeatedCallBudgets(soonCalls.map((s) => s.item));
   const openTenders = current?.total ?? null;
   const openCalls = stats?.openCalls ?? null;
-  const sources = health?.sources.length ?? stats?.sources ?? null;
   const lastUpdate = stats?.lastUpdate ?? (health ? lastDataUpdate(health) : null);
   return (
     <>
@@ -196,11 +191,10 @@ export default async function LandingPage() {
             {orgs && <Figure value={orgs.total} label={`${orgs.totalExact === false ? 'or more ' : ''}${plural(orgs.total, 'organisation')} in EU-funded defence projects`} />}
           </Tile>
           {/* WP-121: the questions as counted per route (docs/verification/round6/wp121-selfcheck.md): the readiness check's five steps ask
-              24 to 35, counted on the page by e2e/wp125.spec.ts after WP-125 made two questions of step 1 one, the supplier profile
-              SUPPLIER_QUESTIONS */}
+              and the supplier profile ask, from lib/question-counts.ts (WP-131: counted on the forms by e2e/wp125.spec.ts and e2e/wp131.spec.ts) */}
           <Tile id="t-check" href="/check" question="Can I take part?" title="Check if my company qualifies" go="Start the check"
-            body={`One question first, then the check that fits. For EU funding, five steps of 24 to 35 questions: the answer says what the EDF, EDIP and SAFE rules mean for your company, with the rule text it rests on. To supply defence buyers, one page of ${SUPPLIER_QUESTIONS}.`}>
-            <Figure value={5} label="steps, 24 to 35 questions, no account" />
+            body={`One question first, then the check that fits. For EU funding, five steps of ${rangeWords(STEPS_QUESTIONS)} questions: the answer says what the EDF, EDIP and SAFE rules mean for your company, with the rule text it rests on. To supply defence buyers, one page of ${rangeWords(SUPPLIER_QUESTIONS)} questions.`}>
+            <Figure value={5} label={`steps, ${rangeWords(STEPS_QUESTIONS)} questions, no account`} />
           </Tile>
         </ul>
         <p className="m-0 text-body text-ink-muted">
@@ -230,7 +224,8 @@ export default async function LandingPage() {
       </div>
 
       <section aria-label="About the data" className="flex flex-wrap items-center gap-x-6 gap-y-1 border-y border-line py-3 text-body text-ink-muted">
-        {sources !== null && <span data-trust="sources"><span className="font-bold text-ink">{formatNumber(sources)} {plural(sources, 'source')}</span> (TED and national portals)</span>}
+        {/* WP-131: "16 sources (TED and national portals)" while 8 were funding sources: the two kinds counted apart */}
+        {health && <span data-trust="sources"><span className="font-bold text-ink">{sourceKinds(health.sources)}</span></span>}
         {lastUpdate && <span data-trust="update">Last update <span className="font-mono tabular-nums text-ink">{formatDateTimeUtc(lastUpdate)}</span></span>}
         <Link href="/methodology" className="inline-flex min-h-11 items-center font-bold text-ink">Methodology</Link>
         <Link href="/data" className="inline-flex min-h-11 items-center font-bold text-ink">Source status</Link>

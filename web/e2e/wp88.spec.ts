@@ -100,7 +100,8 @@ test('the readiness heading says the answers are not stored on our server, and t
   await visit(page, '/readiness', { title: /readiness check/i, h1: 'Readiness check', text: ['Your answers are not stored on our server'] });
   await expect(page.getByText('Your answers stay in this browser')).toHaveCount(0);
   await openAbout(page);
-  await expect(page.getByText(/The only thing that leaves your browser is the request that computes the verdict/)).toBeVisible();
+  // WP-131: the paragraph lists what each of the two requests carries (lib/sent-copy.ts); the verdict request is no longer "the only thing"
+  await expect(page.getByText(/Two requests leave your browser\. The request that computes the verdict carries/)).toBeVisible();
 });
 
 test('the recognition of an organisation is in plain words, with the method and confidence one click away', async ({ page }) => {

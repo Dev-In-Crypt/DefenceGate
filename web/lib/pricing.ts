@@ -1,9 +1,9 @@
 /**
  * The plans and prices of /pricing (owner, 25 October 2026, WP-122). EUR, excluding VAT. Nothing is on sale yet: no payment provider,
- * no legal entity, no e-mail service. `coming` marks a feature that does not work for customers today (accounts and alerts are built,
- * but sign-in is closed until an e-mail provider exists, so everything that needs an account is coming too).
+ * no legal entity, no e-mail service. `coming` marks a feature that is not built yet. `signin` (WP-131) marks one that is built and
+ * opens with sign-in, which is closed until an e-mail provider exists (/alerts says the same). A feature with neither works today.
  */
-export interface Feature { text: string; coming?: boolean }
+export interface Feature { text: string; coming?: boolean; signin?: boolean }
 export type PlanId = 'free' | 'pro' | 'team' | 'consultant' | 'founding';
 export type Billing = 'monthly' | 'yearly';
 export interface Plan {
@@ -25,18 +25,18 @@ export const PLANS: Plan[] = [
     { text: 'What changed in the last 14 days' },
     { text: 'Atom and calendar feeds' },
     { text: 'CSV export of the lists' },
-    { text: 'Readiness check (your answers stay in your browser)' },
+    { text: 'Readiness check (answers saved in your browser, not on our server)' },
   ] },
   { id: 'pro', name: 'Pro', audience: 'For one bid manager or a small company', monthly: '€59', yearly: '€590', features: [
-    { text: 'Saved searches', coming: true },
-    { text: 'E-mail alerts', coming: true },
+    { text: 'Saved searches', signin: true },
+    { text: 'E-mail alerts', signin: true },
     { text: 'Export of the eligibility check', coming: true },
     { text: '1 user' },
   ] },
   { id: 'team', name: 'Team', audience: 'For a company’s business development team', monthly: '€149', yearly: '€1,490', features: [
     { text: 'Up to 5 users' },
     { text: 'Shared workspace', coming: true },
-    { text: 'Consortium gap analysis', coming: true },
+    { text: 'Consortium gap analysis (free on the site today: Partners, Consortium gaps)' },
     { text: 'Supplier-map export', coming: true },
   ] },
   { id: 'consultant', name: 'Consultant', audience: 'For grant and tender consultants', monthly: '€299', yearly: '€2,990', features: [

@@ -49,14 +49,15 @@ test('/pricing: the on-request items, each "On request, opens soon"', async ({ p
 test('/pricing: "Coming" sits only on features that are not live, and Free has none', async ({ page }) => {
   await open(page);
   const coming = await page.locator('main li:has(> [data-coming])').evaluateAll((els) => els.map((e) => e.firstChild?.textContent?.trim()));
-  expect(coming).toEqual(['Saved searches', 'E-mail alerts', 'Export of the eligibility check', 'Shared workspace', 'Consortium gap analysis',
+  // WP-131: saved searches and alerts are built and open with sign-in (their own tag); consortium gap analysis is live and free
+  expect(coming).toEqual(['Export of the eligibility check', 'Shared workspace',
     'Supplier-map export', 'Up to 15 client profiles', 'Branded PDF reports', 'Access for members, up to 50 companies', 'A co-branded digest',
     'White-label', 'API (offered only here)']);
   await expect(page.locator('main [data-coming]').first()).toHaveText('Coming');
   const free = plan(page, 'Free');
   await expect(free.locator('[data-coming]')).toHaveCount(0);
   await expect(free.locator('li')).toHaveText(['Browse tenders, funding calls, buyers and companies', 'What changed in the last 14 days',
-    'Atom and calendar feeds', 'CSV export of the lists', 'Readiness check (your answers stay in your browser)']);
+    'Atom and calendar feeds', 'CSV export of the lists', 'Readiness check (answers saved in your browser, not on our server)']);
 });
 
 test('/pricing with billing off: no button, no sign-up or mail link, "Opens soon" on each paid plan', async ({ page }) => {

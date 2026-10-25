@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { buildMetadata } from '@/lib/seo';
+import { STEPS_QUESTIONS, SUPPLIER_QUESTIONS, rangeWords } from '@/lib/question-counts';
 import { Button } from '@/components/dg/button';
 import { ContentPage, PageSection } from '@/components/dg/content-page';
 import { Card } from '@/components/dg/card';
@@ -20,12 +21,12 @@ export const metadata: Metadata = buildMetadata({
 const CHOICES = [
   {
     title: 'EU defence funding',
-    body: 'May your company take part in the European Defence Fund, EDIP or SAFE? Five steps of 24 to 35 questions in all, depending on your answers, give a verdict for each programme, rule by rule, and what to obtain first.',
+    body: `May your company take part in the European Defence Fund, EDIP or SAFE? Five steps of ${rangeWords(STEPS_QUESTIONS)} questions in all, depending on your answers, give a verdict for each programme, rule by rule, and what to obtain first.`,
     href: '/readiness', action: 'Start the readiness check',
   },
   {
     title: 'Become a supplier to defence buyers',
-    body: 'You make parts or materials and want defence work. Say what you make: see who wins defence contracts for it, who buys it, and what the buyers’ routes ask of you.',
+    body: `You make parts or materials and want defence work. Say what you make, on one page of ${rangeWords(SUPPLIER_QUESTIONS)} questions: see who wins defence contracts for it, who buys it, and what the buyers’ routes ask of you.`,
     href: '/readiness/supplier', action: 'Start the supplier profile',
   },
   {

@@ -7,12 +7,17 @@ export const revalidate = 3600;
 
 export const metadata: Metadata = buildMetadata({
   title: 'Where the data runs',
-  description: 'What DefenceGate runs where: server, archive and backups, DNS, certificate, code and the one language-model service. What is in the EU and what is not.',
+  description: 'What DefenceGate runs where: server, archive and backups, DNS, certificate, code and the language-model service. What is in the EU and what is not.',
   path: '/data/sovereignty',
 });
 
-/** Read on 18 October 2026: the server's compose file and Caddyfile, the DNS and registry records, the certificate, and the pages' HTML. */
+/**
+ * Read on 18 October 2026: the server's compose file and Caddyfile, the DNS and registry records, the certificate, and the pages' HTML.
+ * WP-131 (25 October 2026): the language-model row (the fact sheets, from backend/dgate/networks.py) and the backup row (the dump of
+ * 16 September, docs/DATA_PROTECTION.md) corrected from the code and the inventory.
+ */
 const CHECKED = '18 October 2026';
+const CORRECTED = '25 October 2026';
 
 interface Row { what: string; who: string; where: string; eu: 'Yes' | 'No' | 'Not assessed'; note: string }
 
@@ -25,7 +30,7 @@ const RUNS_IN_THE_EU: Row[] = [
   {
     what: 'Archive of source payloads, and database backups',
     who: 'Hetzner Online GmbH (a Storage Box)', where: 'Germany (the box’s address is in Hetzner’s German range; we have not asked Hetzner for the data centre)', eu: 'Yes',
-    note: 'Backups made since 12 October 2026 are encrypted before they leave the server; the key is not on the server. Older plaintext dumps age out by 11 November 2026. Production writes the archive to the Storage Box only.',
+    note: 'Backups made since 12 October 2026 are encrypted before they leave the server; the key is not on the server. The older nightly plaintext dumps age out by 11 November 2026. One more plaintext copy, a full dump of 16 September 2026 made when the service moved to this server, stays on the server until the operator deletes it. Production writes the archive to the Storage Box only.',
   },
 ];
 
@@ -46,9 +51,9 @@ const OUTSIDE_THE_EU: Row[] = [
     note: 'The code is in a public repository, which is the origin of the server’s copy of it. The tests there run on invented data, not on ours. No visitor data is in the repository.',
   },
   {
-    what: 'Reading public call documents to find who may apply',
+    what: 'Reading public call documents and EDF project fact sheets',
     who: 'OpenAI', where: 'United States company', eu: 'No',
-    note: 'For funding calls whose rules are written in a PDF, the text of that public document is sent to OpenAI’s API with a fixed question. Each answer must quote the document, and a quote that is not found in the document is dropped. Sent: the text of public call documents (and of a topic’s published conditions) and our instructions. Not sent: visitor data, account data, profiles from the readiness check, or anything from the database other than the document. We ask that OpenAI does not store the request (the API’s store option is off). A monthly spending cap applies. This is the only language-model service we use.',
+    note: 'For funding calls whose rules are written in a PDF, the text of that public document is sent to OpenAI’s API with a fixed question, to find who may apply. For the projects the European Defence Fund selected, the text of each published project fact sheet is sent the same way, to read which organisations are in its consortium; the fact sheet’s technical description is cut before it is sent. Each answer must quote the document, and a quote that is not found in the document is dropped. Sent: the text of public call documents (and of a topic’s published conditions), the text of public EDF project fact sheets, and our instructions. Not sent: visitor data, account data, profiles from the readiness check, or anything from the database other than the document. We ask that OpenAI does not store the request (the API’s store option is off). A monthly spending cap applies. This is the only language-model service our server is set up to use.',
   },
   {
     what: 'Operator alerts',
@@ -82,7 +87,7 @@ export default function SovereigntyPage() {
       toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Source status', href: '/data' }, { label: 'Where the data runs', href: '/data/sovereignty' }]}
       title="Where the data runs"
-      lead={`What DefenceGate runs where, as read on ${CHECKED}. The site and its data are on servers in the EU. Some services we depend on are not: they are listed below, with what each one sees.`}
+      lead={`What DefenceGate runs where, as read on ${CHECKED} (the language-model and backup rows corrected on ${CORRECTED}). The site and its data are on servers in the EU. Some services we depend on are not: they are listed below, with what each one sees.`}
     >
       <ContentSection title="In the EU">
         <Table rows={RUNS_IN_THE_EU} />

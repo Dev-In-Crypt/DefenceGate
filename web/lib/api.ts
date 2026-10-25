@@ -587,9 +587,14 @@ export async function getSiteStats(): Promise<SiteStats> {
   return { openCalls: open.total, sources: health.sources.length, lastUpdate: lastDataUpdate(health) };
 }
 
-/** When data last arrived: the newest source run. `generatedAt` is only when the status was rendered. */
-export function lastDataUpdate(health: { generatedAt: string; sources: { lastRunAt: string | null }[] }): string {
-  const runs = health.sources.map((s) => s.lastRunAt).filter((t): t is string => Boolean(t)).sort();
+/**
+ * When data last arrived: the newest run that did not fail and fetched records (WP-131: the home page's "Last update" was a refused
+ * e-Zamówienia run, HTTP 403 and 0 records). `generatedAt` is only when the status was rendered, the fallback when no run brought data.
+ */
+export function lastDataUpdate(health: { generatedAt: string; sources: { lastRunAt: string | null; status?: string; records?: number }[] }): string {
+  const runs = health.sources
+    .filter((s) => s.status !== 'failed' && s.status !== 'never' && (s.records === undefined || s.records > 0))
+    .map((s) => s.lastRunAt).filter((t): t is string => Boolean(t)).sort();
   return runs.length > 0 ? runs[runs.length - 1] : health.generatedAt;
 }
 

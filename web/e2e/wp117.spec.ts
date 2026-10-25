@@ -108,7 +108,7 @@ test('home: the closing-soon lists have at most three compact rows and a link to
 test('home: the trust line, the digest without an e-mail field, four questions and a link to the rest', async ({ page }) => {
   await visit(page, '/', { title: /DefenceGate/, h1: 'Win, partner, qualify.' });
   const trust = page.getByRole('region', { name: 'About the data' });
-  await expect(trust.locator('[data-trust="sources"]')).toContainText(/^\d+ sources? \(TED and national portals\)$/);
+  await expect(trust.locator('[data-trust="sources"]')).toContainText(/^\d+ tender and \d+ funding sources?$/);   // WP-131: the two kinds apart
   await expect(trust.locator('[data-trust="update"]')).toContainText(/^Last update \d{1,2} \w{3} \d{4}, \d{2}:\d{2} UTC$/);
   await expect(trust.getByRole('link', { name: 'Methodology' })).toHaveAttribute('href', '/methodology');
   await expect(trust.getByRole('link', { name: 'Source status' })).toHaveAttribute('href', '/data');

@@ -41,8 +41,14 @@ export function sourceFreshness(
   const days = Math.floor(age / DAY_MS);
   // The API says whether a run is late for the source's own rhythm: a monthly source is not stale after three days
   // (CORDIS and EDF were, UX audit T16). Only an API that does not send `stale` falls back to the daily rule.
-  const late = s.stale !== undefined ? s.stale === true : age > STALE_AFTER_DAYS * DAY_MS;
-  if (late) return { kind: s.status === 'ok' ? 'stale' : s.status, note: `Stale: last ran ${days} days ago` };
+  const lateByAge = typeof s.staleAfterHours === 'number' && s.staleAfterHours > 0 ? age > s.staleAfterHours * 3_600_000 : age > STALE_AFTER_DAYS * DAY_MS;
+  const late = s.stale !== undefined ? s.stale === true : lateByAge;
+  // WP-131 (e-Zamówienia showed "Partial" and "Stale: last ran 0 days ago" on one card): one status per card. A late run is stale, a partial
+  // one too (the page's rule); a failed run stays failed. Late while it ran today is the API's rule for a daily source that fetched nothing all day.
+  if (late) {
+    const note = lateByAge ? `Stale: last ran ${days} ${days === 1 ? 'day' : 'days'} ago` : 'Stale: no run of the last day fetched anything';
+    return s.status === 'failed' ? { kind: 'failed', note: note.replace(/^Stale: l/, 'L') } : { kind: 'stale', note };
+  }
   const monthly = (s.updateFreq ?? '').trim().toLowerCase() === 'monthly';
   const note = monthly && age > STALE_AFTER_DAYS * DAY_MS ? `Collected monthly, last ran ${days} days ago` : null;
   // WP-87: an OK run with no minimum to meet ("Not measured") is not plain OK: SEDIA's run of 1 record read only what changed
@@ -57,10 +63,12 @@ export function sourceFreshness(
  * Why a run that is not `ok` is not, in the API's own fixed sentence (`statusReason`, T18): a run can be Partial with
  * "Met expected minimum: Yes" because it was cut short for another reason. null for a run that is ok or has no reason.
  */
-export function statusReasonLine(s: { status: string; statusReason?: string | null }): string | null {
+export function statusReasonLine(s: { status: string; statusReason?: string | null }, shown?: FreshnessKind): string | null {
   const reason = (s.statusReason ?? '').trim();
   if (!reason || s.status === 'ok' || s.status === 'never') return null;
-  return `${s.status === 'failed' ? 'Why the last run failed' : 'Why the last run is partial'}: ${reason}${/[.!?]$/.test(reason) ? '' : '.'}`;
+  // WP-131: the reason under the status the card shows (`shown`, from sourceFreshness), so a stale card does not also say "partial"
+  const head = s.status === 'failed' ? 'Why the last run failed' : shown === 'stale' ? 'Why it is stale' : 'Why the last run is partial';
+  return `${head}: ${reason}${/[.!?]$/.test(reason) ? '' : '.'}`;
 }
 
 /**
@@ -101,6 +109,18 @@ const formatStamp = (iso: string) => {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}, ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
 };
+
+/**
+ * WP-131 (the home page said "16 sources (TED and national portals)" while 8 were funding sources): the sources counted by kind,
+ * "8 tender and 8 funding sources".
+ */
+export function sourceKinds(sources: readonly { type: string }[]): string {
+  const t = sources.filter((s) => s.type === 'tenders').length;
+  const g = sources.filter((s) => s.type === 'grants').length;
+  const noun = (n: number) => (n === 1 ? 'source' : 'sources');
+  if (t === 0 || g === 0) return t === 0 ? `${g} funding ${noun(g)}` : `${t} tender ${noun(t)}`;
+  return `${t} tender and ${g} funding ${noun(g)}`;
+}
 
 /** The "Met expected minimum" cell: a run is compared with the minimum we set for that source, not with the source. */
 /**
