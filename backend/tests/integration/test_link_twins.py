@@ -45,10 +45,11 @@ def put(conn, source: str, native_id: str, *, buyer: str = BUYER, country: str =
         value: float | None = 9815268.0, currency: str | None = "EUR",
         deadline: datetime | None = DEADLINE, published: date = date(2026, 10, 1),
         cpv: tuple[str, ...] = ("35511000",), procedure: str | None = None,
-        status: str = "open", ted_ref: str | None = None, related: str | None = None) -> int:
+        status: str = "open", ted_ref: str | None = None, related: str | None = None,
+        title: str | None = None) -> int:
     opp = Opportunity(
         source_code=source, native_id=native_id, buyer_name_raw=buyer,
-        title_original=f"Notice {native_id}", country=country, published_at=published,
+        title_original=title or f"Notice {native_id}", country=country, published_at=published,
         deadline_at=deadline, cpv_codes=list(cpv), status=status, is_defence=True, sig_cpv=True,
         value_amount=value, value_currency=currency if value is not None else None,
         procedure_identifier=procedure, ted_ref=ted_ref, related_native_id=related)
@@ -281,3 +282,57 @@ def test_the_command_is_a_dry_run_unless_told_to_write(conn, caplog):
     assert any("would be linked" in m for m in caplog.messages)
     assert link_twins.main(["--yes", "--method", "procedure_id"]) == 0
     assert row(conn, "es_placsp", "2026/AR40U/00002845E")["ted_ref"] == "661706-2026"
+
+
+# ----------------------------------------------------- WP-138: a framework's call-offs
+
+CALL_OFFS = "9771a463-435b-41cf-be4c-7407b6ae7adf"
+TED_HEAD = "Deutschland – Überlassung von Personal einschließlich Zeitarbeitskräfte – "
+
+
+def call_offs(conn) -> dict[str, int]:
+    """Two call-offs of one staffing framework, each on TED and in a national source; the second call-off's national
+    copy keeps the buyer's line break and double space. All four are award notices of one procedure."""
+    common = {"procedure": CALL_OFFS, "status": "awarded", "deadline": None, "country": "FR"}
+    return {"t1": put(conn, "ted", "674255-2026", title=TED_HEAD + "2000281264 ANÜ Operations Specialist (P4) Bonn",
+                      published=date(2026, 10, 1), value=27.1, **common),
+            "t2": put(conn, "ted", "689828-2026", title=TED_HEAD + "2000284335 ANÜ Senior Project Manager (P9) Berlin",
+                      published=date(2026, 10, 7), value=74.13, **common),
+            "n1": put(conn, "fr_boamp", "N-1", title="2000281264 ANÜ Operations Specialist (P4) Bonn",
+                      published=date(2026, 9, 30), value=27.1, **common),
+            "n2": put(conn, "fr_boamp", "N-2", title="2000284335 ANÜ Senior  Project Manager\n(P9) Berlin",
+                      published=date(2026, 10, 6), value=74.13, **common)}
+
+
+def test_each_call_off_is_linked_to_its_own_ted_notice_and_each_is_listed_once(conn, client):
+    """r8-data problem 2: every call-off of BWI's framework named the newest TED notice of the procedure, listed the
+    other call-offs as "the same notice" and borrowed that notice's value. Each is its own notice."""
+    rows = call_offs(conn)
+    assert link_twins.run(conn, write=True)["procedure_id"] == 2
+    assert row(conn, "fr_boamp", "N-1")["ted_ref"] == "674255-2026"
+    assert row(conn, "fr_boamp", "N-2")["ted_ref"] == "689828-2026"
+    # both TED call-offs are listed (two titles: two notices), each national copy under its own
+    assert listed(client) == ["674255-2026", "689828-2026"]
+    page = client.get(f"/v1/tenders/{rows['n1']}").json()
+    assert [(s["source"], s["noticeId"]) for s in page["sameNotice"]] == [("ted", "674255-2026")]
+
+
+def test_old_links_to_the_newest_call_off_move_to_the_call_offs_own_notice(conn, client):
+    rows = call_offs(conn)
+    for oid in (rows["n1"], rows["n2"]):          # what link_procedure wrote before WP-138
+        conn.execute("UPDATE opportunity SET ted_ref = '689828-2026', twin_method = 'procedure_id' WHERE id = %s",
+                     (oid,))
+    conn.commit()
+    # two call-offs of one source naming one TED notice are not each other's "same notice"
+    assert [s["noticeId"] for s in client.get(f"/v1/tenders/{rows['n1']}").json()["sameNotice"]] == ["689828-2026"]
+    stated = put(conn, "nl_tenderned", "443966", title="2000281264 ANÜ Operations Specialist (P4) Bonn",
+                 procedure=CALL_OFFS, status="awarded", ted_ref="689828-2026", country="FR")
+    assert link_twins.relink_procedure(conn) == 1                       # a dry run writes nothing
+    assert row(conn, "fr_boamp", "N-1")["ted_ref"] == "689828-2026"
+    assert link_twins.relink_procedure(conn, write=True) == 1
+    assert row(conn, "fr_boamp", "N-1")["ted_ref"] == "674255-2026"
+    assert row(conn, "fr_boamp", "N-2")["ted_ref"] == "689828-2026"     # already its own notice
+    # a link the source stated is never moved
+    assert conn.execute("SELECT ted_ref FROM opportunity WHERE id = %s", (stated,)).fetchone()["ted_ref"] == "689828-2026"
+    assert link_twins.relink_procedure(conn, write=True) == 0            # a second run finds nothing
+    assert link_twins.main(["--relink", "--method", "procedure_id"]) == 0
