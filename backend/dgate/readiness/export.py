@@ -44,12 +44,13 @@ PROFILES: dict[str, tuple[dict[str, Any], dict[str, str]]] = {
                 "safe_role": "contractor", "applicant_kind": "company_or_research", "handles_classified": False,
                 "product_regime": "dual_use", "export_intent": "outside_eu", "ua_partner": None, "org_kind": "company"},
                {**{code: "not_held" for code in STATUS_CODES}, "REQ-PIC": "held"}),
-    # the same company after it answered "Not applicable to us" for the PIC (WP-53, T4): the rule is left out, it is not "met"
+    # the same company after it answered "Not applicable to us" for the PIC (WP-53, T4): the rule is left out, it is not "met".
+    # Saved before WP-125 (no organisation type in the stored profile), so it sends no org_kind
     "ua-pic-na": ({"country": "UA", "legal_form": "legal_person", "executive_management_country": "UA", "third_country_control": "no",
                    "ua_non_government_controlled_area": False, "non_eu_component_cost_pct": 20.0,
                    "restricted_third_country_component": False, "components_from_ua": False, "components_from_eea_efta": False,
                    "safe_role": "contractor", "applicant_kind": "company_or_research", "handles_classified": False,
-                   "product_regime": "dual_use", "export_intent": "outside_eu", "ua_partner": None, "org_kind": "company"},
+                   "product_regime": "dual_use", "export_intent": "outside_eu", "ua_partner": None},
                   {**{code: "not_held" for code in STATUS_CODES}, "REQ-PIC": "not_applicable"}),
     "es": ({"country": "ES", "legal_form": "legal_person", "executive_management_country": "ES", "third_country_control": "no",
             "ua_non_government_controlled_area": None, "non_eu_component_cost_pct": 10.0,
