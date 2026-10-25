@@ -250,6 +250,9 @@ def test_a_later_notice_date_on_the_serving_row_is_not_taken_back_by_the_older_r
     later = {"notice_date": date(2023, 10, 16), "notice_kind": "update"}
     change = remap_source.plan(payload, later, new)
     assert "notice_date" not in change.direct and "notice_kind" not in change.direct
+    same_day = {"notice_date": date(2022, 10, 14), "notice_kind": "formalisation"}
+    change = remap_source.plan(payload, same_day, new)
+    assert "notice_kind" not in change.direct
     earlier = {"notice_date": date(2022, 1, 5), "notice_kind": "call"}
     change = remap_source.plan(payload, earlier, new)
     assert (change.direct["notice_date"], change.direct["notice_kind"]) == (date(2022, 10, 14), "award")

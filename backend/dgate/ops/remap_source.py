@@ -201,9 +201,10 @@ def plan(current_payload: dict[str, Any], serving: dict[str, Any], new: Opportun
             continue
         moves[f] = value
     # A later entry the folder heard without a new version (a formalisation after the award) dated the serving row: the
-    # current version's older record does not take that date and kind back (2,658 PLACSP rows, 25 October 2026)
+    # current version's older record does not take that date and kind back (2,658 PLACSP rows, 25 October 2026), nor the
+    # kind of a later entry of the same day (14 rows: "formalisation" back to "award")
     seen = serving.get("notice_date")
-    if seen and moves.get("notice_date") and moves["notice_date"] < seen:
+    if seen and moves.get("notice_date") and moves["notice_date"] <= seen:
         moves.pop("notice_date")
         moves.pop("notice_kind", None)
     candidate = replace(base, **moves)
