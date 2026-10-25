@@ -38,7 +38,7 @@ COPY --chown=dgate:dgate seeds ./seeds
 # owned here. Docker creates a missing mount point as root, and the container
 # does not run as root, so the first write fails with EACCES -- which is how
 # /raw, /backups and now /data/atlas each found out in turn.
-RUN mkdir -p /raw /backups /data/atlas  && chown dgate:dgate /raw /backups /data/atlas
+RUN mkdir -p /raw /backups /data/atlas /var/log/dgate  && chown dgate:dgate /raw /backups /data/atlas /var/log/dgate
 
 USER dgate
 

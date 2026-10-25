@@ -38,6 +38,10 @@ WP-103 (persona round of 24 October 2026):
      2026, read-only): 12 notices, 12 award rows (Marine Alutech 676175-2026 and 639939-2025 EUR 76 m / 35 m again,
      Surcom, Embraer, PIT-RADWAR, CONCEPT, WIL, DSA, 494823-2026, 175814-2025, 542411-2026, and 451107-2025 the
      framework of EUR 22,922,861); FASER, 107790-2025, 677494-2026, 313429-2026, 142545-2026 and INCM stay set aside.
+  6. (WP-126, no request) PLACSP award rows whose awarded amount is a unit price (`award_value.placsp_unit_price`:
+     over EUR 1, under EUR 100) get it set aside in `award.value_set_aside` (reason `unit_price`) and no value, so they
+     are in no contract or framework sum. Expected on production (25 October 2026, read-only): 457 rows, 431 contract
+     + 25 framework current and 1 superseded contract row, EUR 15,419.79 in all. `--undo-unit-prices` puts them back.
   After a write the supplier value orders are renewed (`awards.refresh_award_twins`).
 
 Expected on production (read-only counts of 24 October 2026, docs/verification/round3/wp103-selfcheck.md): step 3
@@ -64,6 +68,7 @@ from ..award_value import (
     SET_ASIDE_ESTIMATE,
     SET_ASIDE_LOTS,
     SET_ASIDE_PROCEDURE,
+    SET_ASIDE_UNIT_PRICE,
     TED_VALUE_FIELDS,
     THOUSANDFOLD_FROM,
     _checked,
@@ -71,6 +76,7 @@ from ..award_value import (
     contradicted,
     kind_of_title,
     placsp_kind,
+    placsp_unit_price,
     procedure_set_aside,
     ted_value,
     ted_value_set_aside,
@@ -239,7 +245,7 @@ def run_placsp(conn, *, write: bool, examples: list[str] | None = None) -> Count
         elif r["value_kind"] == FRAMEWORK and kind_of_title(r["title_original"]) == CONTRACT:
             # WP-103, step 4: a call-off the narrower title rule of WP-95 read as its framework's ceiling
             c["placsp_call_offs_framework_to_contract"] += 1
-            c["placsp_call_offs_amount_eur"] += round(float(r["value_amount"]))
+            c["placsp_call_offs_amount_eur"] += round(float(r["value_amount"] or 0))   # WP-126: a unit price is set aside
             if write:
                 conn.execute("UPDATE award SET value_kind = %s WHERE id = %s", (CONTRACT, r["id"]))
         if r["opportunity_id"] in seen:
@@ -260,15 +266,62 @@ def run_placsp(conn, *, write: bool, examples: list[str] | None = None) -> Count
     return c
 
 
+def run_unit_prices(conn, *, write: bool, undo: bool = False) -> Counter:
+    """WP-126, step 6 (no request): every PLACSP award row whose awarded amount is a unit price
+    (`award_value.placsp_unit_price`) gets it set aside (`award.value_set_aside`, reason `unit_price`) and its value
+    emptied, so it is in no sum; the loader does the same on every read. `undo`: the amounts set aside so stand again
+    (a re-read sets them aside again while the rule holds)."""
+    c: Counter = Counter()
+    if undo:
+        rows = conn.execute(f"""SELECT a.id, a.value_set_aside AS va, a.value_kind, a.superseded_at FROM award a
+                                 WHERE a.value_set_aside_reason = '{SET_ASIDE_UNIT_PRICE}'""").fetchall()
+    else:
+        rows = conn.execute(f"""SELECT a.id, a.value_amount AS va, a.value_kind, a.superseded_at
+                                  FROM award a JOIN opportunity o ON o.id = a.opportunity_id
+                                 WHERE o.source_id IN {PLACSP_IDS} AND a.value_amount IS NOT NULL""").fetchall()
+        rows = [r for r in rows if placsp_unit_price(float(r["va"]))]
+    key = "unit_prices_restored" if undo else "unit_prices_set_aside"
+    for r in rows:
+        c[key] += 1
+        c[f"{key}_{r['value_kind'] or 'none'}{'_superseded' if r['superseded_at'] else ''}"] += 1
+        c[f"{key}_amount"] += float(r["va"])
+    if c[f"{key}_amount"]:
+        c[f"{key}_amount"] = round(c[f"{key}_amount"], 2)
+    if write and rows:
+        ids = [r["id"] for r in rows]
+        if undo:
+            conn.execute("""UPDATE award SET value_amount = value_set_aside, value_set_aside = NULL,
+                                             value_set_aside_reason = NULL WHERE id = ANY(%s)""", (ids,))
+        else:
+            conn.execute(f"""UPDATE award SET value_set_aside = value_amount, value_set_aside_reason = '{SET_ASIDE_UNIT_PRICE}',
+                                              value_amount = NULL WHERE id = ANY(%s)""", (ids,))
+        conn.commit()
+    return c
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="dgate.ops.award_values", description=__doc__.split("\n\n")[0])
     p.add_argument("--yes", action="store_true", help="write (the default is a report)")
     p.add_argument("--no-fetch", action="store_true", help="ask TED nothing: the stored values and titles only")
     p.add_argument("--all", action="store_true", help="WP-103: ask TED again for every notice with winners, not only "
                                                       "those without a kind (needs the fetch)")
+    p.add_argument("--undo-unit-prices", action="store_true",
+                   help="WP-126: put back the PLACSP amounts step 6 set aside as unit prices, and nothing else")
     a = p.parse_args(argv)
     if a.all and a.no_fetch:
         p.error("--all asks TED again; it cannot run with --no-fetch")
+    if a.undo_unit_prices:
+        with db.connect(settings().dsn) as conn:
+            c = run_unit_prices(conn, write=a.yes, undo=True)
+            if a.yes:
+                c["award_twin_pairs"] = refresh_award_twins(conn)
+                conn.commit()
+            else:
+                conn.rollback()
+        print("written" if a.yes else "report only (add --yes to write)")
+        for k in sorted(c):
+            print(f"  {k}: {c[k]}")
+        return 0
     examples: list[str] = []
     links: list[str] = []
     set_aside: list[str] = []
@@ -278,6 +331,7 @@ def main(argv: list[str] | None = None) -> int:
         c.update(run_recheck(conn, write=a.yes, examples=rechecked))
         c.update(run_set_aside(conn, write=a.yes, examples=set_aside))
         c.update(run_placsp(conn, write=a.yes, examples=links))
+        c.update(run_unit_prices(conn, write=a.yes))
         if a.yes:
             c["award_twin_pairs"] = refresh_award_twins(conn)      # and the supplier value orders (WP-98c)
             conn.commit()

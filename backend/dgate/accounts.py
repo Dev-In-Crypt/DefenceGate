@@ -62,6 +62,28 @@ if not log.handlers and not logging.getLogger().handlers:
     _handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
     log.addHandler(_handler)
 
+
+class _JsonLine(logging.Formatter):
+    """One JSON object per line with `ts` (Unix seconds), the shape dgate.ops.logprune cuts by."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        return json.dumps({"ts": record.created, "level": record.levelname, "msg": record.getMessage()})
+
+
+def security_log_to_file() -> None:
+    """WP-126: with DGATE_SECURITY_LOG set, this logger writes to that file only (not to the
+    container's stdout, which Docker rotates by size only), and `logprune` keeps it to 90 days.
+    Called at server start (api._lifespan). A path that cannot be opened stops the start."""
+    path = settings().security_log
+    if not path:
+        return
+    handler = logging.FileHandler(path, encoding="utf-8")   # append mode: survives the in-place cut
+    handler.setFormatter(_JsonLine())
+    for old in list(log.handlers):
+        log.removeHandler(old)
+    log.addHandler(handler)
+    log.propagate = False
+
 # ------------------------------------------------------------------ limits
 VERIFY_TTL = timedelta(hours=24)     # A7: the confirmation link
 RESET_TTL = timedelta(hours=1)       # A9: the reset link

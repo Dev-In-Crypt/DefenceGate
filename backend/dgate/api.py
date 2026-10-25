@@ -57,6 +57,8 @@ async def _lifespan(_: FastAPI):
     # A production API without its internal secret does not start (QA M10). At server start,
     # not at import: the worker imports parts of this module and holds no such secret.
     require_production_secrets()
+    from .accounts import security_log_to_file
+    security_log_to_file()  # WP-126: the security log goes to its 90-day file, not to stdout
     yield
 
 

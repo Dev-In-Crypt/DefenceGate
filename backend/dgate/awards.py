@@ -424,6 +424,9 @@ class Winner:
     value_amount: float | None = None
     value_currency: str | None = None
     value_kind: str | None = None
+    # WP-126, PLACSP: the awarded amount set aside as a unit price (`award_value.placsp_unit_price`), and why
+    value_set_aside: float | None = None
+    value_set_aside_reason: str | None = None
 
 
 @dataclass
@@ -723,12 +726,15 @@ def store_notice(conn: psycopg.Connection, src_id: int, opp: dict[str, Any], rea
             # WP-81: a PLACSP re-read carries the awarded amount of this read, whatever the row held before;
             # WP-95: and its kind, and a TED notice the value of its one winner
             conn.execute(
-                """UPDATE award SET value_amount = %s, value_currency = %s, value_kind = %s
+                """UPDATE award SET value_amount = %s, value_currency = %s, value_kind = %s, value_set_aside = %s,
+                                    value_set_aside_reason = %s
                     WHERE opportunity_id = %s AND organisation_id = %s
                       AND (value_amount IS DISTINCT FROM %s::numeric OR value_currency IS DISTINCT FROM %s
-                           OR value_kind IS DISTINCT FROM %s)""",
-                (w.value_amount, w.value_currency, w.value_kind, opp["id"], res.org_id, w.value_amount,
-                 w.value_currency, w.value_kind))
+                           OR value_kind IS DISTINCT FROM %s OR value_set_aside IS DISTINCT FROM %s::numeric
+                           OR value_set_aside_reason IS DISTINCT FROM %s)""",
+                (w.value_amount, w.value_currency, w.value_kind, w.value_set_aside, w.value_set_aside_reason,
+                 opp["id"], res.org_id, w.value_amount, w.value_currency, w.value_kind, w.value_set_aside,
+                 w.value_set_aside_reason))
         c["awards_new"] += bool(row and row["inserted"])
         c["awards_current_again"] += bool(row and not row["inserted"])
         c["organisations_new"] += res.created

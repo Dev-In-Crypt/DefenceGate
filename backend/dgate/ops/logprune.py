@@ -1,4 +1,5 @@
-"""Bound the age of the reverse proxy's log files (Privacy section 2: 14 days).
+"""Bound the age of log files: the reverse proxy's (Privacy section 2: 14 days) and, since
+WP-126, the accounts security log (90 days, owner decision of 25 October 2026).
 
 Docker's json-file driver rotates by size only, so a line's age depends on traffic. Caddy
 therefore writes its logs as JSON to files in a volume (infra/Caddyfile), and this runs
@@ -13,8 +14,12 @@ beside it (compose service `logprune`, hourly):
     with its own retention would replace this if the logs ever matter for more than abuse.)
 
     python -m dgate.ops.logprune --dir /var/log/caddy --days 14 [--every 3600]
+    python -m dgate.ops.logprune --dir /logs --dir /security=90 --days 14 --every 3600
 
-Without --every it runs once and exits. It reads only the timestamp (`ts`, Unix seconds)
+`--dir PATH=DAYS` gives one directory its own limit; a bare `--dir PATH` takes `--days`. The
+security log (`security.log`, dgate/accounts.py) is an active file of the same JSON-lines
+shape, never rolled; the API appends to it (O_APPEND), so the in-place cut is safe for it too,
+with the same rare lost line during a rewrite. Without --every it runs once and exits. It reads only the timestamp (`ts`, Unix seconds)
 of each line and never parses or prints the rest.
 """
 
@@ -83,17 +88,19 @@ def prune(directory: Path, days: float, now: float | None = None) -> tuple[int, 
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="dgate.ops.logprune", description=__doc__.split("\n\n")[0])
-    p.add_argument("--dir", type=Path, required=True)
-    p.add_argument("--days", type=float, default=14)
+    p.add_argument("--dir", action="append", required=True, help="PATH or PATH=DAYS; repeatable")
+    p.add_argument("--days", type=float, default=14, help="limit of a --dir given without =DAYS")
     p.add_argument("--every", type=float, default=0, help="seconds between passes; 0 = once")
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    dirs = [(Path(d), float(days) if days else args.days) for d, _, days in (x.partition("=") for x in args.dir)]
     while True:
-        try:
-            deleted, cut = prune(args.dir, args.days)
-            log.info("pass done: %s rolled files deleted, %s lines cut", deleted, cut)
-        except OSError as exc:  # a missing volume is retried, not fatal
-            log.warning("pass failed: %s", type(exc).__name__)
+        for directory, days in dirs:
+            try:
+                deleted, cut = prune(directory, days)
+                log.info("pass done %s: %s rolled files deleted, %s lines cut", directory, deleted, cut)
+            except OSError as exc:  # a missing volume is retried, not fatal
+                log.warning("pass failed %s: %s", directory, type(exc).__name__)
         if not args.every:
             return 0
         time.sleep(args.every)

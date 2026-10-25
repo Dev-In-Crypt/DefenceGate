@@ -169,6 +169,22 @@ def contradicted(amount: float | None, opp: dict[str, Any]) -> bool:
 # EUR 1,450,000.
 SET_ASIDE_ESTIMATE, SET_ASIDE_LOTS, SET_ASIDE_PROCEDURE = "estimate", "lots", "procedure"
 SET_ASIDE_REASONS = (SET_ASIDE_ESTIMATE, SET_ASIDE_LOTS, SET_ASIDE_PROCEDURE)
+
+# WP-126: a PLACSP awarded amount above the placeholder and under EUR 100 is a unit price (a pair of shoes EUR 84.95, a
+# jacket 61.90, a magazine 28.00 of "un mínimo de 2000 cargadores" estimated at 68,000, a menu, an hour of maintenance),
+# not a contract total: production of 25 October 2026 held 431 contract + 25 framework rows so, 411 and 25 of them with
+# an estimate over a hundred times the amount. It is set aside per award row (`award.value_set_aside`, reason
+# `unit_price`), in no sum. Between 100 and 1,000 the amounts are mixed (128 of 351 contract rows that far below the
+# estimate; a Spanish contract of EUR 300 is real, owner 23 Oct): they stand.
+# ponytail: the limit is checked on a winner's summed amount, so unit prices of several lots summing to 100 or more stand.
+PLACSP_UNIT_PRICE_MAX = 100.0
+SET_ASIDE_UNIT_PRICE = "unit_price"
+
+
+def placsp_unit_price(amount: float | None) -> bool:
+    """WP-126: whether a PLACSP awarded amount is a unit price (over the placeholder, under PLACSP_UNIT_PRICE_MAX)."""
+    from .normalise import PLACEHOLDER_AMOUNT_MAX
+    return amount is not None and PLACEHOLDER_AMOUNT_MAX < amount < PLACSP_UNIT_PRICE_MAX
 # A clean unit error from a million (the amount typed in thousands: 107790-2025 states EUR 690,000,000 for a procedure of
 # EUR 690,000; or the cents read as units), and against the procedure also over CONTRADICTED_RATIO times it from a billion
 # (WP-119; it was from ten million, which set aside plausible totals for absurd lot sums and one odd estimate).

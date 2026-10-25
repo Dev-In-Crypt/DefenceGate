@@ -34,7 +34,7 @@ from typing import Any
 import psycopg
 
 from . import awards, db
-from .award_value import framework_refs, placsp_kind
+from .award_value import SET_ASIDE_UNIT_PRICE, framework_refs, placsp_kind, placsp_unit_price
 from .normalise import PLACEHOLDER_AMOUNT_MAX, looks_like_contact
 from .rawstore import BundleWriter, build_store, storage_key
 from .sources import ted
@@ -139,8 +139,11 @@ def read(landed: dict[str, Any], kind: str | None = None) -> awards.Read:
                 out.counts["skipped_no_country"] += 1
             else:
                 value = values.get(key)
+                amount, currency = value or (None, None)
+                aside = amount if placsp_unit_price(amount) else None     # WP-126: a unit price, in no sum
                 out.winners.append(awards.Winner(cleaned, country, None if looks_like_contact(ident) else ident,
-                                                 *(value or (None, None)), kind if value else None))
+                                                 None if aside else amount, currency, kind if value else None,
+                                                 aside, SET_ASIDE_UNIT_PRICE if aside else None))
                 out.counts["joint_ventures"] += bool(w.get("joint_venture"))
     out.winners_seen += int(landed.get("natural_persons") or 0)
     out.counts["skipped_person"] = persons

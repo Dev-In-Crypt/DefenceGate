@@ -25,7 +25,10 @@ logged in `organisation_repair` with what it replaced, and `--undo FROM TO` reve
               Universitat de Girona, URV, NCBR, IRB Barcelona); participations are read through the merge (WP-41)
   restore-ids the numbers cleared on 25 October that today's rules keep, from the log: Polish NIP+REGON pairs, a REGON
               without its leading zeros, a foreign VAT number on a company row
-  twice       a live winner named twice on one notice: two companies a supplier merge joined are taken apart (Sign
+  held-ids    (WP-126) those numbers that another live row of the country holds: a merge candidate of the two rows
+              (method `cleared_register_number`, 0.90, pending for a person); nothing merged, nothing logged here
+              (the candidate row is the record). Run after restore-ids.
+  twice      a live winner named twice on one notice: two companies a supplier merge joined are taken apart (Sign
               Polska / Sign 4 Security), spellings of one company counted once (`same_winner_twice`)
   unlinked    Report: live organisations nothing references (no notice, award or participation), by source, role
               and creation path, and how many pending merge candidates involve one or two (a pair of two is
@@ -70,8 +73,8 @@ CONF_REJOIN = db.CONF_EXACT_NAME
 COUNTRIES = ("PL", "ES")
 COMMIT_EVERY = 100
 UNNAMED = "unnamed organisation"
-STEPS = ("false-ids", "chains", "contacts", "winners", "winners-check", "namesakes", "pics", "restore-ids", "twice",
-         "unlinked")
+STEPS = ("false-ids", "chains", "contacts", "winners", "winners-check", "namesakes", "pics", "restore-ids", "held-ids",
+         "twice", "unlinked")
 
 
 def _shape(number: str | None) -> str:
@@ -443,28 +446,93 @@ def pics(conn, *, apply: bool, out=print) -> dict[str, Any]:
     return res
 
 
+_CLEARED = """SELECT r.organisation_id AS id, r.old_value, g.country, g.canonical_name, g.merged_into, g.individual_reason
+                FROM organisation_repair r JOIN organisation g ON g.id = r.organisation_id
+               WHERE r.action = 'clear_false_identifier' AND r.old_value IS NOT NULL
+               ORDER BY r.id"""
+
+
+def _kept_number(r: dict[str, Any]) -> tuple[str | None, str, str | None]:
+    """(kind, column, number) today's rules keep of a cleared value `r['old_value']` (WP-119), or (None, _, None)."""
+    old, country = r["old_value"], r["country"]
+    pair = pl_number_pair(old) if country == "PL" else None
+    number = pair[0] if pair else (pl_unpadded_regon(old) if country == "PL" else None)
+    if number:
+        return ("nip_regon_pair" if pair else "unpadded_regon"), "national_reg_no", number
+    vat = vat_of({**r, "national_reg_no": old})
+    return ("foreign_vat", "vat_number", vat) if vat else (None, "national_reg_no", None)
+
+
+# WP-126: a cleared number today's rules keep that another live row of the country holds says the two rows may be one
+# body under two spellings ("gmina kolbiel" twice, "amw sinevia" / "amw sinevia spolka z ograniczona odpowiedzialnoscia")
+# or units of one (a forest district and Lasy Panstwowe, a faculty and its university: a public body files its units
+# under one number, which `ops.accept_merge_candidates` never merges). Below the 0.97 of `identifier`, so no tool accepts
+# it by itself: a person decides.
+HELD_ID = "cleared_register_number"
+CONF_HELD_ID = 0.90
+
+
+def held_ids(conn, *, apply: bool, out=print) -> dict[str, Any]:
+    """WP-126: the cleared register numbers `restore_ids` cannot restore because another live row of the country holds
+    them (WP-119: 64 NIP+REGON pairs, 8 short REGONs) become merge candidates of the two live rows (method HELD_ID,
+    CONF_HELD_ID, the evidence names the kind, both rows and their names, never the number); nothing is merged. A pair
+    already a candidate of this method is left as it is; one of another method gets this row too."""
+    rows = [dict(r) for r in conn.execute(_CLEARED).fetchall()]
+    c: Counter = Counter()
+    pairs: dict[tuple[int, int], tuple[str, int, int]] = {}      # (a, b) -> (kind, cleared row, holder live row)
+    for r in rows:
+        kind, column, number = _kept_number(r)
+        if number is None or column != "national_reg_no":
+            continue
+        if r["individual_reason"]:
+            c[f"{kind}_skipped_person"] += 1
+            continue
+        live = r["merged_into"] or r["id"]
+        holders = {h["live"] for h in conn.execute(
+            """SELECT DISTINCT COALESCE(merged_into, id) AS live FROM organisation
+                WHERE country = %s AND national_reg_no = %s""", (r["country"], number)).fetchall()}
+        if not holders - {live}:
+            c[f"{kind}_{'on_the_live_row' if holders else 'held_by_none'}"] += 1
+            continue
+        c[f"{kind}_held_by_another_row"] += 1
+        for h in sorted(holders - {live}):
+            pairs.setdefault((min(live, h), max(live, h)), (kind, r["id"], h))
+    names = {x["id"]: x["canonical_name"] for x in conn.execute(
+        "SELECT id, canonical_name FROM organisation WHERE id = ANY(%s)",
+        ([i for p in pairs for i in p],)).fetchall()}
+    held = {(x["organisation_id"], x["candidate_org_id"]) for x in conn.execute(
+        """SELECT organisation_id, candidate_org_id FROM organisation_merge_candidate
+            WHERE match_method = %s""", (HELD_ID,)).fetchall()}
+    new = [p for p in pairs if p not in held]
+    res = {"logged_values": len(rows), **c, "candidate_pairs": len(pairs), "candidate_pairs_new": len(new)}
+    out(f"cleared numbers another live row holds: {res}")
+    for a, b in list(pairs)[:20]:
+        out(f"  {pairs[(a, b)][0]}: {a} {names.get(a, '')[:50]!r} ~ {b} {names.get(b, '')[:50]!r}")
+    if not apply:
+        conn.rollback()
+        return res
+    for a, b in new:
+        kind, cleared, holder = pairs[(a, b)]
+        db.add_merge_candidate(
+            conn, a, b, method=HELD_ID, confidence=CONF_HELD_ID, detected_by=DETECTED_BY,
+            evidence=(f"{kind}: the number cleared from row {cleared} on 25 Oct 2026 (organisation_repair) is held by "
+                      f"row {holder}; names {names.get(a, a)!r} and {names.get(b, b)!r}"))
+    conn.commit()
+    return res
+
+
 def restore_ids(conn, *, apply: bool, out=print) -> dict[str, Any]:
     """WP-119: the numbers the false-ids step of 25 October cleared that today's rules keep, from its log
     (`old_value`): a Polish NIP and REGON written together (the NIP), a REGON written without its leading zeros (its
     9-digit form) and a foreign VAT number on a company row (as `vat_number`). Each goes to the live row when it holds
     none, else back to its own row when that holds none; never when another row of the country holds it."""
-    rows = [dict(r) for r in conn.execute(
-        """SELECT r.organisation_id AS id, r.old_value, g.country, g.canonical_name, g.merged_into, g.individual_reason
-             FROM organisation_repair r JOIN organisation g ON g.id = r.organisation_id
-            WHERE r.action = 'clear_false_identifier' AND r.old_value IS NOT NULL
-            ORDER BY r.id""").fetchall()]
+    rows = [dict(r) for r in conn.execute(_CLEARED).fetchall()]
     c: Counter = Counter()
     plan: list[tuple[int, str, str, str]] = []       # (target, column, value, kind)
     planned: set[str] = set()
     for r in rows:
-        old, country = r["old_value"], r["country"]
-        pair = pl_number_pair(old) if country == "PL" else None
-        number = pair[0] if pair else (pl_unpadded_regon(old) if country == "PL" else None)
-        kind = "nip_regon_pair" if pair else "unpadded_regon" if number else None
-        column = "national_reg_no"
-        if number is None:
-            number = vat_of({**r, "national_reg_no": old})
-            kind, column = ("foreign_vat", "vat_number") if number else (None, column)
+        kind, column, number = _kept_number(r)
+        country = r["country"]
         if number is None:
             continue
         c[kind] += 1
@@ -663,7 +731,7 @@ def run(conn, steps: tuple[str, ...] = STEPS, *, apply: bool = False, out=print)
     res: dict[str, Any] = {}
     for name, fn in (("false-ids", false_ids), ("chains", chains), ("contacts", contacts), ("winners", winners),
                      ("winners-check", winners_check), ("namesakes", namesakes), ("pics", pics),
-                     ("restore-ids", restore_ids), ("twice", twice)):
+                     ("restore-ids", restore_ids), ("held-ids", held_ids), ("twice", twice)):
         if name in steps:
             res[name] = fn(conn, apply=apply, out=out)
     if "unlinked" in steps:
