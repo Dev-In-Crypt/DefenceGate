@@ -5,7 +5,7 @@ import { ConfirmForm, InvalidLink } from '@/components/account/confirm-form';
 
 // The URL carries a one-time token: never cached, never indexed, never sent on as a referrer.
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Confirm sign-in', robots: { index: false, follow: false }, referrer: 'no-referrer' };
+export const metadata: Metadata = { title: 'Confirm your address', robots: { index: false, follow: false }, referrer: 'no-referrer' };
 
 type Props = { searchParams: Promise<{ token?: string | string[] }> };
 
@@ -15,8 +15,8 @@ export default async function VerifyPage({ searchParams }: Props) {
   const token = Array.isArray(raw) ? raw[0] : raw;
   return (
     <ContentPage
-      crumbs={[{ label: 'Home', href: '/' }, { label: 'Sign in', href: '/signin' }]}
-      title="Confirm sign-in"
+      crumbs={[{ label: 'Home', href: '/' }, { label: 'Create an account', href: '/signup' }]}
+      title="Confirm your address"
     >
       {isTokenShaped(token) ? <ConfirmForm token={token} /> : <InvalidLink />}
     </ContentPage>

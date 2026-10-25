@@ -57,7 +57,7 @@ export default async function AlertsPage() {
         <dl className="m-0 flex flex-col">
           {FEATURES.map((f) => <Fact key={f.title} label={f.title}>{f.body}</Fact>)}
         </dl>
-        <p className="m-0 text-small text-ink-muted">Browsing tenders, buyers and funding calls is free and needs no account. Alerts are best effort and do not replace checking the original notice. {open ? 'Sign-in is by a one-time link sent to your e-mail: there is no password.' : 'Sign-in will be by a one-time link sent to your e-mail, with no password.'}</p>
+        <p className="m-0 text-small text-ink-muted">Browsing tenders, buyers and funding calls is free and needs no account. Alerts are best effort and do not replace checking the original notice. {open ? 'You sign in with your e-mail address and a password.' : 'You will sign in with your e-mail address and a password.'}</p>
       </ContentSection>
     </ContentPage>
   );

@@ -144,10 +144,15 @@ services:
       # visit-counter routes refuse a call that does not carry it in `X-DG-Internal`. Required
       # (WP-71): compose refuses to start without it, and so does the API (DGATE_ENV below).
       DGATE_INTERNAL_SECRET: ${DGATE_INTERNAL_SECRET:?set DGATE_INTERNAL_SECRET in infra/.env}
+      # WP-123: the API's own key of the account secrets (throttle counters, recovery codes, sealed
+      # TOTP keys). Not given to `web`, unlike the internal secret. Without it accounts stay closed in
+      # production. Generate once (`openssl rand -hex 32`); changing it later locks every account with
+      # two-step sign-in out (its key and codes no longer match) until its TOTP columns are cleared.
+      DGATE_ACCOUNT_KEY: ${DGATE_ACCOUNT_KEY:-}
       DGATE_ENV: production
       # Only the key of the sign-in throttle counters when DGATE_INTERNAL_SECRET is unset.
       DGATE_APP_PASSWORD: ${DGATE_APP_PASSWORD}
-      # Mail for sign-in links. Without a relay sign-in stays closed; nothing is faked.
+      # Mail for confirmation and password links. Without a relay sign-in stays closed; nothing is faked.
       DGATE_SMTP_HOST: ${DGATE_SMTP_HOST:-}
       DGATE_SMTP_PORT: ${DGATE_SMTP_PORT:-587}
       DGATE_SMTP_USER: ${DGATE_SMTP_USER:-}

@@ -21,7 +21,7 @@ const MAX_COUNT = 10_000;
 
 /** Same list as backend/dgate/accounts.py: a page is counted, a record is not, an unknown path is /other. */
 const KNOWN_ROUTES = new Set(['', 'funding', 'tenders', 'buyers', 'data', 'market', 'calendar', 'cpv', 'glossary', 'methodology', 'about', 'terms',
-  'privacy', 'imprint', 'pricing', 'alerts', 'pack', 'signin', 'app']);
+  'privacy', 'imprint', 'pricing', 'alerts', 'pack', 'signin', 'register', 'signup', 'reset', 'app']);
 const DETAIL_ROUTES = new Set(['funding', 'tenders', 'buyers']);
 
 export function routeKey(pathname: string): string {

@@ -1,4 +1,10 @@
-"""Accounts, against docs/SECURITY_REQUIREMENTS.md (A1-A6, O1-O3) and ACCOUNT_CONTRACT.md."""
+"""Accounts, against docs/SECURITY_REQUIREMENTS.md (A1-A10, O1-O3) and ACCOUNT_CONTRACT.md.
+
+Since WP-79 (22 October 2026) an account is registered with a password, confirmed by a link,
+and signed in with the password; the flows of A7-A10 have their own file
+(test_accounts_passwords.py). The tests here that were about the sign-in link test the same
+requirement on the link that replaced it (the confirmation link) or on the registration
+request, which carries the mail limits of A3 and A4 now."""
 
 from __future__ import annotations
 
@@ -13,55 +19,80 @@ from fastapi.testclient import TestClient
 from dgate import accounts, api, config, db, migrate
 from dgate.normalise import Opportunity
 from dgate.ops import mailer
+from tests.mailcatcher import MailCatcher
 
 pytestmark = pytest.mark.integration
 
 FUTURE = datetime.now(timezone.utc) + timedelta(days=5)
+PW = "correct horse battery mule"
 
 
 @pytest.fixture()
 def sent(monkeypatch):
-    """Mail goes to a list, and the relay counts as configured."""
+    """Mail goes to a list (the fake outbox), and the relay counts as configured.
+    WP-123: the relay is a local SMTP catcher, so the health check of `mailer.ready()` really
+    runs (and passes); and accounts are opened as they will be once the privacy notice for
+    password accounts is published (test_accounts_wp123.py tests that they are closed before)."""
     box: list[dict] = []
-    monkeypatch.setenv("DGATE_SMTP_HOST", "relay.invalid")
-    monkeypatch.setenv("DGATE_SMTP_FROM", "no-reply@example.test")
-    monkeypatch.setenv("DGATE_SITE_URL", "https://site.test")
+    with MailCatcher() as relay:
+        monkeypatch.setenv("DGATE_SMTP_HOST", "127.0.0.1")
+        monkeypatch.setenv("DGATE_SMTP_PORT", str(relay.port))
+        monkeypatch.setenv("DGATE_SMTP_SECURITY", "none")
+        monkeypatch.setenv("DGATE_SMTP_FROM", "no-reply@example.test")
+        monkeypatch.setenv("DGATE_SITE_URL", "https://site.test")
+        monkeypatch.setattr(accounts, "PASSWORD_PRIVACY_VERSION", accounts.PRIVACY_VERSION)
+        config.reset_cache()
+        mailer.reset_check()
+        monkeypatch.setattr(mailer, "send_mail",
+                            lambda to, subject, body: box.append({"to": to, "subject": subject, "body": body}) or True)
+        yield box
     config.reset_cache()
-    monkeypatch.setattr(mailer, "send_mail",
-                        lambda to, subject, body: box.append({"to": to, "body": body}) or True)
-    yield box
-    config.reset_cache()
+    mailer.reset_check()
 
 
 @pytest.fixture()
 def client(conn, sent):
     accounts._cache.clear()          # search results and the pulse are cached for minutes
     with TestClient(api.app) as c:
+        c.registered = set()         # canonical addresses this test has registered and confirmed
         yield c
     accounts._cache.clear()
 
 
-# Migration 0047: the sign-in form carries the tick and the versions it showed.
+# Migration 0047: the registration form carries the tick and the versions it showed.
 ACCEPT = {"acceptTerms": True, "termsVersion": accounts.TERMS_VERSION,
           "privacyVersion": accounts.PRIVACY_VERSION}
 
 
-def _binder() -> str:
-    return secrets.token_urlsafe(32)
+def _token(box: list[dict], path: str = "/auth/verify") -> str:
+    return re.search(rf"{path}\?token=([A-Za-z0-9_-]{{43}})", box[-1]["body"]).group(1)
 
 
-def _token(box: list[dict]) -> str:
-    return re.search(r"token=([A-Za-z0-9_-]{43})", box[-1]["body"]).group(1)
+def register(client, email="ann@example.com", password=PW, ip="203.0.113.7", **extra):
+    return client.post("/v1/account/auth/register", json={"email": email, "password": password, **ACCEPT, **extra},
+                       headers={"X-DG-Client-IP": ip})
+
+
+def login(client, email="ann@example.com", password=PW, ip="203.0.113.7"):
+    return client.post("/v1/account/auth/login", json={"email": email, "password": password},
+                       headers={"X-DG-Client-IP": ip})
 
 
 def sign_in(client, box, email="ann@example.com", ip="203.0.113.7") -> tuple[str, dict]:
-    binder = _binder()
-    r = client.post("/v1/account/auth/request", json={"email": email, "binder": binder, **ACCEPT},
-                    headers={"X-DG-Client-IP": ip})
-    assert r.status_code == 202, r.text
-    v = client.post("/v1/account/auth/verify", json={"token": _token(box), "binder": binder})
-    assert v.status_code == 200, v.text
-    return v.json()["session"], v.json()
+    """Register and confirm the address the first time it is used in a test, then sign in
+    with the password: a fresh session every call."""
+    canonical = accounts.canonical_email(email)[0]
+    if not hasattr(client, "registered"):     # a client fixture of another test file
+        client.registered = set()
+    if canonical not in client.registered:
+        r = register(client, email, ip=ip)
+        assert r.status_code == 202, r.text
+        v = client.post("/v1/account/auth/verify", json={"token": _token(box)})
+        assert v.status_code == 200, v.text
+        client.registered.add(canonical)
+    r = login(client, email, ip=ip)
+    assert r.status_code == 200, r.text
+    return r.json()["session"], r.json()
 
 
 def H(session: str) -> dict[str, str]:
@@ -98,8 +129,11 @@ def test_sign_in_is_open_only_when_mail_can_be_sent(client, monkeypatch):
     monkeypatch.delenv("DGATE_SMTP_HOST")
     config.reset_cache()
     assert client.get("/v1/account/status").json()["open"] is False
-    r = client.post("/v1/account/auth/request", json={"email": "a@example.com", "binder": _binder(), **ACCEPT})
-    assert r.status_code == 503 and r.json()["error"] == "not_open"
+    for path, body in (("/v1/account/auth/register", {"email": "a@example.com", "password": PW, **ACCEPT}),
+                       ("/v1/account/auth/login", {"email": "a@example.com", "password": PW}),
+                       ("/v1/account/auth/reset/request", {"email": "a@example.com"})):
+        r = client.post(path, json=body)
+        assert (r.status_code, r.json()["error"]) == (503, "not_open"), path
 
 
 @pytest.mark.parametrize("headers", [{"Origin": "https://evil.test"}, {"X-Forwarded-For": "198.51.100.9"}])
@@ -111,7 +145,7 @@ def test_a_browser_or_proxied_request_is_refused(client, headers):
 def test_account_responses_are_never_cacheable_and_an_oversized_body_is_refused(client, sent):
     session, _ = sign_in(client, sent)
     assert client.get("/v1/account/me", headers=H(session)).headers["cache-control"] == "private, no-store"
-    r = client.post("/v1/account/auth/request", content=b"{" + b" " * 20000 + b"}",
+    r = client.post("/v1/account/auth/register", content=b"{" + b" " * 20000 + b"}",
                     headers={"content-type": "application/json"})
     assert r.status_code == 413
 
@@ -139,51 +173,59 @@ def test_one_address_in_three_spellings_is_one_account(client, sent, conn):
         ids.add(client.get("/v1/account/me", headers=H(session)).json()["id"])
     assert len(ids) == 1
     assert conn.execute("SELECT count(*) AS n FROM app_user").fetchone()["n"] == 1
+    # and a second registration in another spelling makes no second account
+    assert register(client, "ANN@example.com ", ip="198.51.100.40").status_code == 202
+    assert conn.execute("SELECT count(*) AS n FROM app_user").fetchone()["n"] == 1
 
 
-def test_a_first_sign_in_is_new_and_a_second_is_not(client, sent):
-    assert sign_in(client, sent)[1]["isNew"] is True
+def test_a_sign_in_goes_to_the_welcome_until_the_profile_is_filled(client, sent):
+    session, first = sign_in(client, sent)
+    assert first["isNew"] is True
+    client.patch("/v1/account/me", headers=H(session), json={"role": "supplier", "tracks": ["tenders"]})
     assert sign_in(client, sent)[1]["isNew"] is False
 
 
-# ---------------------------------------------------------------- A2
+# ---------------------------------------------------------------- A2 (now the confirmation link, A7)
 
 def test_a_link_works_once(client, sent):
-    binder = _binder()
-    client.post("/v1/account/auth/request", json={"email": "ann@example.com", "binder": binder, **ACCEPT})
+    register(client)
     token = _token(sent)
-    assert client.post("/v1/account/auth/verify", json={"token": token, "binder": binder}).status_code == 200
-    again = client.post("/v1/account/auth/verify", json={"token": token, "binder": binder})
+    assert client.post("/v1/account/auth/verify", json={"token": token}).status_code == 200
+    again = client.post("/v1/account/auth/verify", json={"token": token})
     assert again.status_code == 400 and again.json()["error"] == "invalid_or_expired"
 
 
 def test_a_link_expires(client, sent, conn):
-    binder = _binder()
-    client.post("/v1/account/auth/request", json={"email": "ann@example.com", "binder": binder, **ACCEPT})
-    conn.execute("UPDATE app_login_token SET expires_at = now() - interval '1 minute'")
+    register(client)
+    expires = conn.execute("SELECT expires_at - created_at AS ttl FROM app_auth_token").fetchone()["ttl"]
+    assert expires == timedelta(hours=24)
+    conn.execute("UPDATE app_auth_token SET expires_at = now() - interval '1 minute'")
     conn.commit()
-    assert client.post("/v1/account/auth/verify",
-                       json={"token": _token(sent), "binder": binder}).status_code == 400
+    assert client.post("/v1/account/auth/verify", json={"token": _token(sent)}).status_code == 400
+    assert login(client).json()["error"] == "not_verified"
 
 
-def test_a_link_is_bound_to_the_browser_that_asked_and_a_stranger_does_not_burn_it(client, sent):
-    binder = _binder()
-    client.post("/v1/account/auth/request", json={"email": "ann@example.com", "binder": binder, **ACCEPT})
-    token = _token(sent)
-    other = client.post("/v1/account/auth/verify", json={"token": token, "binder": _binder()})
-    assert other.status_code == 400
-    assert client.post("/v1/account/auth/verify", json={"token": token, "binder": binder}).status_code == 200
+def test_the_link_alone_signs_nobody_in(client, sent):
+    """It replaces the binding of the old link to a browser: whoever holds the confirmation
+    link (a mail scanner, a forwarded mail) gets no session from it, only the password does."""
+    register(client)
+    v = client.post("/v1/account/auth/verify", json={"token": _token(sent)})
+    assert v.json() == {"ok": True} and "session" not in v.text
+    assert login(client, password="not the password at all").status_code == 401
+    assert login(client).status_code == 200
 
 
 def test_only_hashes_are_stored(client, sent, conn):
-    binder = _binder()
-    client.post("/v1/account/auth/request", json={"email": "ann@example.com", "binder": binder, **ACCEPT})
+    register(client)
     token = _token(sent)
-    session = client.post("/v1/account/auth/verify", json={"token": token, "binder": binder}).json()["session"]
-    stored = [bytes(r["token_hash"]) for r in conn.execute("SELECT token_hash FROM app_login_token").fetchall()]
+    client.post("/v1/account/auth/verify", json={"token": token})
+    session = login(client).json()["session"]
+    stored = [bytes(r["token_hash"]) for r in conn.execute("SELECT token_hash FROM app_auth_token").fetchall()]
     stored += [bytes(r["id_hash"]) for r in conn.execute("SELECT id_hash FROM app_session").fetchall()]
     assert stored and all(token.encode() not in s and session.encode() not in s for s in stored)
     assert all(len(s) == 32 for s in stored)
+    stored_pw = conn.execute("SELECT password_hash FROM app_user").fetchone()["password_hash"]
+    assert stored_pw.startswith("$argon2id$") and PW not in stored_pw
 
 
 # ---------------------------------------------------------------- A3 / A4
@@ -191,20 +233,15 @@ def test_only_hashes_are_stored(client, sent, conn):
 def test_the_sixth_request_for_one_address_is_refused_and_the_answer_does_not_reveal_the_address(client, sent):
     known = sign_in(client, sent, email="known@example.com", ip="198.51.100.1")
     assert known
-    body_known = client.post("/v1/account/auth/request",
-                             json={"email": "known@example.com", "binder": _binder(), **ACCEPT},
-                             headers={"X-DG-Client-IP": "198.51.100.2"})
-    body_unknown = client.post("/v1/account/auth/request",
-                               json={"email": "nobody@example.com", "binder": _binder(), **ACCEPT},
-                               headers={"X-DG-Client-IP": "198.51.100.3"})
+    body_known = register(client, "known@example.com", ip="198.51.100.2")
+    body_unknown = register(client, "nobody@example.com", ip="198.51.100.3")
     assert (body_known.status_code, body_known.json()) == (body_unknown.status_code, body_unknown.json()) \
         == (202, {"ok": True})
     # Audit M2 / X-6 (14 October 2026): beyond the per-address limit the answer is a visible 429
     # with the wait, not the old silent 202 that locked the address's owner out without a word.
     # It is no oracle: every address is refused the same way after the same number of requests.
     before = len(sent)
-    answers = [client.post("/v1/account/auth/request", json={"email": "burst@example.com", "binder": _binder(), **ACCEPT},
-                           headers={"X-DG-Client-IP": f"192.0.2.{i}"}) for i in range(8)]
+    answers = [register(client, "burst@example.com", ip=f"192.0.2.{i}") for i in range(8)]
     assert [r.status_code for r in answers] == [202] * 5 + [429] * 3
     assert all(r.json() == {"ok": True} for r in answers[:5])
     assert all(int(r.headers["retry-after"]) >= 1 for r in answers[5:])
@@ -212,22 +249,24 @@ def test_the_sixth_request_for_one_address_is_refused_and_the_answer_does_not_re
 
 
 def test_one_ip_is_limited_across_addresses(client, sent):
-    codes = [client.post("/v1/account/auth/request", json={"email": f"u{i}@example.com", "binder": _binder(), **ACCEPT},
-                         headers={"X-DG-Client-IP": "192.0.2.50"}).status_code for i in range(22)]
+    codes = [register(client, f"u{i}@example.com", ip="192.0.2.50").status_code for i in range(22)]
     assert codes[:20] == [202] * 20 and codes[20:] == [429, 429]
 
 
-def test_a_disposable_domain_gets_the_same_answer_and_no_mail(client, sent):
-    r = client.post("/v1/account/auth/request", json={"email": "x@mailinator.com", "binder": _binder(), **ACCEPT})
+def test_a_disposable_domain_gets_the_same_answer_and_no_mail(client, sent, conn):
+    r = register(client, "x@mailinator.com")
     assert (r.status_code, r.json()) == (202, {"ok": True})
     assert sent == []
+    assert conn.execute("SELECT count(*) AS n FROM app_user").fetchone()["n"] == 0
+    r = client.post("/v1/account/auth/reset/request", json={"email": "x@mailinator.com"})
+    assert (r.status_code, r.json(), sent) == (202, {"ok": True}, [])
 
 
-def test_a_malformed_address_or_binder_is_refused(client, sent):
-    assert client.post("/v1/account/auth/request",
-                       json={"email": "nope", "binder": _binder(), **ACCEPT}).json()["error"] == "invalid_email"
-    assert client.post("/v1/account/auth/request",
-                       json={"email": "a@example.com", "binder": "short", **ACCEPT}).status_code == 422
+def test_a_malformed_address_or_a_weak_password_is_refused(client, sent):
+    assert register(client, "nope").json()["error"] == "invalid_email"
+    assert register(client, password="short").json()["error"] == "password_too_short"
+    assert register(client, password="Password2026!").json()["error"] == "password_common"
+    assert sent == []
 
 
 # ---------------------------------------------------------------- A5
@@ -314,7 +353,8 @@ def test_deleting_the_account_removes_everything_it_owned(client, sent, conn):
     assert len(export["shortlist"]) == 1 and len(export["searches"]) == 1 and "exportedAt" in export
     wrong = client.request("DELETE", "/v1/account/me", headers=H(session), json={"confirm": "other@example.com"})
     assert wrong.status_code == 422
-    ok = client.request("DELETE", "/v1/account/me", headers=H(session), json={"confirm": "ANN@example.com"})
+    # WP-123: an account with a password re-enters it to delete itself (test_accounts_wp123.py)
+    ok = client.request("DELETE", "/v1/account/me", headers=H(session), json={"confirm": "ANN@example.com", "password": PW})
     assert ok.status_code == 204
     for table in ("app_user", "app_session", "app_saved_search", "app_shortlist", "app_follow"):
         assert conn.execute(f"SELECT count(*) AS n FROM {table}").fetchone()["n"] == 0
@@ -423,7 +463,7 @@ def test_the_public_roles_cannot_read_the_account_tables(conn):
     # (pg_dump runs as it: "a backup that cannot read a table is not a backup of it") and
     # writes none of these: the checks below.
     for table in ("app_session", "app_login_token", "app_auth_event", "app_follow", "app_shortlist",
-                  "app_hit_daily"):
+                  "app_hit_daily", "app_auth_token", "app_recovery_code"):
         assert conn.execute("SELECT has_table_privilege('dgate_api', %s, 'SELECT') AS ok",
                             (table,)).fetchone()["ok"] is False, table
         for priv in ("INSERT", "UPDATE", "DELETE"):
@@ -513,21 +553,21 @@ def test_the_visit_counter_does_not_drain_the_shared_internal_bucket(conn, monke
 
 # ---------------------------------------------------------------- review H2 / M3 / M7: the throttle
 
-def _auth_rows(conn) -> tuple[int, int]:
-    return (conn.execute("SELECT count(*) AS n FROM app_auth_event").fetchone()["n"],
-            conn.execute("SELECT count(*) AS n FROM app_login_token").fetchone()["n"])
+def _auth_rows(conn) -> tuple[int, int, int]:
+    return tuple(conn.execute(f"SELECT count(*) AS n FROM {t}").fetchone()["n"]
+                 for t in ("app_auth_event", "app_auth_token", "app_user"))
 
 
 def _ask(client, email, ip="198.51.100.20"):
-    return client.post("/v1/account/auth/request", json={"email": email, "binder": _binder(), **ACCEPT},
-                       headers={"X-DG-Client-IP": ip})
+    return register(client, email, ip=ip)
 
 
 def test_a_request_that_is_not_served_writes_nothing(client, sent, conn):
     for i in range(accounts.LIMIT_PER_ADDRESS):
         assert _ask(client, "victim@example.com", f"192.0.2.{i}").status_code == 202
     after_accepted = _auth_rows(conn)
-    assert after_accepted == (4 * accounts.LIMIT_PER_ADDRESS, accounts.LIMIT_PER_ADDRESS)
+    # one account and one live link: a new registration of an unconfirmed address replaces both
+    assert after_accepted == (4 * accounts.LIMIT_PER_ADDRESS, 1, 1)
     for i in range(10):                                           # over the per-address limit
         assert _ask(client, "victim@example.com", f"192.0.2.{50 + i}").status_code == 429
     assert _auth_rows(conn) == after_accepted
@@ -579,14 +619,21 @@ def test_expired_events_and_tokens_are_pruned_at_the_start_of_a_request_even_whe
     for i in range(accounts.LIMIT_PER_IP):
         _ask(client, f"u{i}@example.com", "203.0.113.5")
     conn.execute("INSERT INTO app_auth_event (kind, key_hash, at) VALUES ('ip', '\\x00', now() - interval '3 days')")
-    conn.execute("INSERT INTO app_login_token (token_hash, binder_hash, email_canonical, email_display, expires_at) "
-                 "VALUES ('\\x01', '\\x02', 'old@example.com', 'old@example.com', now() - interval '3 days')")
+    old = conn.execute("INSERT INTO app_user (email_canonical, email_display, email_verified_at) "
+                       "VALUES ('old@example.com', 'old@example.com', now()) RETURNING id").fetchone()["id"]
+    conn.execute("INSERT INTO app_auth_token (token_hash, user_id, purpose, expires_at) "
+                 "VALUES ('\\x01', %s, 'reset', now() - interval '3 days')", (old,))
+    conn.execute("INSERT INTO app_user (email_canonical, email_display, created_at) "
+                 "VALUES ('never@example.com', 'never@example.com', now() - interval '3 days')")
     conn.commit()
     assert _ask(client, "x@example.com", "203.0.113.5").status_code == 429       # refused ...
     assert conn.execute("SELECT count(*) AS n FROM app_auth_event WHERE at < now() - interval '1 day'"
                         ).fetchone()["n"] == 0                                    # ... and still pruned
-    assert conn.execute("SELECT count(*) AS n FROM app_login_token WHERE email_canonical = 'old@example.com'"
+    assert conn.execute("SELECT count(*) AS n FROM app_auth_token WHERE user_id = %s", (old,)
                         ).fetchone()["n"] == 0
+    # a registration never confirmed is deleted after two days; a confirmed account stays
+    left = {r["email_canonical"] for r in conn.execute("SELECT email_canonical FROM app_user").fetchall()}
+    assert "never@example.com" not in left and "old@example.com" in left
 
 
 def test_the_throttle_keys_are_not_a_plain_hash_of_the_address_or_the_ip(client, sent, conn):
@@ -631,7 +678,7 @@ def test_a_chunked_body_with_no_length_is_refused_by_what_arrives(client):
         for _ in range(8):
             yield b" " * 4096
 
-    for path in ("/v1/account/auth/request", "/v1/internal/hit", "/v1/internal/hits"):
+    for path in ("/v1/account/auth/register", "/v1/internal/hit", "/v1/internal/hits"):
         r = client.post(path, content=chunks(), headers={"content-type": "application/json"})
         assert r.status_code == 413, path
     ok = client.post("/v1/internal/hit", json={"route": "/"})
@@ -746,7 +793,8 @@ def test_the_accounts_role_reads_only_what_the_account_code_needs(conn):
                   "organisation_merge_candidate", "enrichment_job", "enrichment", "backfill_day"):
         assert not can("SELECT", table), table
     for table in ("app_user", "app_session", "app_login_token", "app_auth_event", "app_saved_search",
-                  "app_shortlist", "app_follow", "app_hit_daily", "app_disposable_domain"):
+                  "app_shortlist", "app_follow", "app_hit_daily", "app_disposable_domain",
+                  "app_auth_token", "app_recovery_code"):
         assert can("SELECT", table) and can("INSERT", table) and can("DELETE", table), table
     # a table made later is not readable by default
     conn.execute("CREATE TABLE zz_later (a int)")
@@ -802,7 +850,8 @@ def test_every_account_flow_works_as_the_least_privileged_role(client, sent, con
         from psycopg.rows import dict_row
         c2.row_factory = dict_row
         assert isinstance(accounts._programmes(c2), dict)
-    assert client.request("DELETE", "/v1/account/me", headers=h, json={"confirm": "ann@example.com"}).status_code == 204
+    assert client.request("DELETE", "/v1/account/me", headers=h,
+                          json={"confirm": "ann@example.com", "password": PW}).status_code == 204
 
 
 # ---------------------------------------------------------------- digests
@@ -922,17 +971,17 @@ def test_a_failed_search_keeps_its_window_and_the_others_move_on(client, sent, c
 # ---------------------------------------------------------------- terms acceptance (0047)
 
 def test_the_tick_is_required_and_is_for_the_versions_now_current(client, sent):
-    body = {"email": "ann@example.com", "binder": _binder()}
+    body = {"email": "ann@example.com", "password": PW}
     for extra in ({}, {"acceptTerms": False, "termsVersion": accounts.TERMS_VERSION,
                        "privacyVersion": accounts.PRIVACY_VERSION},
                   {"acceptTerms": True, "termsVersion": "0.1",
                    "privacyVersion": accounts.PRIVACY_VERSION}):
-        r = client.post("/v1/account/auth/request", json={**body, **extra})
+        r = client.post("/v1/account/auth/register", json={**body, **extra})
         assert (r.status_code, r.json()["error"]) == (422, "terms_not_accepted")
     assert sent == []
 
 
-def test_the_versions_and_time_are_stored_at_the_first_verified_sign_in(client, sent, conn):
+def test_the_versions_and_time_are_stored_at_registration(client, sent, conn):
     assert client.get("/v1/account/status").json()["termsVersion"] == accounts.TERMS_VERSION
     session, _ = sign_in(client, sent)
     row = conn.execute("SELECT terms_version, privacy_version, accepted_at FROM app_user").fetchone()
@@ -947,10 +996,8 @@ def test_a_new_version_asks_again(client, sent, conn, monkeypatch):
     session, _ = sign_in(client, sent)
     monkeypatch.setattr(accounts, "TERMS_VERSION", "9.0")
     assert client.get("/v1/account/me", headers=H(session)).json()["terms"]["current"] is False
-    # the old tick no longer signs anyone in
-    old = {**ACCEPT, "termsVersion": "2.0"}
-    r = client.post("/v1/account/auth/request",
-                    json={"email": "ann@example.com", "binder": _binder(), **old})
+    # the old tick no longer registers anyone
+    r = register(client, "bob@example.com", termsVersion="2.0")
     assert r.status_code == 422
     # a signed-in account accepts the new text from the site
     bad = client.post("/v1/account/me/terms", headers=H(session),
@@ -963,7 +1010,7 @@ def test_a_new_version_asks_again(client, sent, conn, monkeypatch):
     assert conn.execute("SELECT terms_version FROM app_user").fetchone()["terms_version"] == "9.0"
 
 
-def test_the_status_call_prunes_spent_counters_and_links(client, conn, monkeypatch):
+def test_the_status_call_prunes_spent_counters_and_tokens(client, conn, monkeypatch):
     conn.execute("INSERT INTO app_auth_event (kind, key_hash, at) "
                  "VALUES ('ip', 'x'::bytea, now() - interval '2 days')")
     conn.commit()

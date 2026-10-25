@@ -43,6 +43,11 @@ const NOTICES: Record<string, { text: string; error?: true }> = {
   confirm: { text: 'That did not match your e-mail address. Nothing was deleted.', error: true },
   countries: { text: 'Choose at most 20 countries.', error: true },
   invalid: { text: 'One of the values was not accepted. Check the form and try again.', error: true },
+  password: { text: 'Your password is changed. Every other browser was signed out.' },
+  wrong_password: { text: 'The current password is wrong. Nothing was changed.', error: true },
+  weak: { text: 'Choose another new password: at least 12 characters, and not a common or easily guessed one.', error: true },
+  rate_limited: { text: 'Too many attempts. Wait a little and try again.', error: true },
+  totp_off: { text: 'Two-step sign-in is off.' },
 };
 
 /** Result of the last action, from `?n=`. Only codes in the table above are ever shown. */

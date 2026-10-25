@@ -50,7 +50,7 @@ def _line(kind: str, item: dict[str, Any], site: str) -> str:
 def run_digests(conn) -> dict[str, int]:
     """Send what is due. Returns counts, for the job log."""
     result = {"accounts": 0, "mails": 0, "searches": 0, "failed": 0}
-    if not mailer.can_send():
+    if not mailer.ready():           # configured and the relay passed its health check (WP-123)
         return result
     site = settings().site_url.rstrip("/")
     by_owner: dict[Any, list[dict[str, Any]]] = defaultdict(list)
