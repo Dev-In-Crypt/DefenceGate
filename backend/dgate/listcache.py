@@ -17,6 +17,8 @@ _SCALARS = (str, int, float, bool, date, datetime, type(None))
 
 SNAPSHOT_HOURS = 8       # a snapshot older than this is ignored (the worker renews them every 4 hours)
 LIST_KEY = "__list__"
+# WP-120: how long past its time a kept list answer is still given while a background read renews it (`cache_list(stale=)`)
+LIST_STALE_SECONDS = 10 * 60
 
 
 def stored(body: Any) -> Any:
@@ -39,7 +41,7 @@ def snapshot_key(name: str, kwargs: dict[str, Any]) -> str:
         for k, v in sorted(kwargs.items()) if k != "conn")
 
 
-def cache_list(name: str, ttl: float | None = None, *, snapshot: bool = False):
+def cache_list(name: str, ttl: float | None = None, *, snapshot: bool = False, stale: float = 0, large: int = 0):
     """Wrap a list endpoint's function: the whole response is kept for `ttl` seconds
     (`DGATE_LIST_CACHE_SECONDS`, 60; 0 turns it off, as in the test suite) under the normalised arguments, everything but the connection,
     so one query is computed once a minute whoever asks, concurrent askers share the
@@ -55,7 +57,11 @@ def cache_list(name: str, ttl: float | None = None, *, snapshot: bool = False):
     `snapshot=True`: when the memory has no answer, a response the worker pre-computed
     (`list_snapshot`, at most `SNAPSHOT_HOURS` old) is used before the query is run. It may also be a
     function of the request's arguments (WP-52: the open lists are read live, only the closed and all are
-    kept). The original function stays at `.__wrapped__` for the worker."""
+    kept). The original function stays at `.__wrapped__` for the worker.
+
+    WP-120: `stale` (seconds): an expired answer is given for that long more while one background read renews it
+    (`stats.cached_stale`), so the request that finds it expired does not wait for the query (the default tender list was
+    3.2 s on such a call). `large` (items): pages up to that size are kept too, in a small store of their own (the export)."""
     def wrap(fn):
         # Free variables: `inner` is rebuilt on the endpoint's globals, not this module's.
         scalars, key_of, hours, restore = _SCALARS, snapshot_key, SNAPSHOT_HOURS, restored
@@ -69,8 +75,9 @@ def cache_list(name: str, ttl: float | None = None, *, snapshot: bool = False):
             if args:
                 return fn(*args, **kwargs)
 
-            def compute():
-                conn = kwargs.get("conn")
+            asked = kwargs.get("conn")
+
+            def compute(conn=asked):
                 if (snapshot(kwargs) if callable(snapshot) else snapshot) and default > 0 and hasattr(conn, "execute"):
                     try:
                         row = conn.execute(
@@ -82,19 +89,26 @@ def cache_list(name: str, ttl: float | None = None, *, snapshot: bool = False):
                         row = None
                     if row:
                         return restore(row["body"])
-                return fn(*args, **kwargs)
+                return fn(**kwargs) if conn is asked else fn(**{**kwargs, "conn": conn})
 
             # No size at all (the scope counts) is a small answer, and is kept. A larger page is not kept in memory, but a
             # snapshot of it is still read (WP-98c: the Atom feed reads pages of 200, and computed them on every request).
+            # WP-120: `large`, pages up to `large` items are kept, in a store of their own (`stats._large_cache`, LARGE_CACHED).
+            store, limit = stats._list_cache, stats.LIST_CACHED
             if size is not None and (not isinstance(size, int) or size > stats.LIST_MAX_PAGE):
-                return compute()
+                if not (large and isinstance(size, int) and size <= large):
+                    return compute()
+                store, limit = stats._large_cache, stats.LARGE_CACHED
 
             frozen = tuple(sorted(
                 (k, (v is True) if k == "with_meta" else v if isinstance(v, scalars) else repr(v))
                 for k, v in kwargs.items() if k != "conn"))
-            return stats.cached((name, frozen), compute,
-                                0 if default <= 0 else (default if ttl is None else ttl),
-                                store=stats._list_cache, limit=stats.LIST_CACHED)
+            seconds = 0 if default <= 0 else (default if ttl is None else ttl)
+            if stale and seconds > 0:
+                # WP-120: past `seconds` the kept answer is still given for `stale` more while a background read renews it
+                return stats.cached_stale((name, frozen), compute, asked, seconds, stale,
+                                          store=store, limit=limit)
+            return stats.cached((name, frozen), compute, seconds, store=store, limit=limit)
 
         rebuilt = types.FunctionType(inner.__code__, fn.__globals__, fn.__name__,
                                      inner.__defaults__, inner.__closure__)

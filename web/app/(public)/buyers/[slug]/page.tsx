@@ -27,8 +27,16 @@ type Props = { params: Promise<{ slug: string }>; searchParams: Promise<SearchPa
 
 /** Open tenders are listed in full (up to this many), then the earlier ones page by page. */
 const OPEN_LIMIT = 100;
+/** WP-120: without `?all=1` the page shows this many open and planned tenders, soonest deadline first, and a link to all of them
+ * (round-6 audit: the Czech ministry's page was 262 KB of HTML with 100 open and 45 planned cards, p95 4.3 s for buyer pages). */
+const OPEN_SHOWN = 20;
+const PLANNED_SHOWN = 10;
 /** WP-105: up to this many planned tenders are shown unfolded. */
 const PLANNED_OPEN = 3;
+
+function showAll(sp: SearchParams): boolean {
+  return (Array.isArray(sp.all) ? sp.all[0] : sp.all) === '1';
+}
 
 function pageOf(sp: SearchParams): number {
   const raw = Array.isArray(sp.page) ? sp.page[0] : sp.page;
@@ -46,7 +54,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     title: name,
     description: `${name}: ${buyer.tenderCount} defence tenders in the archive, ${buyer.openCount} open now.`,
     path: `/buyers/${buyer.slug}`,
-    noindex: pageOf(sp) > 1 || buyer.tenderCount === 0,
+    noindex: pageOf(sp) > 1 || showAll(sp) || buyer.tenderCount === 0,
   });
 }
 
@@ -63,16 +71,24 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
   const cpv = parseTenderFilters(sp).cpv;
   const own = { buyer: buyer.id, cpv };
   const hrefOf = (p: number) => `/buyers/${buyer.slug}${toTenderQuery({ cpv, page: p, sort: undefined })}`;
+  const all = showAll(sp);
+  const allHref = (() => {
+    const q = new URLSearchParams(toTenderQuery({ cpv, sort: undefined }).replace(/^\?/, ''));
+    q.set('all', '1');
+    return `/buyers/${buyer.slug}?${q.toString()}`;
+  })();
+  const openSize = all ? OPEN_LIMIT : OPEN_SHOWN;
+  const plannedSize = all ? OPEN_LIMIT : PLANNED_SHOWN;
   // Two fixed queries on the id the API gave us: open tenders first, then the history. No ordering across them is assumed.
   // All of them in the scope the counts above are in. WP-96: the tender list's default (All defence), as the counts now are:
   // the core scope left out a ministry's transport, catering and storage tenders (NL Ministry of Defence: 5 open against the
   // list's 27). The military goods and works among the open ones are counted beside "Open now".
   const [open, planned, earlier, profile, suppliers] = await Promise.all([
     page === 1 && (buyer.openCount > 0 || cpv)
-      ? getTenders({ ...own, status: 'open', pageSize: OPEN_LIMIT }, { cacheable: !cpv })
+      ? getTenders({ ...own, status: 'open', pageSize: openSize }, { cacheable: !cpv })
       : Promise.resolve(null),
     // A planned notice (prior information) is neither open nor closed since 19 October 2026; it is counted in "Tenders in archive".
-    page === 1 ? getTenders({ ...own, status: 'planned', pageSize: OPEN_LIMIT }, { cacheable: !cpv }).catch(() => null) : Promise.resolve(null),
+    page === 1 ? getTenders({ ...own, status: 'planned', pageSize: plannedSize }, { cacheable: !cpv }).catch(() => null) : Promise.resolve(null),
     getTenders({ ...own, status: 'closed', sort: 'published-desc', page, pageSize: TENDER_PAGE_SIZE }, { cacheable: page === 1 && !cpv }),
     // The profile is an extra: a buyer page still renders when the API cannot answer it.
     page === 1 && buyer.tenderCount > 0 ? getBuyerProfile(buyer) : Promise.resolve(null),
@@ -176,7 +192,10 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
                 {open.items.map((t) => <li key={t.id}><TenderCard tender={t} headingLevel="h3" classifiedNote={false} /></li>)}
               </ul>
               {open.total > open.items.length && (
-                <p className="m-0 text-small text-ink-muted">Showing {formatNumber(open.items.length)} of {formatNumber(open.total)} open tenders.</p>
+                <p className="m-0 text-small text-ink-muted" data-open-shown>
+                  Showing {formatNumber(open.items.length)} of {formatNumber(open.total)} open tenders, soonest deadline first.
+                  {!all && <> <Link href={allHref} className="font-semibold">Show all {open.total > OPEN_LIMIT ? `${formatNumber(OPEN_LIMIT)} of them` : formatNumber(open.total)}</Link></>}
+                </p>
               )}
             </>
           ) : (
@@ -198,7 +217,10 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
             </ul>
           </details>
           {planned.total > planned.items.length && (
-            <p className="m-0 text-small text-ink-muted">Showing {formatNumber(planned.items.length)} of {formatNumber(planned.total)} planned tenders.</p>
+            <p className="m-0 text-small text-ink-muted" data-planned-shown>
+              Showing {formatNumber(planned.items.length)} of {formatNumber(planned.total)} planned tenders.
+              {!all && <> <Link href={allHref} className="font-semibold">Show {planned.total > OPEN_LIMIT ? `${formatNumber(OPEN_LIMIT)} of them` : 'all of them'}</Link></>}
+            </p>
           )}
         </section>
       )}

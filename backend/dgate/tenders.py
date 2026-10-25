@@ -39,13 +39,15 @@ import ast
 import json
 import re
 from collections import defaultdict
+from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import date, datetime, time, timedelta, timezone
-from functools import lru_cache
+from functools import lru_cache, wraps
+from time import monotonic
 from typing import Any
 
 import psycopg
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, model_serializer
 
 from . import award_set, cpv_labels
@@ -67,10 +69,11 @@ from .funding import (
     _like,
     anomalies,
     get_conn,
+    known_params,
     make_slug,
     serves_meta,
 )
-from .listcache import cache_list
+from .listcache import LIST_STALE_SECONDS, cache_list
 from .normalise import http_url, redact_emails
 from .search_terms import buyer_names, expand, fold_words
 from .suppress import WITHHELD_NAME, removed
@@ -108,21 +111,6 @@ def shown_deadline(own: datetime | None, twin: datetime | None,
     return twin, "ted_twin", False
 
 
-def known_params(request: Request) -> None:
-    """A dependency that refuses a query parameter the endpoint does not take (422) instead of ignoring it:
-    `/v1/changes?cpv=35` answered every change as if the code had been read (WP-87). The answer names the
-    parameters the endpoint takes, never the one sent."""
-    route = request.scope.get("route")
-    if route is None or not hasattr(route, "dependant"):
-        return
-    names: set[str] = set()
-    todo = [route.dependant]
-    while todo:                          # the endpoint's own parameters and those of its dependencies
-        d = todo.pop()
-        names.update(p.alias for p in d.query_params)
-        todo.extend(d.dependencies)
-    if set(request.query_params) - names:
-        raise HTTPException(422, "unknown query parameter; this endpoint takes: " + ", ".join(sorted(names)))
 # A tender deadline further ahead than this is flagged (`deadline-more-than-1y`): 8.3 % of
 # the open set on 14 October 2026, most of it a typo in the source. Calls keep the 3-year
 # rule of `funding.anomalies`: a grant's cut-offs are legitimately far ahead.
@@ -563,10 +551,35 @@ def clean_buyer_name(name: str | None) -> str:
     return _SOURCE_SUFFIX.sub("", redact_emails(name) or "").strip()
 
 
+# Short enough that a name withheld or removed on request leaves every page within a quarter of an hour (the list
+# responses themselves are kept 5 minutes).
+BUYER_NAME_SECONDS = 15 * 60
+
+
 def _buyer_names(conn, org_ids: list[int]) -> dict[int, str]:
-    """The commonest spelling of each organisation's name among its notices."""
+    """The commonest spelling of each organisation's name among its notices.
+
+    WP-120: kept BUYER_NAME_SECONDS per organisation in memory (`stats._name_cache`): the statement grouped every notice of
+    each buyer of a page on every list request (the API's costliest statement on 25 October 2026: 120,000 calls, up to 4.8 s
+    for the Czech ministry's 8,694 notices). A spelling moves only when many notices arrive."""
+    from . import stats
+    from .config import settings
+
     if not org_ids:
         return {}
+    keep = settings().list_cache_seconds > 0
+    now = monotonic()
+    out: dict[int, str] = {}
+    missing = []
+    for org in dict.fromkeys(org_ids):
+        hit = stats._name_cache.get(org) if keep else None
+        if hit is not None and hit[0] > now:
+            if hit[1] is not None:
+                out[org] = hit[1]
+        else:
+            missing.append(org)
+    if not missing:
+        return out
     rows = conn.execute(
         """SELECT DISTINCT ON (buyer_org_id) buyer_org_id, buyer_name_raw
              FROM (SELECT buyer_org_id, buyer_name_raw, count(*) AS n
@@ -575,8 +588,14 @@ def _buyer_names(conn, org_ids: list[int]) -> dict[int, str]:
                       AND NOT suppressed AND NOT buyer_withheld
                     GROUP BY buyer_org_id, buyer_name_raw) t
             ORDER BY buyer_org_id, n DESC, buyer_name_raw""",
-        (org_ids,)).fetchall()
-    return {r["buyer_org_id"]: clean_buyer_name(r["buyer_name_raw"]) for r in rows}
+        (missing,)).fetchall()
+    got = {r["buyer_org_id"]: clean_buyer_name(r["buyer_name_raw"]) for r in rows}
+    if keep:
+        if len(stats._name_cache) + len(missing) > stats.NAMES_CACHED:
+            stats._name_cache.clear()       # ponytail: whole-store reset when full; an LRU if it ever churns
+        for org in missing:
+            stats._name_cache[org] = (now + BUYER_NAME_SECONDS, got.get(org))
+    return {**out, **got}
 
 
 def _observed_span(conn, ids: list[int]) -> dict[int, tuple[datetime, datetime]]:
@@ -1069,6 +1088,67 @@ def status_conditions(status: str, eff: str) -> list[str]:
     return []
 
 
+# WP-120: a search's matches are read once per request (the list and its counts; the scope counts' three scopes) when there
+# are at most SEARCH_IDS_MAX of them and the read finishes in `settings().search_ids_ms` (DGATE_SEARCH_IDS_MS, 0 = off, the
+# default until it is measured on production); past either, the per-row test as before (a page of a common word is found
+# walking the list's index: with every match read and sorted, "fuel" went from 0.56 s to 0.92 s on the synthetic archive).
+# The set lives for the request only, so another query always sees the notices of now; that a search does not qualify is
+# remembered SEARCH_IDS_SECONDS, so it pays the attempt once.
+SEARCH_IDS_MAX = 5000
+SEARCH_IDS_SECONDS = 5 * 60
+_SEARCH_MEMO: ContextVar[dict | None] = ContextVar("tender_search_memo", default=None)
+
+
+def search_ids(conn, match: str, params: list[Any]) -> list[int] | None:
+    """The ids of the defence notices (not suppressed) whose `opportunity_search` row passes `match` (written over `ts`),
+    or None: outside a request that reads them once (`counted`, `searched_once`), no connection, too many, too slow, or
+    the read failed. Every statement of a list is restricted to defence notices that are not suppressed
+    (`_tender_filters`), the twins of the collapse rules too, so the set stands for the EXISTS."""
+    from . import stats
+    from .config import settings
+
+    memo = _SEARCH_MEMO.get()
+    budget = settings().search_ids_ms
+    if memo is None or budget <= 0 or not hasattr(conn, "execute"):
+        return None
+    key = (match, repr(params))
+    if key in memo:
+        return memo[key]
+    keep = settings().list_cache_seconds > 0
+    if keep and stats._get(("search-ids", *key), stats._search_cache) is False:
+        memo[key] = None                                     # known not to qualify
+        return None
+    try:
+        with time_boxed(conn, budget):
+            rows = conn.execute(
+                "SELECT ts.id FROM opportunity_search ts JOIN opportunity o ON o.id = ts.id "
+                f"WHERE o.is_defence AND NOT o.suppressed AND {match} LIMIT %s",
+                [*params, SEARCH_IDS_MAX + 1]).fetchall()
+        got = None if len(rows) > SEARCH_IDS_MAX else [r["id"] for r in rows]
+    except psycopg.errors.QueryCanceled:
+        got = None
+    except psycopg.Error:
+        memo[key] = None                                     # not remembered: the next request tries again
+        return None
+    if got is None and keep:
+        with stats._lock:
+            stats._put(("search-ids", *key), False, SEARCH_IDS_SECONDS, stats._search_cache, stats.SEARCH_CACHED)
+    memo[key] = got
+    return got
+
+
+def searched_once(fn):
+    """An endpoint whose calls of `_tender_filters` read a search's matches once per call (`search_ids`)."""
+    @wraps(fn)
+    def run(*args: Any, **kwargs: Any):
+        token = _SEARCH_MEMO.set({})
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            _SEARCH_MEMO.reset(token)
+    return run
+
+
 def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min_, max_, currency,
                     conn=None, *, cpv_main: bool = False, not_cpv: str | None = None):
     """The WHERE conditions (written over `opportunity o`) and their parameters that a tenders
@@ -1113,6 +1193,7 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
                     "OR ts.buyer_name LIKE dg_word_pattern(%s){labels})")
         product_word = "(ts.title_en LIKE dg_word_pattern(%s) OR ts.title_original LIKE dg_word_pattern(%s))"
         slots = []
+        n_before = len(params)
         expanded = expand(words)
         for alts, group in zip(expanded.slots, expanded.slot_groups, strict=True):
             alt_sql = []
@@ -1152,9 +1233,20 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
         together = codes_for_words(tuple(words)) if len(words) > 1 and len(slots) > 1 else ()
         if together:
             params.append(list(together))
-        where.append("EXISTS (SELECT 1 FROM opportunity_search ts WHERE ts.id = o.id AND ((" + " AND ".join(slots) + ")"
-                     + (f" OR {TS_MAIN_HEADS}" if together else "") + " OR ts.native_id ILIKE %s))")
-        params.append(_like(text))
+        match = ("((" + " AND ".join(slots) + ")" + (f" OR {TS_MAIN_HEADS}" if together else "")
+                 + " OR ts.native_id ILIKE %s)")
+        match_params = [*params[n_before:], _like(text)]
+        del params[n_before:]
+        # WP-120: the matches are read once (`search_ids`) when they are few and quick to find, and each statement of the
+        # request then tests an id against them: the text test ran in every statement (the counts, the rows, both parts of
+        # `all`: up to seven), and "ammunition" took 9.8 s cold on 25 October 2026. Otherwise the correlated EXISTS, as before.
+        ids = search_ids(conn, match, match_params)
+        if ids is not None:
+            where.append("o.id = ANY(%s::bigint[])")
+            params.append(ids)
+        else:
+            where.append(f"EXISTS (SELECT 1 FROM opportunity_search ts WHERE ts.id = o.id AND {match})")
+            params += match_params
     countries = _split(country, "country", upper=True, max_length=2)
     if any(not COUNTRY_CODE.match(c) for c in countries):
         # WP-114: what the organisation directory refuses too (`country=1!` was a list of nothing, answered 200)
@@ -1239,22 +1331,74 @@ SMALL_CAP = 200
 COUNT_BUDGET_MS = 1200
 
 
-def _count_up_to(conn, cond: str, where: list[str], params: list[Any], cap: int, budget_ms: int) -> int | None:
-    """How many rows the list has, counting no further than `cap + 1`; None when `budget_ms` ran out."""
-    import psycopg
+# WP-120: the application name of a statement in a planned time box (`time_boxed`), so that the Postgres log (its line prefix
+# names the application, infra/docker-compose.yml) and pg_stat_activity tell a planned "at least" from a real timeout.
+TIME_BOX_APP = "dgate-timebox"
 
+
+@contextmanager
+def time_boxed(conn, budget_ms: int):
+    """Run the block's statements in a savepoint with a statement timeout of `budget_ms`, under TIME_BOX_APP (a parallel
+    helper carries its leader's settings, so its "terminating background worker" line is named the same). The settings are
+    the savepoint's: a cancelled statement takes them back with its work, and nothing the caller did before is lost. The
+    caller catches QueryCanceled. (Without parallel helpers the counts ran out of their time box more often on the synthetic
+    archive: they stay.)"""
+    kept = conn.execute("SELECT current_setting('statement_timeout') AS t, current_setting('application_name') AS a").fetchone()
+    with conn.transaction():
+        conn.execute("SELECT set_config('statement_timeout', %s, true), set_config('application_name', %s, true)",
+                     (f"{budget_ms}ms", TIME_BOX_APP))
+        yield
+        conn.execute("SELECT set_config('statement_timeout', %s, true), set_config('application_name', %s, true)",
+                     (kept["t"], kept["a"]))
+
+
+# WP-120: the counting time one list request may spend in all: its counts, `_few` and the parts of `all` each had their own
+# COUNT_BUDGET_MS, up to seven of them per request, and a search word that expands to many terms ("ammunition": 7.6 s cold
+# on 25 October 2026) ran most of them to their end. A count with less than COUNT_MIN_MS left is not started: "at least".
+REQUEST_COUNT_MS = 2000
+COUNT_MIN_MS = 100
+_COUNT_LEFT: ContextVar[list[float] | None] = ContextVar("tender_count_left", default=None)
+
+
+@contextmanager
+def count_budget(ms: int = REQUEST_COUNT_MS):
+    """The counts inside share `ms` milliseconds (`_count_up_to`)."""
+    token = _COUNT_LEFT.set([float(ms)])
+    try:
+        yield
+    finally:
+        _COUNT_LEFT.reset(token)
+
+
+def counted(fn):
+    """An endpoint whose counts share one `count_budget` per call, and which reads a search's matches once per call."""
+    @wraps(fn)
+    @searched_once
+    def run(*args: Any, **kwargs: Any):
+        with count_budget():
+            return fn(*args, **kwargs)
+    return run
+
+
+def _count_up_to(conn, cond: str, where: list[str], params: list[Any], cap: int, budget_ms: int) -> int | None:
+    """How many rows the list has, counting no further than `cap + 1`; None when `budget_ms` (or what is left of the
+    request's `count_budget`) ran out."""
+    left = _COUNT_LEFT.get()
+    if left is not None:
+        if left[0] < COUNT_MIN_MS:
+            return None
+        budget_ms = int(min(budget_ms, left[0]))
     sql = (f"SELECT count(*) AS n FROM (SELECT 1 FROM opportunity o WHERE {cond} AND {collapse_clauses(where)} "
            "LIMIT %s) c")
-    kept = conn.execute("SELECT current_setting('statement_timeout') AS t").fetchone()["t"]
+    started = monotonic()
     try:
-        # A savepoint when the caller is in a transaction: the cancelled query takes back its own work and the
-        # local setting, and nothing the caller did before is lost.
-        with conn.transaction():
-            conn.execute("SELECT set_config('statement_timeout', %s, true)", (f"{budget_ms}ms",))
+        with time_boxed(conn, budget_ms):
             n = conn.execute(sql, params * 4 + [cap + 1]).fetchone()["n"]
-            conn.execute("SELECT set_config('statement_timeout', %s, true)", (kept,))
     except psycopg.errors.QueryCanceled:
         return None
+    finally:
+        if left is not None:
+            left[0] -= (monotonic() - started) * 1000
     return n
 
 
@@ -1333,7 +1477,8 @@ def _kept_in_snapshot(kwargs: dict[str, Any]) -> bool:
 
 
 @router.get("/v1/tenders", response_model=TenderPage, dependencies=[Depends(known_params)])
-@cache_list("tenders", ttl=5 * 60, snapshot=_kept_in_snapshot)
+@cache_list("tenders", ttl=5 * 60, snapshot=_kept_in_snapshot, stale=LIST_STALE_SECONDS)
+@counted
 def list_tenders(
     q: str | None = Query(None, max_length=100),
     country: str | None = Query(None, max_length=200),
@@ -1480,6 +1625,7 @@ def export_sql(where: list[str], limit: int, cursor: int | None) -> tuple[str, i
 
 
 @router.get("/v1/tenders/export", response_model=TenderExportPage, dependencies=[Depends(known_params)])
+@cache_list("tender-export", ttl=5 * 60, large=EXPORT_MAX_LIMIT)
 def export_tenders(
     q: str | None = Query(None, max_length=100),
     country: str | None = Query(None, max_length=200),
@@ -1504,7 +1650,8 @@ def export_tenders(
     """One page of a CSV export: the notices the list would show for the same filters, newest id
     first, `limit` at a time (at most 2,000), with no total (that is the window count that made
     the list too slow for a long result). Call again with `cursor` = `nextCursor` until it is
-    null. Rows are read a moment apart: a caller de-duplicates by id. Not cached.
+    null. Rows are read a moment apart: a caller de-duplicates by id. WP-120: a page is kept 5 minutes (`cache_list(large=)`,
+    a few pages at most: the default export cost 2.2 s on every call, warm or not).
 
     WP-100: `publishedFrom` / `publishedTo` (inclusive days, UTC) narrow it by publication date, the
     notice date where none is stated (the date the list's "newest published" order reads), so a time
@@ -1540,7 +1687,8 @@ class ScopeCounts(BaseModel):
 
 
 @router.get("/v1/tenders/scope-counts", response_model=ScopeCounts, dependencies=[Depends(known_params)])
-@cache_list("tender-scope-counts", ttl=5 * 60, snapshot=_kept_in_snapshot)
+@cache_list("tender-scope-counts", ttl=5 * 60, snapshot=_kept_in_snapshot, stale=LIST_STALE_SECONDS)
+@searched_once
 def tender_scope_counts(
     q: str | None = Query(None, max_length=100),
     country: str | None = Query(None, max_length=200),
@@ -1609,7 +1757,7 @@ class CalendarPage(BaseModel):
 
 
 @router.get("/v1/tenders/calendar", response_model=CalendarPage, dependencies=[Depends(known_params)])
-@cache_list("tender-calendar", ttl=5 * 60)
+@cache_list("tender-calendar", ttl=5 * 60, stale=LIST_STALE_SECONDS)
 def tender_calendar(
     q: str | None = Query(None, max_length=100),
     country: str | None = Query(None, max_length=200),
@@ -2478,6 +2626,7 @@ def _buyer(r: dict[str, Any], names: dict[int, str]) -> dict[str, Any]:
 
 
 BUYER_BASE_SECONDS = 5 * 60
+BUYER_BASE_STALE_SECONDS = 25 * 60
 # The aggregate as a table the filters can read: its rows travel as arrays, in this order and with these types.
 _BASE_TYPES = ("bigint", "bigint", "bigint", "date", "bigint")
 _BASE_FROM = ("SELECT t.org_id, t.n, t.open_n, t.last_published, t.variants FROM unnest("
@@ -2557,13 +2706,17 @@ def buyer_base(conn) -> list[list[Any]]:
     from . import stats
     from .config import settings
 
-    def compute() -> list[list[Any]]:
-        stored = _stored_buyer_base(conn)
-        return family_base(conn, compute_buyer_base(conn) if stored is None else stored)
+    def compute(c) -> list[list[Any]]:
+        stored = _stored_buyer_base(c)
+        return family_base(c, compute_buyer_base(c) if stored is None else stored)
 
     if settings().list_cache_seconds <= 0:          # 0 turns the list caches off, this one too
-        return compute()
-    return stats.cached(("buyer-base",), compute, BUYER_BASE_SECONDS, store=stats._list_cache, limit=stats.LIST_CACHED)
+        return compute(conn)
+    # WP-120: past its 5 minutes the last aggregate is answered (up to BUYER_BASE_STALE_SECONDS more) while one background
+    # read renews it: the request that found it expired waited for the live open counts (1.1 s on average, up to 4.2 s on
+    # 25 October 2026), and buyer pages were the slowest page family (p95 4.3 s). In the store of the hourly aggregates,
+    # which a flood of distinct list pages cannot evict.
+    return stats.cached_stale(("buyer-base",), compute, conn, BUYER_BASE_SECONDS, BUYER_BASE_STALE_SECONDS)
 
 
 # WP-98b: the time the collapsed count under the codes may take before the plain one is given (the list's budget is 5 s; the
@@ -2579,19 +2732,16 @@ def under_codes(conn, prefixes: list[str]) -> tuple[dict[int, int], bool]:
     w = [*_core_where(), CPV_HEADS]
     head = (f"SELECT COALESCE(m.head_org_id, o.buyer_org_id) AS id, count(*) AS n FROM opportunity o {_FAMILY_O} "
             f"WHERE {' AND '.join(w)}")
-    budget = conn.execute("SELECT current_setting('statement_timeout') AS t").fetchone()["t"]
     try:
-        with conn.transaction():       # a savepoint: a cancelled statement loses nothing else, and its timeout goes with it
-            conn.execute("SELECT set_config('statement_timeout', %s, true)", (f"{UNDER_CODES_MS}ms",))
+        with time_boxed(conn, UNDER_CODES_MS):    # a savepoint: a cancelled statement loses nothing else
             rows = conn.execute(f"{head} AND {collapse_clauses(w, same_buyer=True)} GROUP BY 1", (prefixes,) * 4).fetchall()
-            conn.execute("SELECT set_config('statement_timeout', %s, true)", (budget,))
         return {r["id"]: r["n"] for r in rows}, True
     except psycopg.errors.QueryCanceled:
         return {r["id"]: r["n"] for r in conn.execute(f"{head} GROUP BY 1", (prefixes,)).fetchall()}, False
 
 
-@router.get("/v1/buyers", response_model=BuyerPage)
-@cache_list("buyers", ttl=5 * 60)
+@router.get("/v1/buyers", response_model=BuyerPage, dependencies=[Depends(known_params)])
+@cache_list("buyers", ttl=5 * 60, stale=LIST_STALE_SECONDS)
 def list_buyers(
     q: str | None = Query(None, max_length=100),
     country: str | None = Query(None, max_length=200),

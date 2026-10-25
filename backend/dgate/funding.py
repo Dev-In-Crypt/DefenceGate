@@ -18,7 +18,7 @@ import unicodedata
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from . import db, textsearch
@@ -33,6 +33,24 @@ def get_conn():
     cfg = settings()
     with db.bounded_connect(cfg.api_dsn or cfg.dsn, cfg.api_connections, cfg.pool_wait_ms / 1000) as conn:
         yield conn
+
+
+def known_params(request: Request) -> None:
+    """A dependency that refuses a query parameter the endpoint does not take (422) instead of ignoring it:
+    `/v1/changes?cpv=35` answered every change as if the code had been read (WP-87). The answer names the
+    parameters the endpoint takes, never the one sent. (Here since WP-120, which put it on the funding, buyer and
+    supplier lists too: `tenders` imports this module.)"""
+    route = request.scope.get("route")
+    if route is None or not hasattr(route, "dependant"):
+        return
+    names: set[str] = set()
+    todo = [route.dependant]
+    while todo:                          # the endpoint's own parameters and those of its dependencies
+        d = todo.pop()
+        names.update(p.alias for p in d.query_params)
+        todo.extend(d.dependencies)
+    if set(request.query_params) - names:
+        raise HTTPException(422, "unknown query parameter; this endpoint takes: " + ", ".join(sorted(names)))
 
 
 MAX_LIST_ITEMS = 20
@@ -757,7 +775,7 @@ def _csv(value: str | None) -> list[str]:
 
 # --------------------------------------------------------------- endpoints
 
-@router.get("/v1/funding", response_model=FundingPage)
+@router.get("/v1/funding", response_model=FundingPage, dependencies=[Depends(known_params)])
 def list_funding(
     q: str | None = Query(None, max_length=100),
     programme: str | None = Query(None, max_length=200),

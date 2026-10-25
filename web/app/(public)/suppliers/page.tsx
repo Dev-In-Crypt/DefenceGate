@@ -16,7 +16,7 @@ import { coverageText, placspCredit, placspNote } from '@/lib/supplier-sources';
 import { groupValueLine, listValueLine } from '@/lib/value-totals';
 import { CoverageNote } from '@/components/dg/coverage-note';
 import type { SupplierSort } from '@/lib/types';
-import { EmptyState } from '@/components/dg/feedback';
+import { EmptyState, ErrorState } from '@/components/dg/feedback';
 import { PageHeader } from '@/components/dg/page-header';
 import { CompaniesTabs, companyCrumbs } from '@/components/dg/companies-tabs';
 import { Pagination } from '@/components/dg/pagination';
@@ -138,6 +138,19 @@ export default async function SuppliersPage({ searchParams }: Props) {
       const head = none ? null : await getSuppliers({ ...api, page: 1 }).catch(() => null);
       if (!none && !head) notFound();
       redirect(href(f, head ? lastPage(Math.min(head.total, head.maxOffset ?? head.total), head.pageSize) : 1));
+    }
+    // WP-120: too many requests from one address (429) is said as such, as the search says it, with a way back in a minute
+    if (e instanceof ApiError && e.status === 429) {
+      return (
+        <>
+          <PageHeader crumbs={companyCrumbs('suppliers')} title="Companies"><CompaniesTabs current="suppliers" /></PageHeader>
+          <div data-rate-limited>
+            <ErrorState title="Too many requests from your network just now" retryHref={href(f, f.page)}>
+              The number of requests a minute from one internet address is limited, and an office behind one address shares the limit. Wait a minute and try again; your filters are kept in the address bar.
+            </ErrorState>
+          </div>
+        </>
+      );
     }
     throw e;
   }

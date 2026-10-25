@@ -68,8 +68,10 @@ def views(countries: list[str]) -> list[tuple[str, str, dict]]:
         base = _defaults(fn.__wrapped__)
         if "with_meta" in base:
             base["with_meta"] = True
-        for status in (LIST_STATUSES if name == "tenders" else COUNT_STATUSES):
-            for country in [None, *countries]:
+        # WP-120: and the Planned list (prior information, never open) with no country: 1.5 to 3.5 s live on 25 October 2026
+        statuses = [(s, [None, *countries]) for s in (LIST_STATUSES if name == "tenders" else COUNT_STATUSES)]
+        for status, status_countries in [*statuses, ("planned", [None])]:
+            for country in status_countries:
                 kw = {**base, "status": status, "country": country}
                 if name == "tender-scope-counts":
                     out.append((name, snapshot_key(name, kw), kw))
@@ -77,7 +79,7 @@ def views(countries: list[str]) -> list[tuple[str, str, dict]]:
                 for page in PAGES:
                     kw2 = {**kw, "page": page, "pageSize": TENDER_PAGE_SIZE}
                     out.append((name, snapshot_key(name, kw2), kw2))
-            if name == "tenders":
+            if name == "tenders" and status != "planned":
                 # WP-114: every scope, first page: its exact total, which the live list repeats on any page (`_snapshot_total`).
                 # The wider list said "at least 11,560" beside an exact 315,232 for the narrower default scope.
                 kw = {**base, "status": status, "country": None, "scope": "all", "page": 1, "pageSize": TENDER_PAGE_SIZE}
