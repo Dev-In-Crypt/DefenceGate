@@ -1,0 +1,147 @@
+name: Web gated
+
+# WP-134: the end-to-end specs that the Web workflow's run skips because they need more than the demo data. Each runs
+# here against what it was written for, with fake services only: no SMTP (mail goes to the development catcher
+# directory), no Creem (backend/tests/creem_mock.py answers on 127.0.0.1), no network.
+#   wp79   the account forms against the fake account API (web/e2e/support/fake-accounts.mjs), E2E_FAKE_ACCOUNTS
+#   wp123  register -> confirm -> sign in -> reset -> change -> delete against the real account API
+#          (backend/tests/e2e_api.py on this job's Postgres), E2E_REAL_ACCOUNTS
+#   wp122  /pricing of a build with NEXT_PUBLIC_BILLING_OPEN=1
+#   wp124  pay -> plan open -> cancel against the real API, billing-open build and the Creem stand-in, E2E_REAL_BILLING
+# The `__Host-` cookies need https: the sites sit behind web/e2e/support/https-proxy.mjs with a throwaway certificate.
+# Locally the same phases: D:\DEFENCEGATE TESTS\wp134\gated-run.ps1.
+
+on:
+  push:
+    branches: ["**"]
+    paths: ["web/**", "backend/**", ".github/workflows/web-gated.yml"]
+  pull_request:
+    paths: ["web/**", "backend/**", ".github/workflows/web-gated.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: web-gated-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gated:
+    name: gated end-to-end (accounts, billing open)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: dgate
+          POSTGRES_PASSWORD: dgate
+          POSTGRES_DB: dgate
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U dgate -d dgate"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    defaults:
+      run:
+        working-directory: web
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      DG_USE_MOCK: "1"
+      NEXT_PUBLIC_DG_NOW: "2026-10-12T08:00:00Z"
+      NEXT_PUBLIC_SITE_URL: "https://ci.example.test"
+      E2E_PACE_MS: "0"
+      E2E_MAIL_DIR: /tmp/e2e-mail
+      # Placeholders for the test stand-ins, not secrets: the API signs and checks with them, nothing else sees them.
+      CREEM_WEBHOOK_TEST_VALUE: whsec_e2e_only
+      REAL_API: http://127.0.0.1:8123
+      CREEM_MOCK: http://127.0.0.1:4124
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "../backend[dev]"
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Fake services (real account API with the mail catcher and the Creem stand-in; fake account API)
+        working-directory: backend
+        env:
+          DGATE_DSN: postgresql://dgate:dgate@localhost:5432/dgate
+          DGATE_MAIL_CATCHER_DIR: /tmp/e2e-mail
+          DGATE_SITE_URL: https://localhost:3444
+          DGATE_SMTP_FROM: no-reply@example.test
+          DGATE_RATE_LIMIT: "0"
+          DGATE_CREEM_API_KEY: creem_test_e2e_only
+          DGATE_CREEM_WEBHOOK_SECRET: whsec_e2e_only
+          DGATE_CREEM_API_URL: http://127.0.0.1:4124/v1
+          E2E_CREEM_MOCK_PORT: "4124"
+          DGATE_CREEM_PRODUCT_PRO_MONTHLY: prod_e2e_pro_monthly
+          DGATE_CREEM_PRODUCT_PRO_YEARLY: prod_e2e_pro_yearly
+          DGATE_CREEM_PRODUCT_TEAM_MONTHLY: prod_e2e_team_monthly
+          DGATE_CREEM_PRODUCT_TEAM_YEARLY: prod_e2e_team_yearly
+          DGATE_CREEM_PRODUCT_CONSULTANT_MONTHLY: prod_e2e_consultant_monthly
+          DGATE_CREEM_PRODUCT_CONSULTANT_YEARLY: prod_e2e_consultant_yearly
+          DGATE_CREEM_PRODUCT_FOUNDING_YEARLY: prod_e2e_founding_yearly
+        run: |
+          mkdir -p "$DGATE_MAIL_CATCHER_DIR"
+          python -m dgate.migrate
+          nohup python -m tests.e2e_api 8123 > /tmp/api.log 2>&1 &
+          nohup node ../web/e2e/support/fake-accounts.mjs 4011 > /tmp/fake-accounts.log 2>&1 &
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=localhost -keyout /tmp/key.pem -out /tmp/cert.pem
+          timeout 60 bash -c 'until curl -s -o /dev/null http://127.0.0.1:8123/v1/account/status; do sleep 1; done'
+          timeout 30 bash -c 'until curl -s -o /dev/null http://127.0.0.1:4011/v1/sources; do sleep 1; done'
+
+      - name: Build (default, billing closed)
+        run: npx next build
+
+      - name: wp79 against the fake account API
+        run: |
+          DG_API_URL=http://127.0.0.1:4011 nohup npx next start -p 3101 -H 127.0.0.1 > /tmp/next-fake.log 2>&1 &
+          nohup node e2e/support/https-proxy.mjs 3443 3101 /tmp/key.pem /tmp/cert.pem > /tmp/proxy-fake.log 2>&1 &
+          timeout 90 bash -c 'until curl -sk -o /dev/null https://localhost:3443/signin; do sleep 1; done'
+          E2E_FAKE_ACCOUNTS=1 E2E_BASE_URL=https://localhost:3443 npx playwright test e2e/wp79.spec.ts
+
+      - name: wp123 against the real account API
+        run: |
+          DG_API_URL=$REAL_API nohup npx next start -p 3102 -H 127.0.0.1 > /tmp/next-real.log 2>&1 &
+          nohup node e2e/support/https-proxy.mjs 3444 3102 /tmp/key.pem /tmp/cert.pem > /tmp/proxy-real.log 2>&1 &
+          timeout 90 bash -c 'until curl -sk -o /dev/null https://localhost:3444/signin; do sleep 1; done'
+          E2E_REAL_ACCOUNTS=1 E2E_BASE_URL=https://localhost:3444 npx playwright test e2e/wp123.spec.ts
+
+      # The API answers at build time, so the statically built list pages see accounts open (wp124 saves a search).
+      - name: Build (billing open)
+        run: |
+          pkill -f 'next start' || true
+          pkill -f 'https-proxy.mjs' || true
+          NEXT_PUBLIC_BILLING_OPEN=1 DG_API_URL=$REAL_API npx next build
+
+      - name: wp122 and wp124 on the billing-open build
+        env:
+          NEXT_PUBLIC_BILLING_OPEN: "1"
+        run: |
+          DG_API_URL=$REAL_API DG_E2E_CREEM_ORIGIN=$CREEM_MOCK nohup npx next start -p 3102 -H 127.0.0.1 > /tmp/next-billing.log 2>&1 &
+          nohup node e2e/support/https-proxy.mjs 3444 3102 /tmp/key.pem /tmp/cert.pem > /tmp/proxy-billing.log 2>&1 &
+          timeout 90 bash -c 'until curl -sk -o /dev/null https://localhost:3444/pricing; do sleep 1; done'
+          # wp122's own browser contexts (375 px, themes) do not ignore certificate errors: plain http, /pricing needs no cookie
+          E2E_BASE_URL=http://127.0.0.1:3102 npx playwright test e2e/wp122.spec.ts
+          E2E_REAL_BILLING=1 E2E_CREEM_WEBHOOK_SECRET=$CREEM_WEBHOOK_TEST_VALUE E2E_CREEM_MOCK_URL=$CREEM_MOCK \
+            E2E_BASE_URL=https://localhost:3444 npx playwright test e2e/wp124.spec.ts
+
+      - name: Server logs
+        if: failure()
+        run: tail -n 40 /tmp/*.log

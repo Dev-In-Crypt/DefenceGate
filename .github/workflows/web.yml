@@ -4,6 +4,7 @@ name: Web
 # routes at desktop width and at 375 px. It needs no secret and talks to no production: the build and the tests run on
 # the site's built-in demo data (web/lib/mock), pinned to a date, with no API behind it. The tests tagged @fake-api run in the
 # same step on a second `next start` of the build that reads web/e2e/support/fake-api.mjs (playwright.config.ts, WP-128).
+# The parts that skip themselves here (accounts against an API, the billing-open build) run in web-gated.yml (WP-134).
 
 on:
   push:

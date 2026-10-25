@@ -107,7 +107,7 @@ _PL_TWIN_POWIATS = frozenset(f"powiat {n}" for n in (
     "tomaszowski"))
 _UNIT_WORDS = frozenset("""
     powiat powiatu powiatowy powiatowe powiatowa powiatowego powiatowej powiatowych gmina gminy gminny gminne gminna
-    gminnego gminnej miasto miasta miejski miejskie miejska miejskiego miejskiej miejskich zaklad zakladu zaklady zarzad
+    gminnego gminnej miasto miasta miejski miejskie miejska miejskiego miejskiej miejskich zaklad zakladu zaklady zakladow zarzad
     zarzadu osrodek osrodka przedsiebiorstwo przedsiebiorstwa centrum zespol zespolu szkol szkola szkoly przedszkole
     publiczne publiczny publiczna publicznej publicznego samodzielny samodzielne samodzielna pomocy spolecznej kultury
     sportu rekreacji oczyszczania remontow konserwacji drog drogowy drogowe drogowych dokumentacji geodezyjnej
