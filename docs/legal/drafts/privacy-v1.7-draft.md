@@ -50,7 +50,7 @@ Each row: the sentence of 1.6, the draft sentence, and why (the code or the inve
 | 6, Forms | "The waitlist form on the alerts page is not open. Our server receives what you type only in order to check it and then discards it: nothing is stored, logged or passed on." | see section 6 below | the waitlist form was removed (`web/app/(public)/alerts/page.tsx`: "a dead waitlist form before"); the search and filter forms are GET forms, so what is typed is in the address the access log keeps |
 | 7, Archive | "... Some older records in the archive, in the raw store that the collection lands first and in the history of notices may still contain contact details a publisher placed in a notice; they are a small number. The website does not show them. ..." | see section 7 below | `docs/DATA_PROTECTION.md` rows "Raw store", "`opportunity_version.payload`" and "`organisation.canonical_name` ..." (owner decision of 24 Oct 2026: the blocks are kept, left out of the matching key, not served) |
 | 8, AI item | "Artificial-intelligence services we choose (for example OpenAI or Anthropic) may process the text of public documents we collect, such as funding call documents and project factsheets, to read information from them; they may process it outside the European Economic Area. We send them nothing about visitors or account holders." | see section 8 below | only OpenAI is configured (`backend/dgate/llm.py`; `backend/dgate/config.py`: `DGATE_OPENAI_API_KEY`, `DGATE_OPENAI_MODEL`); the Anthropic client of `backend/dgate/enrichment/runner.py` has no key setting and is not scheduled; the fact sheets go to the model in `backend/dgate/networks.py` (`llm.complete_json`). /data/sovereignty says the same since WP-131 |
-| 8, transfer basis | none | **owner and lawyer:** the transfer basis for OpenAI (for example the EU-US Data Privacy Framework, if OpenAI is certified, or the standard contractual clauses of its data processing addendum) | a processor outside the EEA needs a stated safeguard (Art. 13(1)(f) GDPR); not decided here |
+| 8, transfer basis | none | no separate sentence (owner, 25 Oct 2026: the processing outside the EEA is already described in section 8; OpenAI receives public documents only, nothing about visitors or account holders) | owner decision |
 
 ## Sections 4 and 5 as they would read
 
@@ -163,7 +163,7 @@ re-count before publishing, and drop a part that a clean-up has removed by then.
 - OpenAI (United States), as a processor: it receives the text of public funding call documents, to read who may apply,
   and of the European Defence Fund's published project fact sheets, which name the organisations in each project's
   consortium, to read that list. It processes them in the United States; we ask it not to store the requests. We send it
-  nothing about visitors or account holders. *(Transfer basis: owner and lawyer, open item 5.)*
+  nothing about visitors or account holders.
 
 ## Open items for the owner
 
@@ -175,8 +175,7 @@ re-count before publishing, and drop a part that a clean-up has removed by then.
 3. Whether "Sign-in is not open yet" stays in section 5 on publication.
 4. The lawyer's review (OPEN_ITEMS_FOR_LAWYER.md) of the security log basis and of the plan wording together with the
    terms draft 2.2.
-5. [WP-131] The transfer basis for OpenAI in section 8 (Data Privacy Framework or standard contractual clauses) and its
-   data processing addendum; the lawyer's reading of the archive item (section 7) and of the `?prefer=` sentence (section 4).
+5. [WP-131] Transfer basis for OpenAI: closed by the owner on 25 Oct 2026 (described in section 8 as it stands). The lawyer's reading of the archive item (section 7) and of the `?prefer=` sentence (section 4).
 6. [WP-131] The e-Zamowienia raw payloads landed until 21 October 2026 hold the winners of result notices, natural persons
    among them. `docs/DATA_PROTECTION.md` (row "Raw store, `pl_ezam/`") says `ops.restrip raw --source pl_ezam` was not
    run; the operations notes of 22 October say pl_ezam was re-stripped before the owner stopped the re-strip. Confirm which
