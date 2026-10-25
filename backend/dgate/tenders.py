@@ -75,7 +75,7 @@ from .funding import (
     serves_meta,
 )
 from .listcache import LIST_STALE_SECONDS, cache_list
-from .normalise import http_url, redact_emails
+from .normalise import VALUE_UNIT_PRICE, http_url, redact_emails
 from .search_terms import buyer_names, expand, fold_words
 from .suppress import WITHHELD_NAME, removed
 
@@ -756,7 +756,8 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
     amount = r.get("value_amount")
     value_from, value_kind = None, r.get("value_kind")
     currency = r.get("value_currency")
-    if not amount or amount <= PLACEHOLDER_VALUE_MAX:
+    # WP-138: a unit price the notice states as its total (an hourly rate, the price of a MWh) is no value of the notice
+    if not amount or amount <= PLACEHOLDER_VALUE_MAX or value_kind == VALUE_UNIT_PRICE:
         amount, value_kind = None, None
         if twin_value:                      # the notice's own value always wins
             amount, currency = twin_value["amount"], twin_value["currency"]
@@ -848,6 +849,7 @@ def _twin_values(conn, rows: list[dict[str, Any]]) -> dict[int, dict[str, Any]]:
 
     Only where the figure says the same thing about the same procurement:
       - not `first_lot` (the first of several lots: one part, not the notice)
+      - not `unit_price` (WP-138: a rate the notice states as its total, `normalise.unit_price_total`)
       - not a placeholder (`PLACEHOLDER_VALUE_MAX`) and with its currency
       - a link made by procedure identifier or by the heuristic ties the row to the newest
         TED notice of the procedure, which may be another stage of it: the twin must then
@@ -866,7 +868,7 @@ def _twin_values(conn, rows: list[dict[str, Any]]) -> dict[int, dict[str, Any]]:
                                AND t.native_id = o.ted_ref
             WHERE o.id = ANY(%s) AND t.value_amount > %s AND t.value_currency IS NOT NULL
               AND NOT t.suppressed
-              AND t.value_kind IS DISTINCT FROM 'first_lot'
+              AND coalesce(t.value_kind, '') NOT IN ('first_lot', 'unit_price')
               AND (coalesce(o.twin_method, '') NOT IN ('procedure_id', 'heuristic')
                    OR t.status = o.status)""", (ids, PLACEHOLDER_VALUE_MAX)).fetchall()
     return {r["row_id"]: {"amount": r["value_amount"], "currency": r["value_currency"],
@@ -1035,12 +1037,18 @@ def collapse_clauses(where: list[str], *, same_buyer: bool = False) -> str:
     # its status is in the result, not only the newest one its `ted_ref` names: in Closed the newest TED stage
     # may still be open (deadline 2 Nov) while the stage the national row copies (deadline 20 Oct) is closed,
     # and the two copies stood side by side (re-audit of the data pages, NEW-3, procedure ef67494e-...).
+    # WP-138 (r8-data, problem 2): within one source a newer notice stands for an older one only when it has the same
+    # title. A framework's call-offs share one procedure identifier and each is its own notice with its own number and
+    # title (BWI's staffing framework: 246 and 286 award notices of two procedures, each "2000xxxxxx ANÜ <role>"); the
+    # rule kept the newest one and hid the others from lists and from the buyer's count. A corrigendum or a
+    # re-publication repeats the title, so it still stands for the notice it repeats.
     rep_where = [re.sub(r"\bo\.", "r.", clause_) for clause_ in where] + extra("r")
     not_republished = ("NOT EXISTS (SELECT 1 FROM opportunity r "
                        "WHERE o.procedure_identifier IS NOT NULL "
                        "AND r.procedure_identifier = o.procedure_identifier "
                        "AND r.status = o.status AND r.id <> o.id "
                        "AND ((r.source_id = o.source_id "
+                       "AND r.title_original IS NOT DISTINCT FROM o.title_original "
                        "AND (coalesce(r.published_at, 'epoch'::date), r.id) "
                        "> (coalesce(o.published_at, 'epoch'::date), o.id)) "
                        "OR (o.twin_method = 'procedure_id' AND r.source_id <> o.source_id "
@@ -1339,7 +1347,7 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
     if min_ is not None or max_ is not None or currency:
         # A currency alone selects the notices that state a value in it; a range is read in it, EUR when none
         # is given. A placeholder (0, 0.01, 1) is "not stated" and must not match "up to EUR 100,000".
-        where.append("o.value_currency = %s AND o.value_amount > %s")
+        where.append(f"o.value_currency = %s AND o.value_amount > %s AND o.value_kind IS DISTINCT FROM '{VALUE_UNIT_PRICE}'")
         params += [(currency or "EUR").upper(), PLACEHOLDER_VALUE_MAX]
         if min_ is not None:
             where.append("o.value_amount >= %s")

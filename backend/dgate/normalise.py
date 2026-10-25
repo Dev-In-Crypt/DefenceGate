@@ -903,6 +903,24 @@ _IMPLAUSIBLE_AMOUNT_FROM = 9_999_999_999.0
 # lot of 7.3 million). The suspect total is not served; the lots' own figures are used.
 _CONTRADICTED_FROM = 1e9
 _CONTRADICTED_RATIO = 100
+# WP-138 (r8-data problem 3): a "total" a notice states that is the price of one unit of what it buys, not the contract's:
+# BWI's staffing call-offs (main CPV 7962, supply of personnel) state the hourly rate, EUR 27 to 105 ("EUR 74, the total
+# the award notice states"), and the Bulgarian Ministry of Defence's electricity supplies (CPV 0931) the price of a MWh,
+# BGN 1.25 to 9.29. On production (25 October 2026) these two codes held 294 and 24 totals of EUR 500 or less and none
+# between 500 and 1,000 (personnel; electricity: none between 10 and 1,000): the next totals are contracts (2,000 and
+# more). The amount stays on the row as the notice states it; `value_kind` says it is a unit price, and it is served
+# as no value, borrowed by no twin and matched by no value range. Every other small total stands: a bus charter of
+# EUR 119, a mattress of EUR 308, a print job of EUR 259 are contracts (475 of Puolustusvoimat's call-offs are so).
+# ponytail: two CPV families by their main code; another family whose totals are rates is added here with its evidence.
+VALUE_UNIT_PRICE = "unit_price"
+UNIT_PRICE_TOTAL_MAX = 500.0
+UNIT_PRICE_CPV_PREFIXES = ("7962", "0931")
+
+
+def unit_price_total(amount: float | None, kind: str | None, cpv_codes: list[str] | None) -> bool:
+    """WP-138: whether a notice's stated total is a unit price (`UNIT_PRICE_CPV_PREFIXES`, at most UNIT_PRICE_TOTAL_MAX)."""
+    return (kind == "total" and amount is not None and PLACEHOLDER_AMOUNT_MAX < amount <= UNIT_PRICE_TOTAL_MAX
+            and bool(cpv_codes) and str(cpv_codes[0])[:4] in UNIT_PRICE_CPV_PREFIXES)
 
 
 def _ted_value(g, notice_type: str | None, lots: int | None
@@ -1042,6 +1060,8 @@ def from_ted(notice: dict[str, Any]) -> Opportunity:
     notice_type = ted_notice_type(notice)
     lots = _lot_count(g)
     value, currency, value_kind = _ted_value(g, notice_type, lots)
+    if unit_price_total(value, value_kind, _clean_cpv(g("classification-cpv"))):
+        value_kind = VALUE_UNIT_PRICE                                   # WP-138: a rate, not the total
     deadline = _ted_deadline(g)
     lot_results = [str(r).strip().lower() for r in _each(g("winner-selection-status"))]
     status = ted_status(notice_type, deadline is not None, lot_results)

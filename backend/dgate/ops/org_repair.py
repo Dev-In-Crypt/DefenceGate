@@ -105,6 +105,19 @@ def _personal_number(country: str, number: str) -> bool:
 _PL_TWIN_POWIATS = frozenset(f"powiat {n}" for n in (
     "bielski", "brzeski", "grodziski", "krosnienski", "nowodworski", "opolski", "ostrowski", "sredzki", "swidnicki",
     "tomaszowski"))
+# WP-138: and the gminas two of which share a name: Łagów (kielecki, świętokrzyskie; świebodziński, lubuskie) and Krasne
+# (przasnyski, mazowieckie; rzeszowski, podkarpackie). Production holds rows of both of each pair (25 October 2026: NIP
+# 657... and 927... for Łagów, 761... and 517.../REGON 69... for Krasne). Only a number joins such rows.
+# ponytail: the two pairs met in the data; Poland has more twin gmina names, added here when a row of one appears.
+_PL_TWIN_GMINAS = frozenset({"gmina lagow", "gmina krasne"})
+_PL_TWIN_NAMES = _PL_TWIN_POWIATS | _PL_TWIN_GMINAS
+
+
+def twin_name(country: str | None, name: str | None) -> bool:
+    """WP-119/138: a Polish powiat or gmina name two bodies bear (`_PL_TWIN_NAMES`)."""
+    return country == "PL" and (name or "").lower() in _PL_TWIN_NAMES
+
+
 _UNIT_WORDS = frozenset("""
     powiat powiatu powiatowy powiatowe powiatowa powiatowego powiatowej powiatowych gmina gminy gminny gminne gminna
     gminnego gminnej miasto miasta miejski miejskie miejska miejskiego miejskiej miejskich zaklad zakladu zaklady zakladow zarzad
@@ -125,7 +138,7 @@ _UNIT_WORDS = frozenset("""
 def ambiguous_name(country: str, name: str) -> bool:
     """WP-119: a name more than one public body bears (`_PL_TWIN_POWIATS`, or a unit's name with no place)."""
     n = (name or "").lower()
-    if country == "PL" and n in _PL_TWIN_POWIATS:
+    if twin_name(country, n):
         return True
     words = {w for w in re.split(r"[\s\-]+", n) if len(w) >= 3} - {"del", "los", "las"}     # Sax, Ibi and Ełk are places
     return bool(words) and words <= _UNIT_WORDS
