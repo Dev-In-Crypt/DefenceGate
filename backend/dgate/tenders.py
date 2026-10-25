@@ -1686,6 +1686,9 @@ class ScopeCounts(BaseModel):
     asOf: datetime | None = None
 
 
+UNAVAILABLE_SECONDS = 5 * 60       # WP-127: how long a scope count that ran out of time is not tried again
+
+
 @router.get("/v1/tenders/scope-counts", response_model=ScopeCounts, dependencies=[Depends(known_params)])
 @cache_list("tender-scope-counts", ttl=5 * 60, snapshot=_kept_in_snapshot, stale=LIST_STALE_SECONDS)
 @searched_once
@@ -1708,7 +1711,19 @@ def tender_scope_counts(
     """How many notices the list would show under each scope for the same other filters, with
     the list's own collapse rules, so the counts next to the scope choices are the totals the
     choices lead to (the same predicate, `_count`; `asOf` says when). `all` is not counted: it is not
-    a choice the site offers."""
+    a choice the site offers.
+
+    WP-127: a "took too long" is kept UNAVAILABLE_SECONDS per query (the response cache never keeps a failure), so the
+    next request answers 503 at once instead of spending the time box again (`q=ammunition`: 1.5 s on every request,
+    25 October 2026)."""
+    from . import stats
+    from .config import settings
+
+    gone = ("tender-scope-counts-unavailable", q, country, cpv, status, goods, buyer, from_, to, min_, max_, currency,
+            cpvMain, notCpv)
+    keep = settings().list_cache_seconds > 0 and not EXACT_TOTALS.get()
+    if keep and stats._get(gone, stats._list_cache) is not stats._ABSENT:
+        raise HTTPException(503, "the count took too long; narrow the request")
     out: dict[str, Any] = {}
     capped = False
     for scope in ("relevant", "core", "supply"):
@@ -1718,6 +1733,8 @@ def tender_scope_counts(
         if c and out[scope] == 0:
             # Not even a lower bound in the time allowed (a search word that matches a fifth of the archive,
             # on the closed lists): no numbers is the honest answer, and the site shows the labels without.
+            if keep:
+                stats._put(gone, True, UNAVAILABLE_SECONDS, stats._list_cache, stats.LIST_CACHED)
             raise HTTPException(503, "the count took too long; narrow the request")
         capped = capped or c
     out["overlap"] = 0 if capped else max(0, out["core"] + out["supply"] - out["relevant"])

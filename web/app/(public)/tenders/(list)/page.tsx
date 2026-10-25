@@ -6,7 +6,7 @@ import {
   activeTenderFilterCount, defaultTenderSort, ignoredFilters, lastPage, parseTenderFilters, tenderSortOptions, toTenderQuery, type SearchParams,
 } from '@/lib/filters';
 import { formatDateTimeUtc } from '@/lib/format';
-import { cutSentence, listStamps, reachableTotal, totalWords } from '@/lib/list-count';
+import { SCOPE_COUNTS_GRACE_MS, cutSentence, listStamps, reachableTotal, totalWords, within } from '@/lib/list-count';
 import { calendarHrefFor } from '@/lib/calendar';
 import { NOTICE_NUMBER } from '@/lib/search-terms';
 import { SubscribeToSearch } from '@/components/tenders/subscribe';
@@ -47,7 +47,10 @@ export default async function TendersPage({ searchParams }: Props) {
   const filters = parseTenderFilters(sp);
   // WP-101: a notice number is looked for in every status unless a status was chosen (Open hid an awarded notice: 220199-2026)
   if (filters.q && NOTICE_NUMBER.test(filters.q) && sp.status === undefined) redirect(`/tenders${toTenderQuery({ ...filters, status: 'all', sort: undefined, page: 1 })}`);
-  const [result, health, scopeCounts] = await Promise.all([getTenders(filters), getHealth(), getTenderScopeCounts(filters)]);
+  // WP-127: the counts beside the scope choices never hold the page up for longer than the list itself takes, plus a moment
+  const counts = getTenderScopeCounts(filters);
+  const [result, health] = await Promise.all([getTenders(filters), getHealth()]);
+  const scopeCounts = await within(counts, SCOPE_COUNTS_GRACE_MS);
   const missing = valueMissingNotes(health.sources);
   const stale = staleNote(result.staleAsOf, formatDateTimeUtc);
   // A page past the end is the last page, not an empty list.
