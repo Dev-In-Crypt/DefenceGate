@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { dayOf, groupByDay, monthWeeks, truncateTitle, type CalendarEntry } from '@/lib/calendar';
 import { displayName } from '@/lib/display-name';
 import { dayParts, formatDateUtc } from '@/lib/format';
-import { Card } from '../dg/card';
+import { Card, ROW_HOVER } from '../dg/card';
 import { Icon } from '../dg/icon';
 import { Tag } from '../dg/tag';
 
@@ -20,14 +20,14 @@ export function dayLabel(day: string): string {
 
 function EntryRow({ e }: { e: CalendarEntry }) {
   return (
-    <li className="group relative flex min-w-0 flex-col gap-1 border-t border-line py-3 first:border-t-0">
+    <li className={`group relative flex min-w-0 flex-col gap-1 border-t border-line py-3 first:border-t-0 ${ROW_HOVER}`}>
       <div className="flex flex-wrap items-center gap-2">
         <Tag kind={e.kind === 'tender' ? 'programme' : 'neutral'}>{e.kind === 'tender' ? 'Tender' : 'Funding call'}</Tag>
         {e.country && <Tag>{e.country}</Tag>}
         <span className="font-mono text-mono text-ink-muted">{e.when}</span>
       </div>
       <Link href={e.href}
-        className="[overflow-wrap:anywhere] py-1 text-body font-semibold text-ink no-underline decoration-2 underline-offset-4 after:absolute after:inset-0 after:content-[''] group-hover:underline">
+        className="[overflow-wrap:anywhere] py-1 text-body font-semibold text-ink no-underline decoration-2 underline-offset-4 after:absolute after:inset-0 after:content-['']">
         {displayName(e.title)}
       </Link>
       <span className="[overflow-wrap:anywhere] text-small text-ink-muted">{displayName(e.who, 'title')} · {sourceDisplay(e.sourceName)}</span>

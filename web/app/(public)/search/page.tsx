@@ -7,7 +7,7 @@ import { displayName } from '@/lib/display-name';
 import { searchStatusLine, searchTenderNoun } from '@/lib/tender-status';
 import { getSearch, searchQuery, seeAllHref, type SearchGroup, type SiteSearch } from '@/lib/search';
 import { PageHeader } from '@/components/dg/page-header';
-import { Card } from '@/components/dg/card';
+import { Card, ROW_HOVER } from '@/components/dg/card';
 import { SiteSearchForm } from '@/components/dg/site-search';
 import { ErrorState } from '@/components/dg/feedback';
 import { AlsoSearched, CpvHints, GroupSuggestions } from '@/components/tenders/search-terms-note';
@@ -100,8 +100,8 @@ function Part({ s, part }: { s: SiteSearch; part: (typeof GROUPS)[number]['parts
         <>
           <ul className="m-0 flex list-none flex-col p-0">
             {rows(s, part.key).map((r) => (
-              <li key={r.href} className="border-t border-line first:border-t-0">
-                <Link href={r.href} className="flex min-h-11 flex-col justify-center py-2 no-underline hover:underline">
+              <li key={r.href} className={`border-t border-line first:border-t-0 ${ROW_HOVER}`}>
+                <Link href={r.href} className="flex min-h-11 flex-col justify-center py-2 no-underline">
                   <span className="text-body font-semibold text-ink [overflow-wrap:anywhere]">{r.title}</span>
                   {r.line && <span className="text-small text-ink-muted">{r.line}</span>}
                 </Link>

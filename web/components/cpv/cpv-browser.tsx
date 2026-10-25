@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { TextInput } from '../dg/form';
 import { EmptyState } from '../dg/feedback';
-import { Card } from '../dg/card';
+import { Card, ROW_HOVER } from '../dg/card';
 import { cpvPrefix, cpvSearch, type CpvSection } from '@/lib/cpv';
 
 /** WP-110: the first this many codes of the full vocabulary that match a search. */
@@ -70,7 +70,7 @@ export function CpvBrowser({ sections }: { sections: CpvSection[] }) {
               {full.map((r) => (
                 <li key={r.code} className="break-inside-avoid border-t border-line">
                   <Link href={`/tenders?cpv=${cpvPrefix(r.code)}`}
-                    className="grid min-h-10 grid-cols-[minmax(88px,auto)_minmax(0,1fr)] items-baseline gap-x-3 py-2 text-ink no-underline hover:underline">
+                    className={`grid min-h-10 grid-cols-[minmax(88px,auto)_minmax(0,1fr)] items-baseline gap-x-3 py-2 text-ink no-underline ${ROW_HOVER}`}>
                     <span className="font-mono text-mono-strong tabular-nums">{r.code}</span>
                     <span className="min-w-0 break-words text-body">{r.title}<span className="sr-only">: tenders with this code</span></span>
                   </Link>
@@ -93,7 +93,7 @@ export function CpvBrowser({ sections }: { sections: CpvSection[] }) {
                   {g.rows.map((r) => (
                     <li key={r.code} className={cn('break-inside-avoid border-t border-line', INDENT[Math.min(r.indent, 4)])}>
                       <Link href={`/tenders?cpv=${r.prefix}`}
-                        className="grid min-h-10 grid-cols-[minmax(88px,auto)_minmax(0,1fr)] items-baseline gap-x-3 py-2 text-ink no-underline hover:underline">
+                        className={`grid min-h-10 grid-cols-[minmax(88px,auto)_minmax(0,1fr)] items-baseline gap-x-3 py-2 text-ink no-underline ${ROW_HOVER}`}>
                         <span className="font-mono text-mono-strong tabular-nums">{r.code}</span>
                         <span className={cn('min-w-0 break-words text-body', r.level <= 1 && 'font-semibold')}>{r.title}<span className="sr-only">: tenders with this code</span></span>
                       </Link>
