@@ -144,7 +144,7 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
           </details>
         ) : <p className="m-0 max-w-prose text-small text-ink-muted">{variantsLine(buyer.nameVariants)}</p>)}
         <p className="m-0 max-w-prose text-small text-ink-muted">
-          Counts cover the notices the tender list shows for this buyer under {SCOPE_CHOICES.relevant.label}: {SCOPE_CHOICES.core.label.toLowerCase()} and {SCOPE_CHOICES.supply.label.toLowerCase()}. Each notice shows its own source.
+          Counts cover the notices the tender list shows for this buyer under {SCOPE_CHOICES.relevant.label}: {SCOPE_CHOICES.core.label.toLowerCase()} and {SCOPE_CHOICES.supply.label.toLowerCase()}. <span data-count-basis>A national notice that is a copy of a TED notice is counted once, so the count can be lower than the notices we hold.</span> Each notice shows its own source.
         </p>
         {buyer.organisationSlug && (
           <p className="m-0 max-w-prose text-body">
