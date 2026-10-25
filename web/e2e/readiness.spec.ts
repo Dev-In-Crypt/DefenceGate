@@ -39,7 +39,7 @@ async function answerUkraine(page: Page) {
   await page.getByLabel('Company name (optional)').fill('Secret Works Ltd');
   await page.getByLabel('Country where your company is established').selectOption('UA');
   await group(page, /legal form of your organisation/).getByLabel(/^A legal person/).check();
-  await group(page, /What kind of organisation are you/).getByLabel(/^A company or a research body/).check();
+  await group(page, /What kind of organisation are you/).getByLabel('A company', { exact: true }).check();   // WP-125: one question
   await next(page);
   await group(page, /executive management structures/).getByLabel('In the country where the company is established').check();
   await group(page, /controlled by a country or an entity outside the EU/).getByLabel('No', { exact: true }).check();
@@ -61,7 +61,7 @@ async function answerSpain(page: Page) {
   await visit(page, '/readiness', { title: /readiness check/i, h1: 'Readiness check' });
   await page.getByLabel('Country where your company is established').selectOption('ES');
   await group(page, /legal form of your organisation/).getByLabel(/^A legal person/).check();
-  await group(page, /What kind of organisation are you/).getByLabel(/^A company or a research body/).check();
+  await group(page, /What kind of organisation are you/).getByLabel('A company', { exact: true }).check();   // WP-125: one question
   await next(page);
   await group(page, /executive management structures/).getByLabel('In the country where the company is established').check();
   await group(page, /controlled by a country or an entity outside the EU/).getByLabel('No', { exact: true }).check();

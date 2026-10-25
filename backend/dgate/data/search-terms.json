@@ -1,6 +1,6 @@
 {
   "_source": "Curated by DefenceGate (WP-98, persona round of 23 October 2026, section C). One keyword map, no language model, read by the tender search of the API (backend/dgate/search_terms.py, a byte-identical copy at backend/dgate/data/search-terms.json) and of the demo data (web/lib/search-terms.ts).",
-  "_rules": "groups: the words of a search that are one of a group's terms (a term of several words: those words, in that order) may be matched by any term of the group; each word of a term must begin a word of the title or the buyer's name, accents and punctuation folded as dg_fold folds them, in any order; a group's word never matches a buyer's name (WP-110: the Polish cyberspace centre made every one of its notices \"cyber\"). cpv: the product codes (prefixes, as the tender list's CPV filter reads them; every code is one of the CPV 2008 vocabulary) the result suggests. anchors: the codes (prefixes; an 8-digit code is that code only) that, as a notice's main code, name the product itself: the search also finds a notice by its main code under one of them, never by a secondary code (WP-110: CPV 45311000 Electrical wiring work beside a canteen's construction made it a wiring harness). buyers: a search that is exactly an abbreviation (folded; a space inside it optional) also finds the buyer families whose head or member name holds every word of one of the names, and lists them first.",
+  "_rules": "groups: the words of a search that are one of a group's terms (a term of several words: those words, in that order) may be matched by any term of the group; each word of a term must begin a word of the title or the buyer's name, accents and punctuation folded as dg_fold folds them, in any order; a group's word never matches a buyer's name (WP-110: the Polish cyberspace centre made every one of its notices \"cyber\"). cpv: the product codes (prefixes, as the tender list's CPV filter reads them; every code is one of the CPV 2008 vocabulary) the result suggests. anchors: the codes (prefixes; an 8-digit code is that code only) that, as a notice's main code, name the product itself: the search also finds a notice by its main code under one of them, never by a secondary code (WP-110: CPV 45311000 Electrical wiring work beside a canteen's construction made it a wiring harness). buyers: a search that is exactly an abbreviation (folded; a space inside it optional) also finds the buyer families whose head or member name holds every word of one of the names, and lists them first. typed_only (WP-125): words that name the place where a product is made, not the product (a foundry): typed, they search their group as its terms do, but no other word of the group searches them (\"castings\" found a water-pipe tender through the code title \"Foundry moulds\"); the funding search reads a group's words by the start of a word, as the tender search does (\"casting\" was found inside \"forecasting\").",
   "groups": [
     {
       "id": "uniforms", "label": "Uniforms, footwear and protective clothing", "cpv": ["3581", "181", "182", "183", "188", "35113400"],
@@ -69,8 +69,9 @@
     },
     {
       "id": "castings", "label": "Castings and foundry parts", "cpv": ["44470", "3432", "34312", "35421"], "anchors": ["44470"],
-      "terms": ["casting", "castings", "cast parts", "foundry", "die casting", "Gussteile", "Gießerei", "Druckguss", "piezas fundidas",
-                "fundición de piezas", "fonderie", "pièces de fonderie", "odlewy", "odlewnia", "gietwerk", "gietstukken", "pressofusione"]
+      "terms": ["casting", "castings", "cast parts", "die casting", "Gussteile", "Druckguss", "piezas fundidas",
+                "fundición de piezas", "pièces de fonderie", "odlewy", "gietwerk", "gietstukken", "pressofusione"],
+      "typed_only": ["foundry", "Gießerei", "fonderie", "odlewnia"]
     },
     {
       "id": "cyber", "label": "Cyber security", "cpv": ["4873", "4876", "7221273", "728"], "anchors": ["4873", "4876", "7221273"],

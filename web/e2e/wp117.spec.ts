@@ -60,9 +60,9 @@ test('home: exactly three tiles; each link leads to its page, with the live coun
   // each count is inside the action it belongs to
   await expect(tiles.first().locator('a[href="/tenders"] [data-figure]')).toContainText(/open tenders?$/);
   await expect(tiles.first().locator('a[href="/funding"] [data-figure]')).toContainText(/open funding calls?$/);
-  await expect(tiles.nth(2)).toContainText('five steps of 25 to 35 questions');
+  await expect(tiles.nth(2)).toContainText('five steps of 24 to 35 questions');
   await expect(tiles.nth(2)).not.toContainText('Five short sets of questions');
-  await expect(tiles.nth(2).locator('[data-figure]')).toContainText('25 to 35 questions');
+  await expect(tiles.nth(2).locator('[data-figure]')).toContainText('24 to 35 questions');
   // the same numbers as the lists the tiles lead to (never hard-coded)
   expect(tenders).toBe(await listTotal(page, '/tenders'));
   expect(calls).toBe(await listTotal(page, '/funding'));

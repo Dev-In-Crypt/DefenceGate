@@ -714,6 +714,22 @@ export function withControlChoice(p: Profile, v: Exclude<ControlChoice, ''>): Pr
   return { ...p, control: v, controlCountry: v === 'other' && p.control === 'other' ? p.controlCountry : '' };
 }
 
+/**
+ * WP-125 (round 6, p02: step 1 asked "What kind of organisation are you?" and then "Which of these is your organisation?"): the readiness
+ * check asks one question. Its answer is a public body's applicant kind, or the kind of company or research body, which is the applicant
+ * kind "company or research body" with its `orgKind`; both inputs of the rules stay what they were.
+ */
+export type Kind = Exclude<OrgKind, ''> | Exclude<ApplicantKind, 'company_or_research' | ''>;
+const COMPANY_KINDS: readonly string[] = ['company', 'university', 'research'];
+export function kindOf(p: Profile): Kind | '' {
+  return p.applicantKind !== '' && p.applicantKind !== 'company_or_research' ? p.applicantKind : p.orgKind;
+}
+export function withKind(p: Profile, v: Kind): Profile {
+  return COMPANY_KINDS.includes(v)
+    ? { ...p, applicantKind: 'company_or_research', orgKind: v as OrgKind }
+    : { ...p, applicantKind: v as ApplicantKind, orgKind: '' };
+}
+
 /** The controlling country the rules read: only with the control answer it belongs to, and never "not sure". */
 export function controlCountryOf(p: Profile): 'ua' | 'eea' | 'cn' | 'ru_by' | 'other_non_eu' | null {
   const c = p.controlCountry;
@@ -767,7 +783,8 @@ export function unanswered(p: Profile): Unanswered[] {
   need(1, !p.country, 'Country where your company is established');
   need(1, !p.legalForm, 'Legal form of your organisation');
   // WP-93: the size rules of the EIC, the SME-only calls and RAPID read these; unanswered, they say "check"
-  need(1, (p.applicantKind === '' || p.applicantKind === 'company_or_research') && !p.orgKind, 'Whether you are a company, a university or a research organisation');
+  // WP-125: one question asks it with the applicant kind (`kindOf`): a public body has answered it
+  need(1, kindOf(p) === '', 'What kind of organisation you are');
   need(1, !p.headcount, 'How many people your organisation employs');
   need(1, !p.inGroup, 'Whether your company is part of a group');
   need(1, p.inGroup === 'yes' && !p.groupHeadcount, 'How many people the whole group employs');
@@ -845,6 +862,19 @@ export function askedAt(field: string, supplier = false, profile: Profile | null
   if (STATUS_ITEMS.some((i) => i.code === f && !i.roadmapOnly)) return '/readiness?step=4';
   return null;
 }
+
+/**
+ * WP-125 (round 6, p02: "13 answers are missing" after the five steps, all of them questions of the supplier page): whether the five steps
+ * of the readiness check ask the question behind an API `missing` field. Only those count as missing on its results.
+ */
+export function stepAsking(field: string, profile: Profile | null = null): number | null {
+  const f = field.replace(/^profile\./, '');
+  if (WIZARD_FIELDS.has(f)) return stepOfField(f);
+  // a requirement of step 4 (the supplier page asks some of them too: `askedAt` sends a supplier there)
+  if (STATUS_ITEMS.some((i) => i.code === f && !i.roadmapOnly && (!i.esOnly || profile === null || profile.country === 'ES'))) return 4;
+  return null;
+}
+export const askedInSteps = (field: string, profile: Profile | null = null): boolean => stepAsking(field, profile) !== null;
 
 /**
  * WP-97: whether the company answered "I am not sure" to the question behind an API `missing` field: an answer, not a missing one. The

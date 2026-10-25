@@ -5,7 +5,8 @@
  */
 import data from './data/search-terms.json';
 
-export interface SearchTermGroup { id: string; label: string; cpv: string[]; terms: string[] }
+/** `typed_only` (WP-125): words that, typed, search the group, but that no other word of it searches ("foundry", the place, not the product). */
+export interface SearchTermGroup { id: string; label: string; cpv: string[]; terms: string[]; typed_only?: string[] }
 export const SEARCH_GROUPS: SearchTermGroup[] = data.groups;
 export const BUYER_ABBREVIATIONS: { abbr: string; country: string; names: string[] }[] = data.buyers;
 
@@ -41,7 +42,7 @@ export function expand(words: string[]): Expanded {
   while (i < words.length) {
     let best: { n: number; g: SearchTermGroup } | null = null;
     for (const g of SEARCH_GROUPS) {
-      for (const t of g.terms) {
+      for (const t of [...g.terms, ...(g.typed_only ?? [])]) {
         const f = foldWords(t);
         if (f.length && f.join(' ') === folded.slice(i, i + f.length).join(' ') && (!best || f.length > best.n)) best = { n: f.length, g };
       }

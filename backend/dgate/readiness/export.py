@@ -28,33 +28,34 @@ FIXED_TIME = "2026-10-17T12:00:00+00:00"
 STATUS_CODES = ["REQ-NCAGE", "REQ-PIC", "REQ-ISO9001", "REQ-EN9100", "REQ-AQAP2110", "REQ-AQAP2310", "REQ-EXPORT"]
 ES_ONLY = ["REQ-REOCE", "REQ-FSC-ES"]
 
-# The answers a person gives in the wizard, for the two scenarios the e2e specs run.
+# The answers a person gives in the wizard, for the two scenarios the e2e specs run. WP-125: step 1 asks one question of what the
+# organisation is, so "A company" sends the applicant kind and `org_kind` (read by the call verdict and the roadmap, not by the rules).
 PROFILES: dict[str, tuple[dict[str, Any], dict[str, str]]] = {
     "ua": ({"country": "UA", "legal_form": "legal_person", "executive_management_country": "UA", "third_country_control": "no",
             "ua_non_government_controlled_area": False, "non_eu_component_cost_pct": 20.0,
             "restricted_third_country_component": False, "components_from_ua": False, "components_from_eea_efta": False,
             "safe_role": "contractor", "applicant_kind": "company_or_research", "handles_classified": False,
-            "product_regime": "dual_use", "export_intent": "outside_eu", "ua_partner": None},
+            "product_regime": "dual_use", "export_intent": "outside_eu", "ua_partner": None, "org_kind": "company"},
            {code: "not_held" for code in STATUS_CODES}),
     # the Ukrainian company after it marked its PIC as done in the roadmap: the answer the page re-scores to
     "ua-pic": ({"country": "UA", "legal_form": "legal_person", "executive_management_country": "UA", "third_country_control": "no",
                 "ua_non_government_controlled_area": False, "non_eu_component_cost_pct": 20.0,
                 "restricted_third_country_component": False, "components_from_ua": False, "components_from_eea_efta": False,
                 "safe_role": "contractor", "applicant_kind": "company_or_research", "handles_classified": False,
-                "product_regime": "dual_use", "export_intent": "outside_eu", "ua_partner": None},
+                "product_regime": "dual_use", "export_intent": "outside_eu", "ua_partner": None, "org_kind": "company"},
                {**{code: "not_held" for code in STATUS_CODES}, "REQ-PIC": "held"}),
     # the same company after it answered "Not applicable to us" for the PIC (WP-53, T4): the rule is left out, it is not "met"
     "ua-pic-na": ({"country": "UA", "legal_form": "legal_person", "executive_management_country": "UA", "third_country_control": "no",
                    "ua_non_government_controlled_area": False, "non_eu_component_cost_pct": 20.0,
                    "restricted_third_country_component": False, "components_from_ua": False, "components_from_eea_efta": False,
                    "safe_role": "contractor", "applicant_kind": "company_or_research", "handles_classified": False,
-                   "product_regime": "dual_use", "export_intent": "outside_eu", "ua_partner": None},
+                   "product_regime": "dual_use", "export_intent": "outside_eu", "ua_partner": None, "org_kind": "company"},
                   {**{code: "not_held" for code in STATUS_CODES}, "REQ-PIC": "not_applicable"}),
     "es": ({"country": "ES", "legal_form": "legal_person", "executive_management_country": "ES", "third_country_control": "no",
             "ua_non_government_controlled_area": None, "non_eu_component_cost_pct": 10.0,
             "restricted_third_country_component": False, "components_from_ua": False, "components_from_eea_efta": False,
             "safe_role": "contractor", "applicant_kind": "company_or_research", "handles_classified": True,
-            "product_regime": "military", "export_intent": "outside_eu", "ua_partner": None},
+            "product_regime": "military", "export_intent": "outside_eu", "ua_partner": None, "org_kind": "company"},
            {**{code: "not_held" for code in STATUS_CODES + ES_ONLY}, "REQ-ISO9001": "held"}),
     # WP-64: a civilian Spanish automotive supplier with ISO 9001, no classified work and no controlled product, before the
     # questionnaire asks the questions of the Spanish defence supplier route: those rules say "unknown" and name the question
@@ -128,7 +129,9 @@ def build() -> dict[str, Any]:
     }
     for key, (profile, statuses) in PROFILES.items():
         body = {"profile": profile, "statuses": statuses}
-        answer = api.assess_payload(c, Profile(**profile), statuses)
+        rules = {k: v for k, v in profile.items() if k not in api.VERDICT_ONLY}
+        context = {k: profile[k] for k in api.ROADMAP_CONTEXT if k in profile}
+        answer = api.assess_payload(c, Profile(**rules), statuses, context=context or None)
         answer["generatedAt"] = FIXED_TIME
         files[f"web/e2e/fixtures/request-{key}.json"] = body
         files[f"web/e2e/fixtures/assess-{key}.json"] = answer

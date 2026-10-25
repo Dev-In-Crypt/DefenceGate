@@ -50,10 +50,12 @@ MAX_TERMS = 8
 
 
 @lru_cache(maxsize=1)
-def _rows() -> tuple[tuple[str, ...], ...]:
+def _rows() -> tuple[tuple[tuple[str, ...], frozenset[str]], ...]:
     """WP-110: the product groups of the tender search (`search_terms`, the other languages' words), for the funding
-    search's words SYNONYMS does not know: "cybersécurité" found no funding call and the header search said no open calls, though ECCC cyber calls were open."""
-    return tuple(tuple(dict.fromkeys(fold(" ".join(t)) for t in g.terms)) for g in groups())
+    search's words SYNONYMS does not know: "cybersécurité" found no funding call and the header search said no open calls, though ECCC cyber calls were open.
+    Each row: the group's terms, and its words that only a typed word searches (WP-125, `Group.typed_only`)."""
+    return tuple((tuple(dict.fromkeys(fold(" ".join(t)) for t in g.terms)), frozenset(fold(" ".join(t)) for t in g.typed_only))
+                 for g in groups())
 
 
 def fold(text: str) -> str:
@@ -75,6 +77,12 @@ def _word_matches(wanted: str, have: str) -> bool:
     return wanted in have
 
 
+def _starts(wanted: str, have: str) -> bool:
+    """WP-125: a word of a product group begins a word, as the tender search reads it: "casting" inside "forecasting"
+    made two Horizon climate calls a match for "castings"."""
+    return have == wanted if len(wanted) <= 3 else have.startswith(wanted)
+
+
 def _code_matches(wanted: str, have: str) -> bool:
     return have.startswith(wanted) or (len(wanted) >= 5 and wanted in have)
 
@@ -91,12 +99,15 @@ class Query:
     alternatives: list[list[list[str]]] = field(default_factory=list)
     # The synonyms offered beyond what was typed, for the "also searched" line.
     also: list[str] = field(default_factory=list)
+    # WP-125: per typed word, whether it is a word of a product group (its alternatives then begin a word of the text)
+    product: list[bool] = field(default_factory=list)
 
     def matches(self, text: str, codes: str = "") -> bool:
         """`text` is words (a title, a body); `codes` are identifiers, matched by their start."""
         have, ids = words(text), words(codes)
-        return all(any(_phrase_in(alt, have) or _phrase_in(alt, ids, _code_matches) for alt in group)
-                   for group in self.alternatives)
+        product = self.product or [False] * len(self.alternatives)
+        return all(any(_phrase_in(alt, have, _starts if p else _word_matches) or _phrase_in(alt, ids, _code_matches) for alt in group)
+                   for group, p in zip(self.alternatives, product, strict=True))
 
 
 def parse(q: str | None, products: bool = False) -> Query | None:
@@ -111,14 +122,18 @@ def parse(q: str | None, products: bool = False) -> Query | None:
         group = [[word]]
         # WP-110: the product groups only for a word the funding synonyms do not know (drone, cyber keep their own rows)
         known = any(word in row for row in SYNONYMS)
-        for row in (_rows() if products and not known else SYNONYMS):
-            if word in row:
+        rows = _rows() if products and not known else tuple((row, frozenset()) for row in SYNONYMS)
+        product = False
+        for row, typed_only in rows:
+            if word in row or word in typed_only:
+                product = products and not known
                 for other in row:
                     if other != word:
                         group.append(other.split())
                         if other not in query.also:
                             query.also.append(other)
         query.alternatives.append(group)
+        query.product.append(product)
     # a synonym that is also one of the typed words was searched, not "also" searched
     query.also = [a for a in query.also if a not in kept]
     return query
