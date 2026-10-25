@@ -148,7 +148,7 @@ def test_compose_trusts_forwarded_headers_from_caddy_only_and_requires_the_secre
     assert '"--forwarded-allow-ips", "*"' not in compose
     assert '"--forwarded-allow-ips", "10.250.71.2"' in compose and "ipv4_address: 10.250.71.2" in compose
     assert "DGATE_INTERNAL_SECRET:-}" not in compose
-    assert "reverse_proxy api-edge:8000" in (root / "Caddyfile").read_text(encoding="utf-8")
+    assert "reverse_proxy api-edge:8000" in (root / "caddy" / "Caddyfile").read_text(encoding="utf-8")
     env = (root / ".env.example").read_text(encoding="utf-8")
     assert "\nDGATE_INTERNAL_SECRET=\n" in env          # documented, no value
 

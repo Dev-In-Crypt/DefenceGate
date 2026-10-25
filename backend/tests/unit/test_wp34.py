@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[3]
 def test_the_caddyfile_removes_via_where_caddy_adds_it():
     """`header_down -Via` inside reverse_proxy does not remove it (measured on caddy 2.11.4): the
     deletion has to be in the site's own `header` block."""
-    text = (ROOT / "infra" / "Caddyfile").read_text(encoding="utf8")
+    text = (ROOT / "infra" / "caddy" / "Caddyfile").read_text(encoding="utf8")
     block = text[text.index("\theader {"):]
     block = block[:block.index("\n\t}")]
     assert "\t\t-Via" in block.splitlines()

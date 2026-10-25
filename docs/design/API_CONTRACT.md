@@ -788,7 +788,7 @@ status, affected, source: { url, ref, quote }, checkedOn, links[] }`. `status` i
 `adopted`, `in_force` or `unconfirmed`. `source.quote` is a sentence of the primary source copied word for word
 (`backend/tests/verify_regulation.py` checks it against the text). Content: `backend/seeds/regulation_tracker.json`,
 applied by the worker on start. Public, anonymous, read-only (the API role has `SELECT` only); added to the proxy's
-allow-list in `infra/Caddyfile`.
+allow-list in `infra/caddy/Caddyfile`.
 
 ### Site routes built on it
 
@@ -796,7 +796,7 @@ allow-list in `infra/Caddyfile`.
 panels of `/funding/{slug}`, the Ukraine filter (`?ukraine=true`) and the badge "Open to Ukraine" on `/funding`.
 ## Changes of 18 October 2026 (WP-35: eligibility per topic, digest and calendar fixes)
 
-- `/v1/digest`, `/v1/digest/weeks` and `/v1/changes` are **not** on the public path list of `infra/Caddyfile` on purpose:
+- `/v1/digest`, `/v1/digest/weeks` and `/v1/changes` are **not** on the public path list of `infra/caddy/Caddyfile` on purpose:
   only the site's server reaches them (the site serves them as `/digest`, `/digest.atom`, `/changes`). The week-on-the-spot
   computation of an issue that is not stored is too heavy for an open endpoint. Add them to `@public` only if the owner
   wants a public data API for them (then with the rate limit of the other lists).

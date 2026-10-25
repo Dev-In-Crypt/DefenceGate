@@ -2,7 +2,7 @@
 WP-126, the accounts security log (90 days, owner decision of 25 October 2026).
 
 Docker's json-file driver rotates by size only, so a line's age depends on traffic. Caddy
-therefore writes its logs as JSON to files in a volume (infra/Caddyfile), and this runs
+therefore writes its logs as JSON to files in a volume (infra/caddy/Caddyfile), and this runs
 beside it (compose service `logprune`, hourly):
 
   * a rolled file (`access-2026-10-15T08-12-33.123.log[.gz]`) is deleted once its last write
