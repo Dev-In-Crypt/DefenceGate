@@ -163,21 +163,23 @@ test('the profile funding tab does not scroll the page sideways (a hidden table 
   expect(w.s).toBeLessThanOrEqual(w.c);
 });
 
-test('home: the links stand under the lead in the left column and the two columns are as tall as each other', async ({ page }) => {
+// WP-117 (owner's option A, 25 Oct 2026): the hero's two columns (copy and figures) are gone; the tasks are three tiles under the
+// search, side by side and as tall as each other.
+test('home: the tasks stand under the lead and the search, three tiles in one row, as tall as each other', async ({ page }) => {
   test.skip(isMobile(page), 'one column on a phone');
-  await visit(page, '/', { title: /DefenceGate/, h1: /tenders and funding/i });
+  await visit(page, '/', { title: /DefenceGate/, h1: /Win, partner, qualify\./ });
   const m = await page.evaluate(() => {
     const hero = document.querySelector('section[aria-labelledby="hero"]')!;
-    const left = hero.children[0].getBoundingClientRect();
-    const figures = hero.querySelector('dl[aria-label="Live data"]')!.getBoundingClientRect();
-    const lead = hero.children[0].querySelector('p')!.getBoundingClientRect();
-    // WP-86: the text links became the three task buttons; "Find a tender" stands first
-    const all = Array.from(hero.querySelectorAll('a')).find((a) => a.textContent === 'Find a tender')!.getBoundingClientRect();
-    const free = Array.from(hero.querySelectorAll('p')).find((p) => p.textContent === 'Free to browse. No account needed.')!.getBoundingClientRect();
-    return { left, figures, lead, all, free };
+    const lead = hero.querySelector('p')!.getBoundingClientRect();
+    const search = hero.querySelector('form[role="search"]')!.getBoundingClientRect();
+    const tiles = Array.from(document.querySelectorAll('[data-tile]')).map((t) => t.getBoundingClientRect());
+    return { lead, search, tiles };
   });
-  expect(m.all.top, 'the links are under the lead').toBeGreaterThanOrEqual(m.lead.bottom);
-  expect(m.all.right, 'and in the left column').toBeLessThanOrEqual(m.figures.left);
-  expect(m.free.bottom, 'the note is in the left column too').toBeLessThanOrEqual(m.left.bottom + 1);
-  expect(Math.abs(m.left.height - m.figures.height), 'the copy and the figures are about as tall').toBeLessThanOrEqual(40);
+  expect(m.tiles).toHaveLength(3);
+  expect(m.search.top, 'the search is under the lead').toBeGreaterThanOrEqual(m.lead.bottom);
+  for (const t of m.tiles) {
+    expect(t.top, 'the tiles are under the search').toBeGreaterThanOrEqual(m.search.bottom);
+    expect(Math.abs(t.top - m.tiles[0].top), 'in one row').toBeLessThanOrEqual(1);
+    expect(Math.abs(t.height - m.tiles[0].height), 'as tall as each other').toBeLessThanOrEqual(1);
+  }
 });

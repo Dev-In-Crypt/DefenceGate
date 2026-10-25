@@ -14,12 +14,13 @@ async function openFilters(page: import('@playwright/test').Page) {
 }
 
 // WP-86: the home page's tenders finder (country, CPV, word) became the site search and the "Find a tender" task; the country
-// and CPV filters are on /tenders itself.
+// and CPV filters are on /tenders itself. WP-117: the tasks are the three question tiles; "What changed" left home for the menu's
+// What's new (its link is still on the page, in the footer).
 test('home: the tasks, the site search, the honest alerts button and what changed', async ({ page }) => {
   await visit(page, '/', {
     title: /DefenceGate/,
-    h1: 'Defence and dual-use tenders and funding',
-    text: ['Find a tender', 'Find funding'],
+    h1: 'Win, partner, qualify.',
+    text: ['Find tenders and funding', 'Find partners', 'Check if my company qualifies'],
   });
   const search = page.locator('#main').getByRole('search', { name: 'Site search' });
   await expect(search.getByLabel('Search tenders, funding, buyers and companies')).toBeVisible();
@@ -28,9 +29,9 @@ test('home: the tasks, the site search, the honest alerts button and what change
   await expect(page.getByRole('link', { name: /what changed/i }).first()).toBeVisible();
 });
 
-test('home: "Find a tender" lands on /tenders, where a country and a CPV set the filters', async ({ page }) => {
-  await visit(page, '/', { title: /DefenceGate/, h1: 'Defence and dual-use tenders and funding' });
-  await Promise.all([page.waitForURL(/\/tenders$/), page.getByRole('navigation', { name: 'Start here' }).getByRole('link', { name: 'Find a tender' }).click()]);
+test('home: "Find tenders and funding" lands on /tenders, where a country and a CPV set the filters', async ({ page }) => {
+  await visit(page, '/', { title: /DefenceGate/, h1: 'Win, partner, qualify.' });
+  await Promise.all([page.waitForURL(/\/tenders$/), page.getByRole('list', { name: 'What do you want to know?' }).getByRole('link', { name: /Find tenders and funding/ }).click()]);
   await expect(page.locator('h1').first()).toHaveText('Tenders');
   await visit(page, '/tenders?country=PL&cpv=35', { title: /tenders/i, h1: 'Tenders' });
   const url = new URL(page.url());
@@ -131,12 +132,12 @@ test('a tender card says why it is on the list and shows the deadline in the buy
   await expect(page.getByText('Why this is here').first()).toBeVisible();
 });
 
-test('the header has Market overview under Tenders, and Methodology is in the footer under About the data (WP-86)', async ({ page, isMobile }) => {
-  await visit(page, '/', { title: /DefenceGate/, h1: 'Defence and dual-use tenders and funding' });
+test('the header has Market overview under Tenders & funding, and Methodology is in the footer under About the data (WP-86, WP-117)', async ({ page, isMobile }) => {
+  await visit(page, '/', { title: /DefenceGate/, h1: 'Win, partner, qualify.' });
   if (isMobile) await page.getByRole('button', { name: 'Open menu' }).click();
   const nav = page.getByRole('navigation', { name: isMobile ? 'Main menu' : 'Main' });
-  // On a desktop the Tenders menu opens on hover.
-  if (!isMobile) await nav.getByRole('link', { name: 'Tenders', exact: true }).hover();
+  // On a desktop the Tenders & funding menu opens on hover.
+  if (!isMobile) await nav.getByRole('button', { name: 'Tenders & funding', exact: true }).hover();
   await expect(nav.getByRole('link', { name: 'Market overview', exact: true })).toBeVisible();
   await expect(page.locator('footer nav[aria-label="About the data"]').getByRole('link', { name: 'Methodology' })).toHaveAttribute('href', '/methodology');
 });
@@ -167,14 +168,16 @@ test('/data and /methodology say the same about the national portals and name Ge
 });
 
 test('the home page never prints a dash for a counter', async ({ page }) => {
-  await visit(page, '/', { title: /DefenceGate/, h1: 'Defence and dual-use tenders and funding' });
-  const counters = page.getByRole('term').locator('xpath=following-sibling::*[1]');
-  const texts = await counters.allInnerTexts();
-  for (const t of texts) expect(t.trim(), 'a counter is a number or says it is not available').not.toBe('–');
-  // No two figures say the same thing (WP-86: the scope tiles of "What is in here" left home; the hero's figures remain).
-  const tiles = await page.locator('dl[aria-label="Live data"] dt').allInnerTexts();
-  expect(tiles.length).toBeGreaterThanOrEqual(4);
-  expect(new Set(tiles).size).toBe(tiles.length);
+  await visit(page, '/', { title: /DefenceGate/, h1: 'Win, partner, qualify.' });
+  // WP-117: the hero's figures (a list of terms) became the figures of the three question tiles; a figure the data service did
+  // not give is left out, never printed as a dash.
+  const figures = page.locator('[data-tile] [data-figure]');
+  const numbers = await figures.locator(':scope > span:first-child').allInnerTexts();
+  for (const t of numbers) expect(t.trim(), 'a counter is a number').toMatch(/^\d[\d,]*$/);
+  // No two figures say the same thing (WP-86: the scope tiles of "What is in here" left home).
+  const labels = await figures.locator(':scope > span:last-child').allInnerTexts();
+  expect(labels.length).toBeGreaterThanOrEqual(4);
+  expect(new Set(labels).size).toBe(labels.length);
 });
 
 test('the tenders CSV is rectangular and says in a column whether it was cut', async ({ request }) => {

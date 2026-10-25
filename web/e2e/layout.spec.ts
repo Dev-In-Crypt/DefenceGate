@@ -40,8 +40,9 @@ test('the page title is the h1 of the book, 40/48 (32/40 on a phone), and the le
 });
 
 test('text-h4 is defined: the three questions on the home page are headings, not plain text', async ({ page }) => {
-  await visit(page, '/', { title: /DefenceGate/, h1: 'Defence and dual-use tenders and funding' });
-  const h = page.getByRole('heading', { name: /What is open to me\?/ }).first();
+  await visit(page, '/', { title: /DefenceGate/, h1: 'Win, partner, qualify.' });
+  // WP-117: the questions are the headings of the three tiles
+  const h = page.getByRole('heading', { name: 'What is open?', exact: true }).first();
   await expect(h).toBeVisible();
   const style = await h.evaluate((e) => ({ size: getComputedStyle(e).fontSize, weight: getComputedStyle(e).fontWeight }));
   expect(style.size).toBe('18px');

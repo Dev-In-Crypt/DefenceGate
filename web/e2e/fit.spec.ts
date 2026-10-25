@@ -273,11 +273,12 @@ test('a call that names no capability category says the list is the whole progra
 });
 
 test('the home page names the three parts', async ({ page }) => {
-  await visit(page, '/', { title: /DefenceGate/, h1: /tenders and funding/i });
-  await expect(page.getByRole('heading', { name: 'Three questions, three parts' })).toBeVisible();
-  for (const name of [/1\. What is open to me\?/, /2\. Who is already inside\?/, /3\. What do I need to qualify\?/]) {
-    await expect(page.getByRole('heading', { name })).toBeVisible();
+  await visit(page, '/', { title: /DefenceGate/, h1: /Win, partner, qualify\./ });
+  // WP-117 (owner's option A, 25 Oct 2026): the "Three questions, three parts" block became the three question tiles
+  await expect(page.getByRole('region', { name: 'Three questions' })).toBeVisible();
+  for (const name of ['What is open?', 'Who is already in?', 'Can I take part?']) {
+    await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
   }
   // WP-86: the third part leads to the one entry of the checks
-  await expect(page.getByLabel('Three questions, three parts').getByRole('link', { name: 'Check my company' })).toHaveAttribute('href', '/check');
+  await expect(page.getByRole('region', { name: 'Three questions' }).getByRole('link', { name: /Check if my company qualifies/ })).toHaveAttribute('href', '/check');
 });

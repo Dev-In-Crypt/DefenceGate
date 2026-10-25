@@ -99,7 +99,9 @@ test('the funding section draws bars and gives the same figures as a table', asy
 });
 
 test('the partners section ranks partners by shared projects and links to their projects', async ({ page }) => {
-  await visit(page, `${ALPHA}?tab=partners`, { title: /Alpha Systems/i, h1: /Alpha Systems/i, text: [/^Partners$/] });
+  await visit(page, `${ALPHA}?tab=partners`, { title: /Alpha Systems/i, h1: /Alpha Systems/i });
+  // WP-117: in the page itself; the header's menu has an item "Partners" too (a hidden button on a phone)
+  await expect(page.locator('#main').getByText(/^Partners$/).first()).toBeVisible();
   const table = page.getByRole('table', { name: /Partners, most shared projects first/i });
   const rows = table.getByRole('row');
   await expect(rows.nth(1)).toContainText(/Bravo/i);
