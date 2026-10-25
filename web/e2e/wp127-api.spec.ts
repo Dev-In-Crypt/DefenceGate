@@ -4,11 +4,10 @@ import { visit } from './helpers';
 /**
  * WP-127 against the fake API (e2e/support/fake-api.mjs): `/tenders?q=ammunition` waited 1.5 s on every view for scope counts that
  * answered 503. A search whose counts take 5 s is served without waiting for them, its scope choices without numbers; counts that
- * answer in time are shown. Skipped unless E2E_FAKE_API=1 (the site started with DG_API_URL pointing at the fake).
+ * answer in time are shown. Tagged @fake-api: it runs in the fake-api-* projects of playwright.config.ts (WP-128).
  */
-test.skip(!process.env.E2E_FAKE_API, 'needs the fake API: E2E_FAKE_API=1 and a site started with DG_API_URL=http://127.0.0.1:4010');
 
-test('slow scope counts do not hold the tender page up; counts in time are shown', async ({ page }) => {
+test('slow scope counts do not hold the tender page up; counts in time are shown', { tag: '@fake-api' }, async ({ page }) => {
   await page.request.get('/tenders?q=slowcounts');             // the first render of the route (compilation, caches) is not timed
   const t0 = Date.now();
   const slow = await page.request.get('/tenders?q=slowcounts');

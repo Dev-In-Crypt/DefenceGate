@@ -220,6 +220,13 @@
   .page-title { @apply font-sans text-h1-sm md:text-h1; }
   /* Opening paragraph of a page. */
   .lead { @apply font-sans text-lead text-ink; }
+  /* WP-128: classes of elements repeated on every row of a list, named once here instead of spelt out per row (a row's classes are
+     sent twice, in the HTML and in the page data: the 50 rows of a calendar month were 323 KB against a 300 KB budget). Same rules. */
+  .row-hover { @apply hover:bg-surface-inset hover:shadow-[0_0_0_8px_var(--surface-inset)] has-[:focus-visible]:bg-surface-inset has-[:focus-visible]:shadow-[0_0_0_8px_var(--surface-inset)]; }
+  .tag { @apply inline-flex items-center gap-1.5 rounded-pill px-2.5 py-[5px] text-label; }
+  /* bg-primary and text-on-primary stay on the element: the print rule `.bg-primary.text-on-primary` needs both classes there */
+  .tag-programme { @apply font-mono font-medium; }
+  .tag-neutral { @apply bg-surface-inset font-sans font-bold text-ink; }
 }
 
 /*

@@ -4,8 +4,8 @@ import type { RunStatus, StatusKind } from '@/lib/types';
 /** Non-interactive label. `programme` = pine fill + mono; `neutral` = inset fill. */
 export function Tag({ kind = 'neutral', wrap = false, children }: { kind?: 'programme' | 'neutral'; wrap?: boolean; children: React.ReactNode }) {
   return (
-    <span className={cn('inline-flex items-center gap-1.5 rounded-pill px-2.5 py-[5px] text-label', wrap ? 'max-w-full whitespace-normal break-words' : 'whitespace-nowrap',
-      kind === 'programme' ? 'bg-primary font-mono font-medium text-on-primary' : 'bg-surface-inset font-sans font-bold text-ink')}>
+    // the rules are .tag / .tag-programme / .tag-neutral in app/globals.css (WP-128: a list repeats them on every row)
+    <span className={cn('tag', wrap ? 'max-w-full whitespace-normal break-words' : 'whitespace-nowrap', kind === 'programme' ? 'tag-programme bg-primary text-on-primary' : 'tag-neutral')}>
       {children}
     </span>
   );
