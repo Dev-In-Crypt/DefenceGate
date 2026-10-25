@@ -12,7 +12,8 @@ Decisions that shape it:
   - a national notice whose TED twin is in the same result is shown once; so is a
     BOAMP parent whose rectificatif is in the same result, and a TED procedure's
     re-publications (the newest that matches the filters wins; the rectificatif never
-    hides). The buyer aggregate: `tenderCount` counts every notice of the default scope of the buyer (WP-96),
+    hides), and a Polish notice held from the bulletin and from its mirror (WP-135,
+    `mirror_hidden_by`). The buyer aggregate: `tenderCount` counts every notice of the default scope of the buyer (WP-96),
     collapsed or not; `openCount` applies the list's own collapse and status rule
     (`collapse_clauses`), so it equals what `/v1/tenders?buyer=` lists as open
   - amounts are never converted; a value range selects one currency
@@ -256,6 +257,10 @@ class Tender(BaseModel):
     subcontracting: bool
     sameNotice: list[dict[str, Any]]
     source: SourceAttribution
+    # WP-135, the notice's own page only: the slug of the copy the lists show when this notice is the other copy of a
+    # Polish notice held from the bulletin and from its mirror (`mirror_hidden_by`); the page names it as its canonical
+    # address. Null otherwise.
+    copyOf: str | None = None
     # WP-90, the notice's own page only (`/v1/tenders/{slug}`): the first sentence of the notice's own description,
     # where the source states one and it reads as a commercial subject (`commercial_subject`); null otherwise.
     subject: str | None = None
@@ -942,13 +947,50 @@ def buyers_with_page(conn, rows: list[dict[str, Any]]) -> set[int]:
     return known | {r["id"] for r in got}
 
 
+# WP-135: the Polish bulletin (`pl_ezam`) and its mirror (`pl_atlas`) publish the same notice under the same BZP number:
+# 27,730 pairs of one buyer family on 25 October 2026, every one of them listed and counted twice (buyer 7310: 604 where it
+# holds 601 notices). The pair is one notice. The bulletin's own copy is kept, except where only the mirror states a value
+# (19,621 of the pairs; no other field is held by the mirror alone): then the mirror's, so the notice keeps its value. The
+# kept copy names the other in `sameNotice` (`api._twins`); the hidden copy's page is still served, with the kept copy as
+# its canonical address (`Tender.copyOf`), and it leaves the sitemap.
+_PL_EZAM = "(SELECT id FROM source WHERE code = 'pl_ezam')"
+_PL_ATLAS = "(SELECT id FROM source WHERE code = 'pl_atlas')"
+
+
+def polish_pair(o: str, p: str) -> str:
+    """SQL: `p` is the same Polish notice as `o` in the other of the two sources (the same BZP number)."""
+    return (f"{p}.native_id = {o}.native_id AND {o}.source_id IN ({_PL_EZAM}, {_PL_ATLAS}) "
+            f"AND {p}.source_id IN ({_PL_EZAM}, {_PL_ATLAS}) AND {p}.source_id <> {o}.source_id")
+
+
+def mirror_hidden_by(o: str, p: str) -> str:
+    """SQL: `p` is the other copy of the Polish notice `o` (same number, the other of the two sources, same buyer family)
+    and is the copy that is kept, so `o` is not shown when `p` is. Exactly one copy of a pair is the kept one."""
+    def valued(x: str) -> str:              # a value that is a price, not a placeholder
+        return f"coalesce({x}.value_amount, 0) > {PLACEHOLDER_VALUE_MAX}"
+    def mirror_kept(mirror: str, bulletin: str) -> str:
+        return f"({valued(mirror)} AND NOT {valued(bulletin)})"
+    return (f"{polish_pair(o, p)} AND dgate_buyer_head({p}.buyer_org_id) = dgate_buyer_head({o}.buyer_org_id) "
+            f"AND (CASE WHEN {o}.source_id = {_PL_ATLAS} THEN NOT {mirror_kept(o, p)} ELSE {mirror_kept(p, o)} END)")
+
+
+def mirror_clause(where: list[str]) -> str:
+    """WP-135: the Polish copy rule alone: `o` is kept unless its kept copy (`mirror_hidden_by`) passes `where` too."""
+    p_where = [re.sub(r"\bo\.", "p.", clause) for clause in where]
+    return f"NOT EXISTS (SELECT 1 FROM opportunity p WHERE {mirror_hidden_by('o', 'p')} AND " + " AND ".join(p_where) + ")"
+
+
+# How many times the parameters of `where` appear in `where AND collapse_clauses(where)`: once in `where`, once per rule.
+COLLAPSE_REPEATS = 5
+
+
 def collapse_clauses(where: list[str], *, same_buyer: bool = False) -> str:
-    """The three rules that show a notice once, as one SQL condition over `opportunity o`:
+    """The four rules that show a notice once, as one SQL condition over `opportunity o`:
     the filters (`where`, written over `o`) are applied to the notice that would replace
     this one as well, so a filter that keeps a notice and not its twin never makes it vanish.
     `same_buyer` is for an aggregate over every buyer at once: the replacing notice must be
     the same buyer's, which is what `buyer = X` in `where` says for the list. The condition
-    carries no parameters of its own: each `%s` of `where` appears once per rule."""
+    carries no parameters of its own: each `%s` of `where` appears once per rule (`COLLAPSE_REPEATS`)."""
     def extra(alias: str) -> list[str]:
         # The same buyer is the same family (migration 0055): a twin filed under another
         # name variant of the body still replaces the notice.
@@ -1004,7 +1046,9 @@ def collapse_clauses(where: list[str], *, same_buyer: bool = False) -> str:
                        "OR (o.twin_method = 'procedure_id' AND r.source_id <> o.source_id "
                        "AND r.source_id = (SELECT id FROM source WHERE code = 'ted'))) AND "
                        + " AND ".join(rep_where) + ")")
-    return " AND ".join((not_collapsed, not_rectified, not_republished))
+    # WP-135: a Polish notice held from the bulletin and from its mirror is shown once (`mirror_hidden_by`, which already
+    # asks for the same buyer family).
+    return " AND ".join((not_collapsed, not_rectified, not_republished, mirror_clause(where)))
 
 
 # -------------------------------------------------------------- endpoints
@@ -1393,7 +1437,7 @@ def _count_up_to(conn, cond: str, where: list[str], params: list[Any], cap: int,
     started = monotonic()
     try:
         with time_boxed(conn, budget_ms):
-            n = conn.execute(sql, params * 4 + [cap + 1]).fetchone()["n"]
+            n = conn.execute(sql, params * COLLAPSE_REPEATS + [cap + 1]).fetchone()["n"]
     except psycopg.errors.QueryCanceled:
         return None
     finally:
@@ -1409,7 +1453,7 @@ def _count(conn, where: list[str], params: list[Any], extra: list[str] | None = 
     cond = " AND ".join([*where, *(extra or [])])
     if EXACT_TOTALS.get():                  # the worker's snapshot: no cap, no time box
         n = conn.execute(f"SELECT count(*) AS n FROM opportunity o WHERE {cond} AND {collapse_clauses(where)}",
-                         params * 4).fetchone()["n"]
+                         params * COLLAPSE_REPEATS).fetchone()["n"]
         return n, False
     small = _count_up_to(conn, cond, where, params, SMALL_CAP, COUNT_BUDGET_MS)
     if small is None:
@@ -1448,7 +1492,7 @@ def _rows(conn, where: list[str], params: list[Any], extra: list[str], order: st
         order = "(o.id IS NULL), " + order
     return conn.execute(
         f"{TENDER_SELECT} WHERE {cond} AND {collapse_clauses(where)} ORDER BY {order} LIMIT %s OFFSET %s",
-        params * 4 + [limit, offset]).fetchall()
+        params * COLLAPSE_REPEATS + [limit, offset]).fetchall()
 
 
 def _snapshot_total(conn, asked: dict[str, Any]) -> tuple[int, bool] | None:
@@ -1618,10 +1662,10 @@ def export_sql(where: list[str], limit: int, cursor: int | None) -> tuple[str, i
     """The page query of the export: the list's own filters and collapse rules, but keyed on the
     primary key (newest id first) instead of sorted and counted, so a page costs a scan that
     stops after `limit` + 1 rows and never reads the whole result. Returns the SQL and how many
-    times the filter parameters repeat in it (the collapse rules carry them three more times)."""
+    times the filter parameters repeat in it (`COLLAPSE_REPEATS`: the collapse rules carry them once each)."""
     keyset = " AND o.id < %s" if cursor is not None else ""
     return (f"{TENDER_SELECT} WHERE " + " AND ".join(where) + " AND " + collapse_clauses(where)
-            + f"{keyset} ORDER BY o.id DESC LIMIT %s"), 4
+            + f"{keyset} ORDER BY o.id DESC LIMIT %s"), COLLAPSE_REPEATS
 
 
 @router.get("/v1/tenders/export", response_model=TenderExportPage, dependencies=[Depends(known_params)])
@@ -1856,7 +1900,7 @@ def tender_slugs(conn=Depends(get_conn)):
     rows = conn.execute(
         f"""SELECT o.id, COALESCE(o.title_en, o.title_original) AS title, o.published_at, o.current_version
               FROM opportunity o
-             WHERE o.is_defence AND NOT o.suppressed AND {api.SCOPE_SQL['core']}
+             WHERE o.is_defence AND NOT o.suppressed AND {api.SCOPE_SQL['core']} AND {_sitemap_copy_rule()}
                AND ({api.EFFECTIVE_STATUS_SQL} = 'open' OR o.published_at >= %s)
              ORDER BY o.published_at DESC NULLS LAST, o.id DESC
              LIMIT {TENDER_SLUG_LIMIT}""", (since.date(),)).fetchall()
@@ -1864,6 +1908,11 @@ def tender_slugs(conn=Depends(get_conn)):
     now = datetime.now(timezone.utc)
     return [{"slug": make_slug(r["id"], redact_emails(r["title"]) or ""),
              "updatedAt": seen.get(r["id"]) or _day(r["published_at"]) or now} for r in rows]
+
+
+def _sitemap_copy_rule() -> str:
+    """WP-135: a sitemap lists a Polish notice once: not the copy whose kept copy (`mirror_hidden_by`) it lists too."""
+    return mirror_clause(["o.is_defence", "NOT o.suppressed", _api().SCOPE_SQL["core"]])
 
 
 # WP-114: the sitemap pages of the tenders, by id: page n holds the core notices with an id in
@@ -1895,6 +1944,7 @@ def tender_sitemap(page: int = Query(0, ge=0, le=10_000), conn=Depends(get_conn)
         f"""SELECT o.id, COALESCE(o.title_en, o.title_original) AS title, COALESCE(o.published_at, o.notice_date) AS day
               FROM opportunity o
              WHERE o.id >= %s AND o.id < %s AND o.is_defence AND NOT o.suppressed AND {api.SCOPE_SQL['core']}
+               AND {_sitemap_copy_rule()}
              ORDER BY o.id""", (page * SITEMAP_ID_SPAN, (page + 1) * SITEMAP_ID_SPAN)).fetchall()
     now = datetime.now(timezone.utc)
     return {"page": page, "pages": top // SITEMAP_ID_SPAN + 1,
@@ -1959,6 +2009,11 @@ def get_tender(slug: str, conn=Depends(get_conn)):
     if row["suppressed"]:
         raise removed()
     out = _present(conn, [row], checked=True)[0]
+    kept = conn.execute(f"""SELECT p.id, COALESCE(p.title_en, p.title_original) AS title FROM opportunity o
+                              JOIN opportunity p ON {mirror_hidden_by('o', 'p')}
+                             WHERE o.id = %s AND p.is_defence AND NOT p.suppressed ORDER BY p.id LIMIT 1""",
+                        (tender_id,)).fetchone()
+    out["copyOf"] = make_slug(kept["id"], redact_emails(kept["title"]) or "") if kept else None
     got = conn.execute("SELECT payload->>'description' AS d, payload->>'documents_url' AS docs FROM opportunity_version "
                        "WHERE opportunity_id = %s ORDER BY version DESC LIMIT 1", (tender_id,)).fetchone()
     out["subject"] = commercial_subject(got["d"] if got else None)
@@ -2792,7 +2847,7 @@ def under_codes(conn, prefixes: list[str]) -> tuple[dict[int, int], bool]:
             f"WHERE {' AND '.join(w)}")
     try:
         with time_boxed(conn, UNDER_CODES_MS):    # a savepoint: a cancelled statement loses nothing else
-            rows = conn.execute(f"{head} AND {collapse_clauses(w, same_buyer=True)} GROUP BY 1", (prefixes,) * 4).fetchall()
+            rows = conn.execute(f"{head} AND {collapse_clauses(w, same_buyer=True)} GROUP BY 1", (prefixes,) * COLLAPSE_REPEATS).fetchall()
         return {r["id"]: r["n"] for r in rows}, True
     except psycopg.errors.QueryCanceled:
         return {r["id"]: r["n"] for r in conn.execute(f"{head} GROUP BY 1", (prefixes,)).fetchall()}, False

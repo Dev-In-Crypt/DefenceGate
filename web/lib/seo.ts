@@ -42,6 +42,15 @@ export function tenderMeetsMinimumContent(t: Tender): boolean {
   return Boolean(safeHttpUrl(t.source.url) && t.title && (t.deadline !== null || t.publishedAt !== null || t.estimatedValue !== null));
 }
 
+/**
+ * WP-135: the canonical address of a notice's page. A Polish notice held from the bulletin and from its mirror is listed once,
+ * as one of the two copies (`copyOf` on the other); the other copy's page is still served, under the listed copy's address.
+ */
+export function tenderCanonicalPath(t: Pick<Tender, 'slug' | 'copyOf'>): string {
+  const kept = t.copyOf && /^[0-9]{1,9}(-[a-z0-9-]{0,80})?$/.test(t.copyOf) ? t.copyOf : null;
+  return `/tenders/${kept ?? t.slug}`;
+}
+
 export function absoluteUrl(path: string): string {
   return new URL(path, SITE.url).toString();
 }

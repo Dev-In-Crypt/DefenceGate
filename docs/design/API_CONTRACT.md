@@ -151,7 +151,10 @@ currency, a placeholder amount excluded; with a range it is the currency the ran
 absent with no range: no filter), `confidence` (`high`, `medium`, `low`, comma list; absent or all three: no filter; another word: 422), `sort` (`deadline-asc` default | `published-desc`), `page`
 (1..1000), `pageSize` (1..250, default 20).
 Returns `{ items: Tender[], total, totalCapped, page, pageSize, maxOffset, meta }`. A national notice whose TED twin is
-in the same result is shown once (the TED one); `sameNotice` lists the other copies. Since 19 October 2026 the work of a
+in the same result is shown once (the TED one); `sameNotice` lists the other copies. So is a Polish notice held from the
+bulletin (`pl_ezam`) and from its mirror (`pl_atlas`) under one number and buyer family (WP-135): the bulletin's copy, or
+the mirror's where only the mirror states a value; the other copy's `Tender.copyOf` (its own page only) is the slug of the
+listed one, the page's canonical address, and the sitemap leaves it out. Since 19 October 2026 the work of a
 page is bounded: see "Changes of 19 October 2026 (WP-52)" (`totalCapped`, `maxOffset`, `status=planned`, `asOf`).
 
 ### `/v1/tenders/{slug}`

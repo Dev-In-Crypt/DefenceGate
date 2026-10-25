@@ -241,8 +241,9 @@ def _twins(conn, ids: list[int]) -> dict[int, list[dict[str, Any]]]:
     """For a page of rows, the same notice in the other sources, by TED number."""
     if not ids:
         return {}
+    # WP-135: and a Polish notice in the bulletin and in its mirror, by its BZP number
     rows = conn.execute(
-        """
+        f"""
         SELECT a.id AS row_id, b.id, bs.code AS source, b.native_id, b.source_url
           FROM opportunity a
           JOIN opportunity b ON b.id <> a.id AND b.is_defence AND NOT b.suppressed AND (
@@ -250,7 +251,8 @@ def _twins(conn, ids: list[int]) -> dict[int, list[dict[str, Any]]]:
                    AND b.native_id = a.ted_ref)
              OR (a.source_id = (SELECT id FROM source WHERE code = 'ted')
                    AND b.ted_ref = a.native_id)
-             OR (a.ted_ref IS NOT NULL AND b.ted_ref = a.ted_ref))
+             OR (a.ted_ref IS NOT NULL AND b.ted_ref = a.ted_ref)
+             OR ({_tenders.polish_pair("a", "b")}))
           JOIN source bs ON bs.id = b.source_id
          WHERE a.id = ANY(%s)
          ORDER BY a.id, bs.code, b.native_id
@@ -499,7 +501,9 @@ def list_opportunities(
         sql = (f"WITH matched AS ({matched}) SELECT m.* FROM matched m"
                " WHERE NOT (m.ted_ref IS NOT NULL AND EXISTS ("
                "   SELECT 1 FROM matched t"
-               "    WHERE t.source_code = 'ted' AND t.native_id = m.ted_ref))")
+               "    WHERE t.source_code = 'ted' AND t.native_id = m.ted_ref))"
+               # WP-135: a Polish notice in the bulletin and in its mirror, once
+               f" AND NOT EXISTS (SELECT 1 FROM matched p WHERE {_tenders.mirror_hidden_by('m', 'p')})")
     else:
         sql = f"SELECT m.* FROM ({matched}) m WHERE TRUE"
     sql += " ORDER BY m.published_at DESC NULLS LAST, m.id DESC LIMIT %s OFFSET %s"

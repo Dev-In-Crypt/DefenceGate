@@ -345,7 +345,7 @@ def build_events(conn, *, scope: str | None, countries: list[str],
     where = ["o.is_defence = TRUE", "NOT o.suppressed", scope_sql] + (["o.country = ANY(%s)"] if countries else [])
     shown = {r["id"] for r in conn.execute(
         f"SELECT o.id FROM opportunity o WHERE o.id = ANY(%s) AND {' AND '.join(where)} "
-        f"AND {T.collapse_clauses(where)}", [ids] + params * 4).fetchall()}
+        f"AND {T.collapse_clauses(where)}", [ids] + params * T.COLLAPSE_REPEATS).fetchall()}
     amendments = _amendments(conn, [i for i in amended_ids if i in shown], since, now if bounded else None)
 
     events: dict[tuple[int, date], dict[str, Any]] = {}
