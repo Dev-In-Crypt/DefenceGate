@@ -1,20 +1,20 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, Building2, Clock, GitCompare, Layers, Link2, SearchCheck, ShieldCheck } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { getAccountStatus } from '@/lib/account';
-import { getCalls, getChanges, getHealth, getSiteStats, getTenders, lastDataUpdate } from '@/lib/api';
+import { getCalls, getHealth, getSiteStats, getSupplierSummary, getTenders, lastDataUpdate } from '@/lib/api';
 import { portalWords } from '@/lib/coverage-copy';
-import { valueMissingNote, valueMissingNotes } from '@/lib/source-status';
-import { toTenderQuery } from '@/lib/filters';
-import { formatDateTimeUtc, formatNumber, repeatedCallBudgets } from '@/lib/format';
+import { getCallDeadline, getTenderDeadline, type DeadlineInfo } from '@/lib/deadline';
+import { displayName } from '@/lib/display-name';
+import { formatDateTimeUtc, formatDateUtc, formatMoney, formatNumber, isPlaceholderAmount, plural, repeatedCallBudgets } from '@/lib/format';
 import { buildMetadata, faqJsonLd, organizationJsonLd } from '@/lib/seo';
-import { BUYER_COUNTRIES, cpvDivisionLabel } from '@/lib/taxonomy';
+import { faqItems, homeFaq } from '@/lib/site-copy';
+import { PROGRAMMES, countryName, isNonEnglish } from '@/lib/taxonomy';
+import type { Money } from '@/lib/types';
 import { Button } from '@/components/dg/button';
-import { BenefitGrid, Callout, Faq, Steps, type FaqItem } from '@/components/dg/blocks';
-import { CallCard, TenderCard } from '@/components/dg/cards';
+import { Faq } from '@/components/dg/blocks';
 import { EmptyState, JsonLd } from '@/components/dg/feedback';
-import { AutoGrid } from '@/components/dg/auto-grid';
-import { CARD_PADDING, CARD_SURFACE, Card } from '@/components/dg/card';
+import { CARD_PADDING, CARD_SURFACE } from '@/components/dg/card';
 import { Icon } from '@/components/dg/icon';
 import { SiteSearchForm } from '@/components/dg/site-search';
 
@@ -27,81 +27,81 @@ export const metadata: Metadata = buildMetadata({
   path: '/',
 });
 
-/**
- * Example searches for the finder under the headline. Each is a real filter of /tenders; the page counts the open
- * notices of each when it renders and shows the first three that have any, so an example is never an empty list.
- */
-const EXAMPLES: { country: string; cpv: string }[] = [
-  { country: 'PL', cpv: '35' }, { country: 'FR', cpv: '35' }, { country: 'DE', cpv: '34' },
-  { country: 'ES', cpv: '18' }, { country: 'NL', cpv: '50' }, { country: 'SE', cpv: '35' },
-];
-const EXAMPLES_SHOWN = 3;
-
-const benefits = (names: string) => [
-  { icon: SearchCheck, title: 'Many portals, one list', body: `TED notices and the national portals of ${names}, in one list with one layout. Other countries appear through TED only.` },
-  { icon: GitCompare, title: 'See what changed', body: 'Deadlines move and values are corrected. We keep a new version when a notice’s deadline, value, status or another main field changes, so you see what changed and when. Our archive began in September 2026.' },
-  { icon: Link2, title: 'Straight to the source', body: 'Each record links to its original publication. Check it there before you act: the source is the authority, not us.' },
-  { icon: ShieldCheck, title: 'Know what we cover', body: 'Every source, when it last ran and whether it met the minimum we expect are public, with the span of publication dates held. Known gaps are listed on the status page.' },
-  { icon: Layers, title: 'Tenders and funding side by side', body: 'EU and national funding calls are in the same directory as the procurement notices and on one deadline calendar. They are searched separately.' },
-  { icon: Building2, title: 'The buyer in context', body: 'Open a buyer to see its current and past notices in one place before you decide to bid.' },
-];
-
-const STEPS = [
-  { title: 'We collect', body: 'Public notices and funding calls are collected from the sources listed on the status page, daily; the EU research datasets monthly.' },
-  { title: 'You search and filter', body: 'By country, buyer, deadline, value or keyword. Every fact is shown with its source.' },
-  { title: 'You verify and act', body: 'Open the original, confirm the details there, then bid or apply. We link; the decision is yours.' },
-];
-
-const faqItems = (portals: { count: string; names: string }): FaqItem[] => [
-  { q: 'What is DefenceGate?', a: 'An independent information service that collects publicly published defence and dual-use procurement notices and funding calls, shows them in one directory, and keeps a version history of the changes it observes.' },
-  { q: 'Is it an official source?', a: 'No. We are not affiliated with the EU, TED or any government. Every record links to the original publication, which is the authoritative text.' },
-  { q: 'Where does the data come from?', a: `From TED, the national tender portals and feeds of ${portals.names}, and public funding portals. The source status page lists each one with its licence, when it last ran and the known gaps.` },
-  { q: 'How current is it?', a: 'Tender sources and funding portals are collected daily (the EU research datasets monthly), not in real time. The status page shows the last run per source. Always confirm deadlines in the original notice.' },
-  { q: 'Is it complete?', a: `No, and we do not claim it is. Sources can fail or publish late, national tender portals are collected for ${portals.count} countries only (the others through TED), and some history is still being loaded. A notice you need may be missing, so check the portals relevant to you.` },
-  { q: 'How do you decide what counts as defence or dual-use?', a: 'Automatically, from several signals such as the legal basis, the product classification and the buyer. It can be wrong and is not a legal determination. See the methodology page.' },
-  { q: 'What does the version history show?', a: 'What changed in a notice between two of our observations and when we saw it, for example a moved deadline or a corrected value. A new version is kept when the title, buyer, country, procedure, legal basis, value, currency, publication date, deadline, product codes, source link or status changes. History starts when we first saw a notice (our archive began in September 2026); earlier states are not reconstructed.' },
-  { q: 'Do I need an account?', a: 'Not to browse. Alerts and a personal workspace are being prepared and are not open yet.' },
-  { q: 'Is it free?', a: 'Browsing the catalogue is free today. Anything beyond that will be announced with its own terms before it is offered.' },
-  { q: 'Do you give legal or bidding advice?', a: 'No. This is information only. For legal, export-control or eligibility questions, ask a qualified adviser.' },
-  { q: 'How do I report an error?', a: 'Use the contact route in the imprint and tell us the record and what is wrong. We check it against the source.' },
-];
-
-/**
- * A figure of the home page. `value` null means the data service gave none and no earlier answer is held: the tile says
- * so in words. It is never a dash, which read as "zero" or as a broken page (UX walk-throughs of 16 October 2026).
- * `asOf`: the figure is the last good one, from that time.
- */
-function Counter({ label, value, sub, asOf, wide = false }: { label: string; value: string | null; sub?: string; asOf?: string; wide?: boolean }) {
+/** A figure of a tile: the number, or nothing at all when the data service gave none (never a dash, never a zero it did not say). */
+function Figure({ value, label }: { value: number | null | undefined; label: string }) {
+  if (value === null || value === undefined) return null;
   return (
-    <div className={`flex min-w-0 flex-col gap-1 border-t border-line pt-3 ${wide ? 'col-span-full' : ''}`}>
-      <dt className="text-label text-ink-muted">{label}</dt>
-      {value === null
-        ? <dd className="m-0 text-body text-ink-muted">Not available right now</dd>
-        : <dd className="m-0 font-mono text-figure tabular-nums">{value}</dd>}
-      {asOf && value !== null && <dd className="m-0 text-small text-ink-muted">as of {formatDateTimeUtc(asOf)}</dd>}
-      {sub && <dd className="m-0 text-small text-ink-muted">{sub}</dd>}
-    </div>
+    <span data-figure="" className="flex flex-col">
+      <span className="font-mono text-h3 tabular-nums">{formatNumber(value)}</span>
+      <span className="text-small text-ink-muted">{label}</span>
+    </span>
   );
 }
 
-const ACCOUNT_ANSWER_OPEN = 'Not to browse. An account, opened with a one-time link sent to your e-mail, lets you save searches, follow buyers and programmes and keep a shortlist.';
+/**
+ * One of the three questions (WP-117, owner's option A): the whole tile is one link, named by its question and its title (the
+ * rest is read as its description). The question is the heading, so the three stand in the page's outline.
+ */
+function Tile({ id, href, question, title, body, go, children }: { id: string; href: string; question: string; title: string; body: string; go: string; children?: React.ReactNode }) {
+  return (
+    <li className="min-w-0">
+      <Link href={href} data-tile="" aria-labelledby={`${id}-q ${id}-t`} aria-describedby={children ? `${id}-b ${id}-n` : `${id}-b`}
+        className={`group flex h-full flex-col gap-3 border-strong text-ink no-underline transition-colors duration-dg hover:border-ink-muted ${CARD_SURFACE} ${CARD_PADDING}`}>
+        <h2 id={`${id}-q`} className="m-0 text-h4 text-accent-text">{question}</h2>
+        <span id={`${id}-t`} className="text-h3 font-bold group-hover:underline">{title}</span>
+        <span id={`${id}-b`} className="text-body text-ink-muted">{body}</span>
+        {children && <span id={`${id}-n`} className="mt-auto flex flex-wrap gap-x-6 gap-y-2 pt-1">{children}</span>}
+        <span className={`inline-flex items-center gap-2 text-body font-bold ${children ? '' : 'mt-auto'}`}>{go}<Icon icon={ArrowRight} size="inline" /></span>
+      </Link>
+    </li>
+  );
+}
+
+/** A row of a closing-soon list: the title, what it is from (and its value where stated) and the deadline, nothing more. */
+function Row({ href, title, lang, meta, deadline }: { href: string; title: string; lang?: string; meta: string; deadline: DeadlineInfo }) {
+  return (
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-0.5 border-t border-line px-5 py-3 first:border-t-0">
+      <Link href={href} prefetch={false} lang={lang} title={title} className="inline-flex min-h-11 min-w-0 items-center font-semibold no-underline hover:underline">
+        {/* two lines at most: one line cut a phone's titles to two words */}
+        <span className="line-clamp-2 min-w-0 break-words">{title}</span>
+      </Link>
+      <span className="col-start-2 row-span-2 row-start-1 text-right text-small">
+        {deadline.rolling || !deadline.iso
+          ? <span className="font-bold">{deadline.rolling ? deadline.label : 'No fixed deadline'}</span>
+          : <><span className="block font-bold text-accent-text">{deadline.countdown}</span><time dateTime={deadline.iso} className="font-mono tabular-nums">{formatDateUtc(deadline.iso)}</time></>}
+      </span>
+      <span className="min-w-0 text-small text-ink-muted">{meta}</span>
+    </li>
+  );
+}
+
+const stated = (m: Money | null | undefined) => (m && !isPlaceholderAmount(m.amount) ? formatMoney(m) : null);
+
+function ClosingList({ id, title, more, empty, children }: { id: string; title: string; more: { href: string; label: string }; empty: React.ReactNode; children: React.ReactNode[] }) {
+  return (
+    <section aria-labelledby={id} className="flex min-w-0 flex-col gap-3">
+      <h2 id={id} className="m-0 text-h2">{title}</h2>
+      {children.length === 0 ? empty : <ul className={`m-0 list-none p-0 ${CARD_SURFACE}`}>{children}</ul>}
+      <Link href={more.href} className="inline-flex min-h-11 items-center gap-2 self-start text-body font-bold">{more.label}<Icon icon={ArrowRight} size="inline" /></Link>
+    </section>
+  );
+}
 
 export default async function LandingPage() {
   const today = new Date().toISOString().slice(0, 10);
   // Cached for a minute; any failure reads as "not open", which keeps the earlier wording.
   const { open: accountsOpen } = await getAccountStatus();
   const health = await getHealth().catch(() => null);
-  const portals = portalWords(health?.sources ?? []);
-  const faq = faqItems(portals).map((f) => (accountsOpen && f.q === 'Do I need an account?' ? { ...f, a: ACCOUNT_ANSWER_OPEN } : f));
-  const [stats, current, dated, closingCalls, changes, exampleCounts] = await Promise.all([
+  const faq = homeFaq(faqItems(portalWords(health?.sources ?? []), accountsOpen));
+  const [stats, current, dated, closingCalls, suppliers] = await Promise.all([
     getSiteStats().catch(() => null),
-    // Current: not past its deadline, and with no deadline only if published within the last year.
+    // The tender list's default (/tenders, status Open): not past its deadline, and with no deadline only if published within the last year.
     getTenders({ pageSize: 1 }, { cacheable: true }).catch(() => null),
-    // With a stated deadline that has not passed: the ones a reader can still act on by date.
+    // With a stated deadline that has not passed, the nearest first: the ones a reader can still act on by date.
     getTenders({ deadlineFrom: today, pageSize: SAMPLE_SIZE }, { cacheable: true }).catch(() => null),
     getCalls({ status: 'closing-soon', pageSize: SAMPLE_SIZE }, { cacheable: true }).catch(() => null),
-    getChanges({ pageSize: 1 }).catch(() => null),
-    Promise.all(EXAMPLES.map((e) => getTenders({ country: [e.country], cpv: [e.cpv], pageSize: 1 }, { cacheable: true }).then((r) => r.total).catch(() => 0))),
+    // Cached (an hour); null when the API has no supplier map: the tile then carries no number.
+    getSupplierSummary(),
   ]);
   // A list that did not come is not an empty list, and not a page to keep. This page is prerendered and revalidated every minute
   // (`revalidate`): an error thrown here fails the build (which tries a page again, next.config.ts) or the revalidation, and Next
@@ -109,185 +109,91 @@ export default async function LandingPage() {
   // next revalidation (18 October 2026, a build while the API's database role was exhausted). `withLastGood` cannot help in a fresh
   // build container (nothing is held yet), and its key for the closing-tenders list carries today's date.
   if (dated === null || closingCalls === null) throw new Error('home: the data service did not answer for the closing lists');
-  const examples = EXAMPLES.map((e, i) => ({ ...e, open: exampleCounts[i] })).filter((e) => e.open > 0).slice(0, EXAMPLES_SHOWN);
-  const closingTenders = dated;
-  const closingCallItems = closingCalls.items;
-  const budgetRepeats = repeatedCallBudgets(closingCallItems);
-  const missing = valueMissingNotes(health?.sources ?? []);
+  const budgetRepeats = repeatedCallBudgets(closingCalls.items);
+  const openTenders = current?.total ?? null;
+  const openCalls = stats?.openCalls ?? null;
+  const sources = health?.sources.length ?? stats?.sources ?? null;
+  const lastUpdate = stats?.lastUpdate ?? (health ? lastDataUpdate(health) : null);
   return (
     <>
       <JsonLd data={organizationJsonLd()} />
+      {/* WP-117: only the questions this page shows; /about carries the others */}
       <JsonLd data={faqJsonLd(faq)} />
 
-      {/* Hero (WP-86): for whom in one sentence, three tasks, one search over everything; the figures at the right (under it on a
-          phone, after the tasks). The figures column is 20rem so the book's 56/60 headline (balanced) takes two lines at 1280 px. */}
-      <section aria-labelledby="hero" className={`grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-x-10 lg:gap-y-5 ${CARD_SURFACE} ${CARD_PADDING}`}>
-        <div className="flex min-w-0 flex-col gap-5">
-          <h1 id="hero" className="m-0 text-display-sm [text-wrap:balance] md:text-display">Defence and dual-use tenders and funding, in one place.</h1>
-          <p className="m-0 max-w-prose text-body text-ink-muted md:text-h3 md:font-normal">
-            For suppliers, bid teams and advisers: notices from TED and national portals, each linked to its original source, with changes to dates, values and status kept.
-          </p>
-          <nav aria-label="Start here" className="flex flex-wrap gap-3">
-            <Button href="/tenders" iconRight={ArrowRight}>Find a tender</Button>
-            <Button href="/funding" iconRight={ArrowRight}>Find funding</Button>
-            <Button href="/readiness/supplier" variant="secondary" className="whitespace-normal text-left">I make parts or provide services: who buys and who wins?</Button>
-          </nav>
-          <SiteSearchForm id="home-search" />
-          <p className="m-0 text-small text-ink-muted">Free to browse. No account needed.</p>
-        </div>
-        <dl aria-label="Live data" className="m-0 grid grid-cols-2 content-start gap-3">
-          <Counter label="Tenders with a deadline ahead" value={dated ? formatNumber(dated.total) : null} asOf={dated?.staleAsOf} />
-          <Counter label="Current notices" value={current ? formatNumber(current.total) : null} asOf={current?.staleAsOf} sub="including some without a stated deadline" />
-          <Counter label="Open funding calls" value={stats ? String(stats.openCalls) : null} />
-          <Counter label="Sources" value={stats ? String(stats.sources) : null} />
-          <Counter wide label="Last collection run" value={stats ? formatDateTimeUtc(stats.lastUpdate) : health ? formatDateTimeUtc(lastDataUpdate(health)) : null} />
-        </dl>
-        <div className="flex min-w-0 flex-col gap-5 lg:col-span-2">
-          <div className="flex flex-wrap items-center gap-x-5">
-            {examples.length > 0 && (
-              <>
-                <p className="m-0 text-small text-ink-muted">Open now, for example:</p>
-                <ul className="m-0 flex list-none flex-wrap gap-x-5 p-0">
-                  {examples.map((e) => (
-                    <li key={`${e.country}-${e.cpv}`}>
-                      <Link href={`/tenders${toTenderQuery({ country: [e.country], cpv: [e.cpv] })}`} className="inline-flex min-h-11 items-center text-small font-bold">
-                        {BUYER_COUNTRIES[e.country] ?? e.country}, {cpvDivisionLabel(e.cpv)?.toLowerCase() ?? `CPV ${e.cpv}`}: {formatNumber(e.open)}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-            <Link href="/cpv" className="inline-flex min-h-11 items-center text-small font-bold">Not sure of the code? CPV finder</Link>
-          </div>
-        </div>
+      {/* WP-117 (owner's option A of 25 October 2026): the headline and lead are the owner's words; one search, nothing else. */}
+      <section aria-labelledby="hero" className="flex flex-col gap-5 pt-2 md:pt-6">
+        <h1 id="hero" className="m-0 text-display-sm [text-wrap:balance] md:text-display">Win, partner, qualify.<br className="hidden md:inline" /> Across Europe’s defence market.</h1>
+        <p className="m-0 max-w-prose text-body text-ink-muted md:text-h3 md:font-normal">
+          Defence and dual-use tenders and EU funding calls, the companies already in EU-funded projects, and a five-question check against EDF, EDIP and SAFE rules. Free to browse, every fact linked to its source.
+        </p>
+        <SiteSearchForm id="home-search" className="max-w-3xl" />
       </section>
 
-      {/* WP-86: the first useful lists right under the hero (on a phone they were some 9,000 px down). */}
-      <section aria-labelledby="closing-tenders" className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="closing-tenders" className="m-0 text-h2">Tenders closing next</h2>
-          <Link href="/tenders" className="inline-flex min-h-11 items-center text-small font-bold">All current tenders</Link>
-        </div>
-        {closingTenders.items.length === 0 ? (
-          <EmptyState title="No tenders to show right now" action={<Button variant="secondary" href="/tenders">Browse all tenders</Button>} />
-        ) : (
-          <ul className="m-0 grid list-none gap-4 p-0 lg:grid-cols-3">
-            {closingTenders.items.map((t) => <li key={t.id} className="min-w-0"><TenderCard tender={t} headingLevel="h3" valueNote={valueMissingNote(missing, t.source.sourceId)} /></li>)}
-          </ul>
-        )}
-      </section>
-
-      <section aria-labelledby="closing" className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="closing" className="m-0 text-h2">Funding calls closing soon</h2>
-          <Link href="/funding?status=closing-soon" className="inline-flex min-h-11 items-center text-small font-bold">All calls closing within 30 days</Link>
-        </div>
-        {closingCallItems.length === 0 ? (
-          <EmptyState title="No calls close in the next 30 days" action={<Button variant="secondary" href="/funding">Browse all open calls</Button>} />
-        ) : (
-          <ul className="m-0 grid list-none gap-4 p-0 lg:grid-cols-3">
-            {closingCallItems.map((c) => <li key={c.id} className="min-w-0"><CallCard call={c} headingLevel="h3" budgetRepeated={budgetRepeats.has(c.id)} /></li>)}
-          </ul>
-        )}
-      </section>
-
-      {/* The three parts: one block (the hero tiles and this section said the same thing). */}
-      <section aria-labelledby="layers" className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <h2 id="layers" className="m-0 text-h2">Three questions, three parts</h2>
-          <p className="m-0 max-w-prose text-body text-ink-muted">
-            A supplier asks the same three things in turn. Each part below answers one of them from public sources, and says where the answer comes from.
-          </p>
-        </div>
-        <AutoGrid as="ol" min={300} aria-label="The three parts of DefenceGate">
-          <Card as="li" className="gap-2">
-            <h3 className="m-0 text-h4">1. What is open to me?</h3>
-            <p className="m-0 text-body">
-              Procurement notices from TED and the national portals, and EU and national funding calls, with their deadlines. A funding call whose rules we have read
-              shows what its document says about who may apply.
-            </p>
-            <p className="m-0 mt-auto flex flex-wrap gap-x-4 text-small font-bold">
-              <Link href="/tenders" className="inline-flex min-h-11 items-center">Tenders</Link>
-              <Link href="/funding" className="inline-flex min-h-11 items-center">Funding calls</Link>
-            </p>
-          </Card>
-          <Card as="li" className="gap-2">
-            <h3 className="m-0 text-h4">2. Who is already inside?</h3>
-            <p className="m-0 text-body">
-              Who took part in funded projects, in which role and with whom: Horizon Europe, Horizon 2020 and FP7 projects from CORDIS, and European Defence Fund projects
-              from the Commission’s factsheets, which a language model reads. A funding call page lists organisations from earlier projects of the same area.
-            </p>
-            <p className="m-0 mt-auto flex flex-wrap gap-x-4 text-small font-bold">
-              <Link href="/organisations" className="inline-flex min-h-11 items-center">Companies in EU-funded projects</Link>
-            </p>
-          </Card>
-          <Card as="li" className="gap-2">
-            <h3 className="m-0 text-h4">3. What do I need to qualify?</h3>
-            <p className="m-0 text-body">
-              Five short questions about your company, kept in your browser, give a verdict for the European Defence Fund, EDIP and SAFE, the steps you would still need,
-              and, on a call page, whether you can get them before the deadline. Each rule shows the text it rests on.
-            </p>
-            <p className="m-0 mt-auto flex flex-wrap gap-x-4 text-small font-bold">
-              <Link href="/check" className="inline-flex min-h-11 items-center">Check my company</Link>
-              <Link href="/requirements" className="inline-flex min-h-11 items-center">Requirements</Link>
-            </p>
-          </Card>
-        </AutoGrid>
-        <p className="m-0 max-w-prose text-small text-ink-muted">
-          None of this is legal advice or a promise of eligibility: the call text and the contracting authority decide.
+      <section aria-label="Three questions" className="flex flex-col gap-3">
+        <ul aria-label="What do you want to know?" className="m-0 grid list-none gap-4 p-0 md:grid-cols-3">
+          <Tile id="t-open" href="/tenders" question="What is open?" title="Find tenders and funding" go="Browse"
+            body="Defence and dual-use tenders from TED and national portals, and EU and national funding calls, with their deadlines.">
+            {(openTenders !== null || openCalls !== null) && <><Figure value={openTenders} label={plural(openTenders ?? 0, 'open tender')} /><Figure value={openCalls} label={plural(openCalls ?? 0, 'open funding call')} /></>}
+          </Tile>
+          <Tile id="t-partners" href="/companies" question="Who is already in?" title="Find partners" go="Find partners"
+            body="Companies that won defence contracts or took part in EU-funded projects, and partners in Ukraine.">
+            {suppliers && <Figure value={suppliers.suppliers} label={`${plural(suppliers.suppliers, 'company', 'companies')} that won contracts`} />}
+          </Tile>
+          {/* Five steps: the readiness check's wizard (components/readiness/wizard.tsx, "Step n of 5") */}
+          <Tile id="t-check" href="/check" question="Can I take part?" title="Check if my company qualifies" go="Start the check"
+            body="Five short sets of questions. The answer says what the EDF, EDIP and SAFE rules mean for your company, with the rule text it rests on.">
+            <span data-figure="" className="flex flex-col"><span className="font-mono text-h3 tabular-nums">5</span><span className="text-small text-ink-muted">steps, no account</span></span>
+          </Tile>
+        </ul>
+        <p className="m-0 text-body text-ink-muted">
+          Make parts or provide services?{' '}
+          <Link href="/readiness/supplier" className="inline-flex min-h-11 items-center font-bold text-ink">See who buys what you make</Link>
         </p>
       </section>
 
-      {changes && (
-        <section aria-labelledby="changed" className={`flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-8 ${CARD_SURFACE} ${CARD_PADDING}`}>
-          <div className="flex min-w-0 flex-col gap-3">
-            <h2 id="changed" className="m-0 text-h2">What changed in the last {changes.windowDays} days</h2>
-            <p className="m-0 max-w-prose text-body text-ink-muted">
-              <span className="font-mono tabular-nums text-ink">{formatNumber(changes.counts.new)}</span> new notices and{' '}
-              <span className="font-mono tabular-nums text-ink">{formatNumber(changes.counts.amended)}</span> amendments to a deadline, value, status or procedure,
-              from our archive.
-            </p>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-x-5">
-            <Button href="/changes" variant="secondary">See what changed</Button>
-          </div>
-        </section>
-      )}
+      <div className="grid gap-8 md:grid-cols-2 md:gap-6">
+        <ClosingList id="closing-tenders" title="Tenders closing soon"
+          more={{ href: '/tenders', label: openTenders === null ? 'All open tenders' : `All ${formatNumber(openTenders)} open tenders` }}
+          empty={<EmptyState title="No tenders to show right now" action={<Button variant="secondary" href="/tenders">Browse all tenders</Button>} />}>
+          {dated.items.map((t) => (
+            <Row key={t.id} href={`/tenders/${t.slug}`} title={displayName(t.title)} lang={isNonEnglish(t.titleLanguage) ? (t.titleLanguage ?? undefined) : undefined}
+              meta={[t.country ? countryName(t.country) : null, stated(t.estimatedValue)].filter(Boolean).join(' · ')} deadline={getTenderDeadline(t)} />
+          ))}
+        </ClosingList>
+        <ClosingList id="closing" title="Funding closing soon"
+          more={{ href: '/funding', label: openCalls === null ? 'All open calls' : `All ${formatNumber(openCalls)} open ${plural(openCalls, 'call')}` }}
+          empty={<EmptyState title="No calls close in the next 30 days" action={<Button variant="secondary" href="/funding">Browse all open calls</Button>} />}>
+          {closingCalls.items.map((c) => (
+            // A call budget shared by the topics of one call is stated once (on its first row), as the list cards do.
+            <Row key={c.id} href={`/funding/${c.slug}`} title={displayName(c.title)} lang={isNonEnglish(c.titleLanguage) ? c.titleLanguage : undefined}
+              meta={[PROGRAMMES[c.programme].label, budgetRepeats.has(c.id) ? null : stated(c.budget)].filter(Boolean).join(' · ')} deadline={getCallDeadline(c)} />
+          ))}
+        </ClosingList>
+      </div>
 
-      <section aria-labelledby="why" className="flex flex-col gap-4">
-        <h2 id="why" className="m-0 text-h2">Why DefenceGate</h2>
-        <BenefitGrid items={benefits(portals.names)} />
+      <section aria-label="About the data" className="flex flex-wrap items-center gap-x-6 gap-y-1 border-y border-line py-3 text-body text-ink-muted">
+        {sources !== null && <span data-trust="sources"><span className="font-bold text-ink">{formatNumber(sources)} {plural(sources, 'source')}</span> (TED and national portals)</span>}
+        {lastUpdate && <span data-trust="update">Last update <span className="font-mono tabular-nums text-ink">{formatDateTimeUtc(lastUpdate)}</span></span>}
+        <Link href="/methodology" className="inline-flex min-h-11 items-center font-bold text-ink">Methodology</Link>
+        <Link href="/data" className="inline-flex min-h-11 items-center font-bold text-ink">Source status</Link>
       </section>
 
-      <section aria-labelledby="how" className="flex flex-col gap-4">
-        <h2 id="how" className="m-0 text-h2">How it works</h2>
-        <Steps items={STEPS} />
+      {/* No e-mail provider yet: the digest is read on its page or in a feed reader; no field that would collect an address. */}
+      <section aria-labelledby="digest" className={`flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-8 ${CARD_SURFACE} ${CARD_PADDING}`}>
+        <div className="flex min-w-0 flex-col gap-2">
+          <h2 id="digest" className="m-0 text-h2">The week in Europe’s defence market</h2>
+          <p className="m-0 max-w-prose text-body text-ink-muted">New and amended defence notices, and funding calls that are new, opening or closing, once a week. Free, with an Atom feed for your feed reader.</p>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-2">
+          <Button href="/digest" iconRight={ArrowRight}>Read the latest digest</Button>
+          <a href="/digest.atom" className="inline-flex min-h-11 items-center font-bold">Atom feed</a>
+        </div>
       </section>
-
-      {/* Only a block that does something: while accounts are closed it only promised (the FAQ and /alerts say what is planned). */}
-      {accountsOpen && (
-        <section aria-labelledby="next" className={`flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-8 ${CARD_SURFACE} ${CARD_PADDING}`}>
-          <div className="flex min-w-0 items-start gap-4">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-pill bg-surface-inset text-ink"><Icon icon={Clock} /></span>
-            <div className="flex min-w-0 flex-col gap-2">
-              <h2 id="next" className="m-0 text-h2">Save searches and keep a shortlist</h2>
-              <p className="m-0 max-w-prose text-body text-ink-muted">
-                Sign in with your e-mail to save a search, follow buyers and programmes, and keep a shortlist for your own bids. Browsing stays free.
-              </p>
-            </div>
-          </div>
-          <Button href="/signin" variant="secondary" className="shrink-0 self-start md:self-center">Sign in</Button>
-        </section>
-      )}
-
-      <Callout title="Please note">
-        <p className="m-0">DefenceGate is an information service, not an official source and not advice. The original publication is authoritative; check it before you act. See the <Link href="/terms" className="font-semibold">terms</Link>.</p>
-      </Callout>
 
       <section aria-labelledby="faq" className="flex flex-col gap-4">
         <h2 id="faq" className="m-0 text-h2">Questions</h2>
         <Faq items={faq} />
+        <Link href="/about" className="inline-flex min-h-11 items-center gap-2 self-start text-body font-bold">More questions<Icon icon={ArrowRight} size="inline" /></Link>
       </section>
     </>
   );

@@ -1,12 +1,14 @@
 /**
- * The menu of WP-86 (UX audit of 22 October 2026, owner approved): what a visitor came to do, in their words. Every label
- * is the h1 of the page it opens (e2e/wp86.spec.ts checks it). Only routes that exist. A plain module, so the header (a
- * client component) and the footer (a server component) read the same list.
+ * The menu (WP-117, owner's choice of 25 October 2026, after WP-86): four items, by the three questions a visitor brings (what is
+ * open, who is already in, can I take part) and What's new. Every link label is the h1 of the page it opens (e2e/wp86.spec.ts
+ * checks it). Only routes that exist. A plain module, so the header (a client component) and the footer (a server component)
+ * read the same list.
+ *   - A group whose label is not the h1 of a page ("Tenders & funding", "Partners", "What's new") has no href: its button opens
+ *     its small menu. "Check my company" is the h1 of /check, so it is a link with a button for its other pages.
  *   - Companies opens the Won contracts tab (/companies redirects to /suppliers, next.config.ts); its two tabs are the
  *     supplier map and the organisations in EU-funded projects (components/dg/companies-tabs.tsx).
  *   - Check my company is one entry (/check) that asks first what the visitor wants and leads to the readiness check or
  *     the supplier profile.
- *   - What's new has no page of its own: its button opens its three pages.
  * Pricing and the opportunity pack are in the footer only.
  */
 export interface NavLinkItem { label: string; href: string }
@@ -22,10 +24,10 @@ export interface NavItem {
 }
 
 export const MAIN_NAV: readonly NavItem[] = [
-  { key: 'tenders', label: 'Tenders', href: '/tenders', children: [{ label: 'Tenders', href: '/tenders' }, { label: 'Market overview', href: '/market' }] },
-  { key: 'funding', label: 'Funding', href: '/funding' },
-  { key: 'buyers', label: 'Buyers', href: '/buyers' },
-  { key: 'companies', label: 'Companies', href: '/companies', also: ['/suppliers', '/organisations', '/networks'], children: [
+  { key: 'open', label: 'Tenders & funding', children: [
+    { label: 'Tenders', href: '/tenders' }, { label: 'Funding', href: '/funding' }, { label: 'Buyers', href: '/buyers' }, { label: 'Market overview', href: '/market' },
+  ] },
+  { key: 'partners', label: 'Partners', also: ['/suppliers', '/organisations', '/networks'], children: [
     { label: 'Companies', href: '/companies' }, { label: 'Ukraine partners', href: '/networks/ukraine-partners' },
     { label: 'Consortium gaps', href: '/networks/consortium-gaps' },
   ] },
@@ -41,13 +43,13 @@ type FooterLink = NavLinkItem;
 const group = (key: string) => MAIN_NAV.find((n) => n.key === key)!;
 
 /**
- * The footer: the header's groups under the same names and with the same links (taken from MAIN_NAV, so they cannot drift),
- * then the pages only the footer carries. "Directory" holds the header's lists (Tenders and its Market overview, Funding,
- * Buyers). A label is the h1 of its page, except "Alerts (not open yet)", which says what the page says.
+ * The footer: the header's four groups under the same names and with the same links (taken from MAIN_NAV, so they cannot drift),
+ * then the pages only the footer carries. A link label is the h1 of its page, except "Alerts (not open yet)", which says what the
+ * page says.
  */
 export const FOOTER_GROUPS: { title: string; links: readonly FooterLink[] }[] = [
-  { title: 'Directory', links: [...group('tenders').children!, { label: 'Funding', href: '/funding' }, { label: 'Buyers', href: '/buyers' }] },
-  { title: group('companies').label, links: group('companies').children! },
+  { title: group('open').label, links: group('open').children! },
+  { title: group('partners').label, links: group('partners').children! },
   { title: group('check').label, links: group('check').children! },
   { title: group('new').label, links: group('new').children! },
   { title: 'About the data', links: [

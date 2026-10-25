@@ -5,10 +5,14 @@
 import assert from 'node:assert/strict';
 import { FOOTER_GROUPS, LEGAL_LINKS, MAIN_NAV } from './nav';
 
-// The owner-approved menu, in this order.
-assert.deepEqual(MAIN_NAV.map((n) => n.label), ['Tenders', 'Funding', 'Buyers', 'Companies', 'Check my company', 'What’s new']);
-// Market sits inside Tenders; pricing and the pack are not in the header.
-assert.ok(MAIN_NAV.find((n) => n.key === 'tenders')!.children!.some((c) => c.href === '/market'));
+// The owner-approved menu, in this order (WP-117, 25 Oct 2026: four items, by the three questions and What's new).
+assert.deepEqual(MAIN_NAV.map((n) => n.label), ['Tenders & funding', 'Partners', 'Check my company', 'What’s new']);
+// Market sits with the lists under Tenders & funding; pricing and the pack are not in the header.
+assert.deepEqual(MAIN_NAV.find((n) => n.key === 'open')!.children!.map((c) => c.href), ['/tenders', '/funding', '/buyers', '/market']);
+assert.deepEqual(MAIN_NAV.find((n) => n.key === 'partners')!.children!.map((c) => c.href), ['/companies', '/networks/ukraine-partners', '/networks/consortium-gaps']);
+// A group whose label is no page's h1 is only the button of its small menu; Check my company is the h1 of /check.
+for (const k of ['open', 'partners', 'new']) assert.equal(MAIN_NAV.find((n) => n.key === k)!.href, undefined, `${k} has no page of its own`);
+assert.equal(MAIN_NAV.find((n) => n.key === 'check')!.href, '/check');
 const headerHrefs = MAIN_NAV.flatMap((n) => [n.href, ...(n.children ?? []).map((c) => c.href)]).filter((h): h is string => Boolean(h));
 for (const h of ['/pricing', '/pack', '/alerts', '/data', '/organisations', '/suppliers']) assert.ok(!headerHrefs.includes(h), `${h} is not in the header`);
 // Check my company holds Requirements and the tracker; What's new its three pages and no page of its own.

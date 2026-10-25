@@ -28,29 +28,38 @@ test('every label of the header and the footer is the h1 of the page it opens', 
   for (const [href, label] of links) expect(await h1Of(page, href), href).toBe(label);
 });
 
-test('the header has the six items and the search field; the footer repeats each group by name', async ({ page }) => {
+// WP-117 (owner's choice of 25 Oct 2026): four items, by the three questions and What's new (it was six: Tenders, Funding, Buyers,
+// Companies, Check my company, What's new). A group whose label is no page's h1 is a button that opens its pages.
+test('the header has the four items and the search field; the footer repeats each group by name', async ({ page }) => {
   test.skip(isMobile(page), 'the phone menu has its own test');
   await visit(page, '/about', { title: /About/i, h1: 'About' });
   const nav = page.getByRole('navigation', { name: 'Main' });
-  for (const name of ['Tenders', 'Funding', 'Buyers', 'Companies', 'Check my company']) {
-    await expect(nav.getByRole('link', { name, exact: true }).first()).toBeVisible();
-  }
-  await expect(nav.getByRole('button', { name: /What.s new/ })).toBeVisible();
+  await expect(nav.locator(':scope > *'), 'four items in the bar').toHaveCount(4);
+  await expect(nav.getByRole('link', { name: 'Check my company', exact: true }).first()).toBeVisible();
+  for (const name of ['Tenders & funding', 'Partners', /What.s new/]) await expect(nav.getByRole('button', { name, exact: true })).toBeVisible();
   await expect(page.locator('header').getByRole('searchbox', { name: /Search tenders, funding, buyers and companies/ })).toBeVisible();
   for (const name of ['Pricing', 'Opportunity pack', 'Market', 'Data', 'Network', 'Readiness']) {
     await expect(nav.getByRole('link', { name, exact: true }), `${name} is not in the header`).toHaveCount(0);
   }
-  // What's new opens its three pages
-  await nav.getByRole('button', { name: /What.s new/ }).click();
-  for (const name of ['What changed', 'Weekly digest', 'Deadline calendar']) await expect(page.locator('#sub-new').getByRole('link', { name })).toBeVisible();
-  for (const title of ['Companies', 'Check my company', 'What’s new', 'Directory', 'About the data']) {
+  // each button opens its pages
+  const opens: [string | RegExp, string, string[]][] = [
+    ['Tenders & funding', '#sub-open', ['Tenders', 'Funding', 'Buyers', 'Market overview']],
+    ['Partners', '#sub-partners', ['Companies', 'Ukraine partners', 'Consortium gaps']],
+    [/What.s new/, '#sub-new', ['What changed', 'Weekly digest', 'Deadline calendar']],
+  ];
+  for (const [button, panel, links] of opens) {
+    await nav.getByRole('button', { name: button, exact: true }).click();
+    for (const name of links) await expect(page.locator(panel).getByRole('link', { name, exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+  }
+  for (const title of ['Tenders & funding', 'Partners', 'Check my company', 'What’s new', 'About the data']) {
     await expect(page.locator(`footer nav[aria-label="${title}"]`), title).toHaveCount(1);
   }
 });
 
 test('on a phone the menu lists every item, each a target of 44 px, and starts with the search field', async ({ page }) => {
   test.skip(!isMobile(page), 'the phone menu');
-  await visit(page, '/', { title: /DefenceGate/, h1: 'Defence and dual-use tenders and funding' });
+  await visit(page, '/', { title: /DefenceGate/, h1: 'Win, partner, qualify.' });
   await page.getByRole('button', { name: 'Open menu' }).click();
   const menu = page.getByRole('navigation', { name: 'Main menu' });
   await expect(menu.getByRole('searchbox')).toBeFocused();
@@ -82,7 +91,7 @@ test('the search finds the same words in every list and leads to each list, filt
 });
 
 test('the header search and the home search open the results page', async ({ page }) => {
-  await visit(page, '/', { title: /DefenceGate/, h1: 'Defence and dual-use tenders and funding' });
+  await visit(page, '/', { title: /DefenceGate/, h1: 'Win, partner, qualify.' });
   const home = page.locator('#main').getByRole('search', { name: 'Site search' });
   await home.getByRole('searchbox').fill('Demo');
   await home.getByRole('button', { name: 'Search' }).click();
@@ -97,17 +106,21 @@ test('the header search and the home search open the results page', async ({ pag
   await expect(page.getByRole('link', { name: /Demo Ordnance SA/ })).toBeVisible();
 });
 
-test('home: one sentence for whom, three tasks and the search before anything else; no "What is in here"', async ({ page }) => {
-  await visit(page, '/', { title: /DefenceGate/, h1: 'Defence and dual-use tenders and funding', text: [/^For suppliers, bid teams and advisers/] });
-  const start = page.getByRole('navigation', { name: 'Start here' });
-  await expect(start.getByRole('link', { name: 'Find a tender' })).toHaveAttribute('href', '/tenders');
-  await expect(start.getByRole('link', { name: 'Find funding' })).toHaveAttribute('href', '/funding');
-  await expect(start.getByRole('link', { name: 'I make parts or provide services: who buys and who wins?' })).toHaveAttribute('href', '/readiness/supplier');   // WP-97: not the Spain page for every visitor
+// WP-117 (owner's option A, 25 Oct 2026): the three task buttons under the lead became the three question tiles under the search.
+test('home: the lead, the search and the three tasks before anything else; no "What is in here"', async ({ page }) => {
+  await visit(page, '/', { title: /DefenceGate/, h1: 'Win, partner, qualify.', text: [/^Defence and dual-use tenders and EU funding calls, the companies already in/] });
+  const tasks = page.getByRole('list', { name: 'What do you want to know?' });
+  await expect(tasks.getByRole('link', { name: /Find tenders and funding/ })).toHaveAttribute('href', '/tenders');
+  await expect(tasks.getByRole('link', { name: /Find partners/ })).toHaveAttribute('href', '/companies');
+  await expect(tasks.getByRole('link', { name: /Check if my company qualifies/ })).toHaveAttribute('href', '/check');
+  await expect(page.locator('#main').getByRole('link', { name: 'See who buys what you make' })).toHaveAttribute('href', '/readiness/supplier');   // WP-97: not the Spain page for every visitor
   await expect(page.getByRole('heading', { name: 'What is in here' })).toHaveCount(0);
-  // the tasks and the search are on the first screen, at every width
+  // the search is on the first screen, at every width, and the tasks start there
   const bottom = await page.locator('#home-search').evaluate((el) => el.getBoundingClientRect().bottom);
   expect(bottom).toBeLessThanOrEqual(page.viewportSize()!.height);
-  for (const t of await start.getByRole('link').all()) expect((await t.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
+  const tasksTop = await tasks.evaluate((el) => el.getBoundingClientRect().top);
+  expect(tasksTop).toBeLessThan(page.viewportSize()!.height);
+  for (const t of await tasks.getByRole('link').all()) expect((await t.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
 });
 
 test('Check my company asks first what you want and leads to the check that answers it', async ({ page }) => {

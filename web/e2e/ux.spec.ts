@@ -315,26 +315,29 @@ test('U12: the digest says what "new" means', async ({ page }) => {
 // ---------------------------------------------------------------- U15, U16: home and the menu
 
 test('U15: the home page names the three parts in the first screen', async ({ page }) => {
-  await visit(page, '/', { title: /DefenceGate/, h1: /tenders and funding/i });
-  const parts = page.getByRole('list', { name: 'The three parts of DefenceGate' });
+  await visit(page, '/', { title: /DefenceGate/, h1: /Win, partner, qualify\./ });
+  // WP-117 (owner's option A, 25 Oct 2026): the three parts are the three question tiles right under the search, in the first
+  // screen; the "Three questions, three parts" block they replace and "Why DefenceGate" (now on /about) left home.
+  const parts = page.getByRole('list', { name: 'What do you want to know?' });
   await expect(parts).toBeVisible();
-  for (const name of [/1\. What is open to me\?/, /2\. Who is already inside\?/, /3\. What do I need to qualify\?/]) await expect(parts.getByText(name)).toBeVisible();
-  await expect(parts.getByRole('link', { name: 'Check my company' })).toHaveAttribute('href', '/check');
-  // WP-46: the hero tiles and the "Three questions" section were one message twice; the section is the only block saying it.
-  // WP-86 (owner-approved home): the hero's tasks and search come first, then the lists closing next (the first useful thing),
-  // then the three parts, before "Why DefenceGate"; "What is in here" is gone from home.
+  for (const name of ['What is open?', 'Who is already in?', 'Can I take part?']) await expect(parts.getByRole('heading', { name, exact: true })).toBeVisible();
+  await expect(parts.getByRole('link', { name: /Check if my company qualifies/ })).toHaveAttribute('href', '/check');
+  // WP-46: the parts are said once on the page.
+  await expect(page.getByRole('heading', { name: 'Three questions, three parts' })).toHaveCount(0);
   const top = await parts.evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
   const at = (name: string | RegExp) => page.getByRole('heading', { name }).evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
-  expect(top, 'after the closing funding calls').toBeGreaterThan(await at('Funding calls closing soon'));
-  expect(top, 'before "Why DefenceGate"').toBeLessThan(await at('Why DefenceGate'));
+  expect(top, 'in the first screen').toBeLessThan(page.viewportSize()!.height);
+  expect(top, 'before the closing lists').toBeLessThan(await at('Tenders closing soon'));
+  await expect(page.getByRole('heading', { name: 'Why DefenceGate' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'What is in here' })).toHaveCount(0);
 });
 
 test('U16: a small menu opens from a button that says it is open, and closes with Escape', async ({ page }) => {
   test.skip(isMobile(page), 'the bar menus are the desktop navigation');
-  await visit(page, '/', { title: /DefenceGate/, h1: /tenders and funding/i });
+  await visit(page, '/', { title: /DefenceGate/, h1: /Win, partner, qualify\./ });
   const nav = page.getByRole('navigation', { name: 'Main' });
-  const toggle = nav.getByRole('button', { name: 'Companies: more pages' });
+  // WP-117: the Companies group is now Partners, a button only (its label is no page's h1)
+  const toggle = nav.getByRole('button', { name: 'Partners', exact: true });
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   await expect(nav.getByRole('link', { name: 'Ukraine partners' })).toBeHidden();
   await toggle.click();
@@ -346,7 +349,7 @@ test('U16: a small menu opens from a button that says it is open, and closes wit
 
 test('U16: the mobile menu opens with focus on its first field (the search, WP-86) and Escape returns it to the button', async ({ page }) => {
   test.skip(!isMobile(page), 'the mobile menu is below md');
-  await visit(page, '/', { title: /DefenceGate/, h1: /tenders and funding/i });
+  await visit(page, '/', { title: /DefenceGate/, h1: /Win, partner, qualify\./ });
   const button = page.getByRole('button', { name: 'Open menu' });
   await button.click();
   const menu = page.getByRole('navigation', { name: 'Main menu' });

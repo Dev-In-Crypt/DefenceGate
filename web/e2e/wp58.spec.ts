@@ -73,12 +73,13 @@ test('the branded select: Tab from the open list chooses and moves on from the s
 test('Escape on a link of a header menu returns focus to its button', async ({ page }) => {
   test.skip((page.viewportSize()?.width ?? 0) < 1280, 'the menus of the bar are shown from xl');
   await visit(page, '/', { title: /DefenceGate/, h1: /.+/ });
-  const button = page.getByRole('button', { name: 'Companies: more pages' });
+  // WP-117: the Companies group is now Partners (a button only)
+  const button = page.getByRole('button', { name: 'Partners', exact: true });
   await button.focus();
   await page.keyboard.press('Enter');
   await expect(button).toHaveAttribute('aria-expanded', 'true');
   await page.keyboard.press('Tab');
-  await expect(page.locator('#sub-companies a').first()).toBeFocused();
+  await expect(page.locator('#sub-partners a').first()).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(button).toBeFocused();
   await expect(button).toHaveAttribute('aria-expanded', 'false');
@@ -91,7 +92,10 @@ test('after a client-side route change focus is on the new page heading; on the 
     await page.getByRole('button', { name: 'Open menu' }).click();
     await page.locator('#mobile-nav').getByRole('link', { name: 'Tenders', exact: true }).click();
   } else {
-    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Tenders', exact: true }).click();
+    // WP-117: Tenders is in the Tenders & funding menu
+    const nav = page.getByRole('navigation', { name: 'Main' });
+    await nav.getByRole('button', { name: 'Tenders & funding', exact: true }).click();
+    await page.locator('#sub-open').getByRole('link', { name: 'Tenders', exact: true }).click();
   }
   await page.waitForURL(/\/tenders$/);
   await expect(page.locator('#main h1')).toBeFocused();
