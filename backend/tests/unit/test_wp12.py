@@ -244,6 +244,17 @@ def test_a_record_that_already_states_its_notice_date_keeps_it():
     assert (new.notice_date, new.notice_kind) == (date(2026, 6, 28), "award")
 
 
+def test_a_later_notice_date_on_the_serving_row_is_not_taken_back_by_the_older_record():
+    payload = _stored(notice_date=date(2022, 10, 14), notice_kind="award")
+    new = remap_source.from_placsp_stored(payload)
+    later = {"notice_date": date(2023, 10, 16), "notice_kind": "update"}
+    change = remap_source.plan(payload, later, new)
+    assert "notice_date" not in change.direct and "notice_kind" not in change.direct
+    earlier = {"notice_date": date(2022, 1, 5), "notice_kind": "call"}
+    change = remap_source.plan(payload, earlier, new)
+    assert (change.direct["notice_date"], change.direct["notice_kind"]) == (date(2022, 10, 14), "award")
+
+
 def test_the_notice_date_is_a_tolerated_field_of_the_tender_model():
     from dgate.tenders import Tender
     assert "noticeDate" in Tender.model_fields and "noticeKind" in Tender.model_fields
