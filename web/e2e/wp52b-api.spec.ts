@@ -132,7 +132,9 @@ test('T10: the digest lists identical notices once with their number, and its "h
 });
 
 test('T16 / T18 / T11: sources by their rhythm, a partial run with its reason, and the stamp of a notice', { tag: '@fake-api' }, async ({ page }) => {
-  // /data is built once with the demo data and refreshed after 60 s: wait for the fake's numbers.
+  // /data is built once with the demo data and refreshed after 60 s: wait for the fake's numbers. WP-139 (GitHub run
+  // 40223247552: "Test timeout of 60000ms exceeded"): the test's own time covers its poll of up to 150 s and the checks after it.
+  test.setTimeout(210_000);
   await expect.poll(async () => (await text(page, '/data')).includes('A daily source that missed its runs'), { timeout: 150_000, intervals: [5_000] }).toBe(true);
   await visit(page, '/data', { title: /source status/i, h1: 'Source status' });
   const card = (name: string) => page.locator('article', { has: page.getByRole('heading', { name }) });

@@ -1918,7 +1918,10 @@ def _sitemap_copy_rule() -> str:
 # WP-114: the sitemap pages of the tenders, by id: page n holds the core notices with an id in
 # [n * SITEMAP_ID_SPAN, (n + 1) * SITEMAP_ID_SPAN). Ids are unique, so a page never holds more than the 50,000 URLs a
 # sitemap may, and a page is a range of the primary key: no count, no offset, the same cost at any depth.
-SITEMAP_ID_SPAN = 50_000
+# WP-139 (r8 audit: pages 1 and 2, 23,000 and 20,500 notices, were 3.0 and 3.1 MB of JSON; the site keeps no fetch over
+# 2 MB, so each was rebuilt on every request, 1.8 s): 12,500 ids a page, under 2 MB even if every id in a range were a
+# core notice with a slug of the longest kind (tests/unit/test_wp139.py).
+SITEMAP_ID_SPAN = 12_500
 
 
 class SlugItem(BaseModel):

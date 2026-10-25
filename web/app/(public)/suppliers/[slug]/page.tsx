@@ -9,7 +9,7 @@ import { displayName } from '@/lib/display-name';
 import { PLACSP_CODES, sourceLabel } from '@/lib/supplier-sources';
 import { AboutData } from '@/components/dg/about-data';
 import type { Supplier } from '@/lib/types';
-import { formatDateUtc, formatNumber } from '@/lib/format';
+import { formatDateUtc, formatNumber, plural } from '@/lib/format';
 import { buildMetadata } from '@/lib/seo';
 import { PageHeader } from '@/components/dg/page-header';
 import { Card } from '@/components/dg/card';
@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const s = { ...got, name: displayName(got.name, 'title') };
   return buildMetadata({
     title: s.name,
-    description: `${s.name} (${s.country}): ${s.noticeCount} defence-relevant contracts of the last three years in ${fromPlacsp(s) ? 'TED and PLACSP' : 'TED'} result notices naming it as a winner. The open segment of the market only.`,
+    description: `${s.name} (${s.country}): ${formatNumber(s.noticeCount)} defence-relevant ${plural(s.noticeCount, 'contract')} of the last three years in ${fromPlacsp(s) ? 'TED and PLACSP' : 'TED'} result notices naming it as a winner. The open segment of the market only.`,
     path: `/suppliers/${s.slug}`,
     noindex: false,
   });
