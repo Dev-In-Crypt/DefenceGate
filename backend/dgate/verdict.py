@@ -501,7 +501,14 @@ def check(facts: dict[str, Any], p: dict[str, Any], ctx: dict[str, str] | None =
     most = facts.get("max_group_headcount")
     if most and _num(most["value"]) and p["country"]:
         fewer, q = _str(most["value"] + 1), most.get("quote")
-        if size is not None and size[1] <= most["value"]:
+        # WP-132 (RAPID, a Polish university: "Nothing known blocks you"): a cap on a company's group staff makes the call one for
+        # companies; a university or a public body is not one, and a research organisation only if it is a company
+        if kind in ("university", "public") or (not kind and org in ("public", "university")):
+            who = "A university" if kind == "university" else "A public body" if org == "public" else "A university or a research body"
+            lines.append(_line("group", "Staff count with the group", "no", f"The call is for companies with fewer than {fewer} staff, counted with the group. {who} is not a company.", q))
+        elif kind == "research":
+            lines.append(_line("group", "Staff count with the group", "check", f"The call is for companies with fewer than {fewer} staff, counted with the group. A research organisation may apply only if it is such a company.", q))
+        elif size is not None and size[1] <= most["value"]:
             lines.append(_line("group", "Staff count with the group", "yes", f"The call is for companies with fewer than {fewer} staff, counted with the group, and yours is within that.", q))
         elif size is not None and size[0] > most["value"]:
             lines.append(_line("group", "Staff count with the group", "no", f"The call is for companies with fewer than {fewer} staff, counted with the group, and your answers give {_staff(size)}.", q))

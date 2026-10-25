@@ -4,9 +4,9 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { CalendarPlus, ExternalLink } from 'lucide-react';
 import { getCall, getOpenCallsForRelated, relatedCallsFrom, REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
-import { callStatusKind, getCallDeadline } from '@/lib/deadline';
+import { callStatusKind, getCallDeadline, localDeadline } from '@/lib/deadline';
 import { displayName } from '@/lib/display-name';
-import { formatDateUtc, formatMoney, funderLine, openingPhrase, isoDatesToSite } from '@/lib/format';
+import { formatDateLabelledUtc, formatDateUtc, formatMoney, funderLine, openingPhrase, isoDatesToSite } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { sourceDisplay } from '@/lib/source-status';
 import { absoluteUrl, buildMetadata, callJsonLd, meetsMinimumContent } from '@/lib/seo';
@@ -72,7 +72,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: call.callId ? `${displayName(call.title)} (${call.topicId})` : displayName(call.title),
     description,
     path: `/funding/${call.slug}`,
-    noindex: !meetsMinimumContent(call),
+    // WP-132: a call outside the scope rule (WP-109) keeps its page for old links, not in the index
+    noindex: !meetsMinimumContent(call) || call.outOfScope === true,
   });
 }
 
@@ -97,6 +98,12 @@ export default async function CallDetailPage({ params }: Props) {
   const related = relatedCallsFrom(call, (await openCalls).items);
   const d = getCallDeadline(call);
   const closed = d.state === 'closed';
+  // WP-132: a call outside DefenceGate's scope (WP-109) has no dual-use label, no "Closing soon", no "Can you apply?": its page says why
+  const outOfScope = call.outOfScope === true;
+  // WP-132: the source stopped listing it (the status says since when it was last listed: lastSeenAt)
+  const unlisted = call.status === 'unlisted';
+  // the deadline in the funder's own zone: Brussels for an EU call ("17:00 CET (Brussels)"), where the source states a time
+  const local = closed ? null : localDeadline(d.iso, call.funderCountry === 'EU' ? 'BE' : call.funderCountry, d.dateOnly);
   const upcoming = call.status === 'forthcoming';
   const opens = upcoming ? call.openingDate : null;
   const nonEnglish = isNonEnglish(call.titleLanguage);
@@ -117,7 +124,7 @@ export default async function CallDetailPage({ params }: Props) {
   // The parts of the page that are present, in order: the index links to them.
   // EDF and EDIP calls (the Ukraine Support Instrument's included: WP-91 labels them by their instrument) have readiness rules
   const defenceFund = call.programme === 'EDF' || call.programme === 'EDIP' || call.programme === 'EDIP-USI';
-  const canApply = Boolean(call.documentEligibility) || call.eligibilityState === 'not_read' || (defenceFund && !closed);
+  const canApply = !outOfScope && (Boolean(call.documentEligibility) || call.eligibilityState === 'not_read' || (defenceFund && !closed));
   const part = (title: string, label = title) => ({ id: panelId(title), label });
   const toc = [
     hasScope && part('Scope'), part('Who can apply'), call.rulesApply && part('Rules that apply'), ukraine && part('Ukrainian participants'),
@@ -140,12 +147,12 @@ export default async function CallDetailPage({ params }: Props) {
             <Tag kind="programme">{programme.label}</Tag>
             {/* The portal files the EDIP calls under the EDF; the rules that apply, and the Ukraine flag, are those of the instrument (V2-C U3). */}
             {edip && <Tag>{edip}</Tag>}
-            <Tag>{REGIMES[call.regime]}</Tag>
+            {!outOfScope && <Tag>{REGIMES[call.regime]}</Tag>}
             {call.cascade === true && <Tag>Cascade funding</Tag>}
             {call.openToUkraine === true && <Tag>Open to Ukraine</Tag>}
             {call.whoMayApply && <Tag>{WHO_BADGE[call.whoMayApply]}</Tag>}
             {call.smeOnly === true && <Tag>SMEs only</Tag>}
-            <StatusPill status={callStatusKind(call.status, d.state, call.openingDate)} />
+            {!outOfScope && <StatusPill status={callStatusKind(call.status, d.state, call.openingDate)} />}
           </div>
         )}
         title={displayName(call.title)}
@@ -176,7 +183,19 @@ export default async function CallDetailPage({ params }: Props) {
             {sourceUrl && <> <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="font-semibold">Read the topic description at {sourceDisplay(call.source.sourceName)}<span className="sr-only"> (opens in new tab)</span></a>.</>}
           </p>
         )}
-        {!closed && <ApplySummary call={call} />}
+        {outOfScope && (
+          <p className="m-0 max-w-prose text-body font-semibold" data-out-of-scope>
+            This call is outside DefenceGate’s scope: it is not a defence or dual-use call under the rule we apply, so it is not in our lists,
+            counts, alerts or calendar. The page stays so that a link to it still works; the official call text is at the source.
+          </p>
+        )}
+        {unlisted && (
+          <p className="m-0 max-w-prose text-body font-semibold" data-unlisted>
+            {sourceDisplay(call.source.sourceName)} has not listed this call since {formatDateUtc(call.lastSeenAt)}, the last day we saw it in its
+            list of open and forthcoming calls. The source did not say that it closed; we no longer show it as open. Check the source before you act on it.
+          </p>
+        )}
+        {!closed && !outOfScope && <ApplySummary call={call} />}
         {call.status === 'open' && call.sourceStatus === 'forthcoming' && (
           <p className="m-0 max-w-prose text-body text-ink-muted">
             The source still lists this call as forthcoming. Its opening date has passed and its deadline is ahead, so we show it as open.
@@ -186,7 +205,7 @@ export default async function CallDetailPage({ params }: Props) {
 
       <DetailLayout
         // Deadline (or opening date) first on mobile: the hero element.
-        top={<DeadlineBadge info={d} opening={opens} size="lg" className="w-full" />}
+        top={outOfScope ? undefined : <DeadlineBadge info={d} opening={opens} size="lg" className="w-full" local={local} />}
         // A call page runs to some twenty screens at 375 px: the way to its parts is one tap from the top (U14); from lg it is a sticky list.
         nav={toc.length >= 5 ? <SectionNav items={toc} /> : undefined}
         facts={(
@@ -214,7 +233,7 @@ export default async function CallDetailPage({ params }: Props) {
               </FactCell>
               <FactCell label="Opening date">
                 {call.openingDate
-                  ? <time dateTime={call.openingDate}>{formatDateUtc(call.openingDate)} UTC</time>
+                  ? <time dateTime={call.openingDate}>{formatDateLabelledUtc(call.openingDate)}</time>
                   : <span className="font-sans">Not stated</span>}
               </FactCell>
               {call.issuer && <FactCell label="Issued by"><span className="font-sans">{call.issuer}</span></FactCell>}
@@ -228,13 +247,13 @@ export default async function CallDetailPage({ params }: Props) {
               <FactCell label="Funder country"><CountryLabel code={call.funderCountry} className="font-sans" /></FactCell>
               {call.fundingRate && <FactCell label="Funding rate"><span className="font-sans">{call.fundingRate}</span></FactCell>}
               {call.publishedAt && (
-                <FactCell label="Dated by the source"><time dateTime={call.publishedAt}>{formatDateUtc(call.publishedAt)} UTC</time></FactCell>
+                <FactCell label="Dated by the source"><time dateTime={call.publishedAt}>{formatDateLabelledUtc(call.publishedAt)}</time></FactCell>
               )}
             </FactsGrid>
             <p className="m-0 text-small text-ink-muted">
               What do these terms mean? In the <Link href="/glossary" className="font-semibold">glossary</Link>:
               {PROGRAMME_GLOSSARY[call.programme] && <> <Link href={`/glossary#${PROGRAMME_GLOSSARY[call.programme]}`} className="font-semibold">{programme.label}</Link>,</>}
-              {call.regime === 'dual-use' && <> <Link href="/glossary#dual-use" className="font-semibold">dual-use (our label)</Link>,</>}
+              {call.regime === 'dual-use' && !outOfScope && <> <Link href="/glossary#dual-use" className="font-semibold">dual-use (our label)</Link>,</>}
               {' '}<Link href="/glossary#call-and-topic" className="font-semibold">call and topic budget</Link>,
               {' '}<Link href="/glossary#date-only-deadline" className="font-semibold">date-only deadline</Link>.
             </p>
@@ -242,11 +261,11 @@ export default async function CallDetailPage({ params }: Props) {
         )}
         side={(
           <div className="flex flex-col gap-4 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
-            <DeadlineBadge info={d} opening={opens} size="lg" className="hidden w-full lg:flex" />
+            {!outOfScope && <DeadlineBadge info={d} opening={opens} size="lg" className="hidden w-full lg:flex" local={local} />}
             <SaveButton kind="call" refId={call.id} />
             <FollowButton kind="programme" refId={call.programme} label={`Follow ${programme.label}`} />
             {/* WP-91: the call's deadline (and its opening day, before it opens) as a calendar file */}
-            {!closed && (call.deadline || (upcoming && call.openingDate)) && (
+            {!closed && !outOfScope && (call.deadline || (upcoming && call.openingDate)) && (
               <a href={`/funding.ics?call=${call.slug}`} download className="inline-flex min-h-11 items-center gap-2 self-start text-small font-bold" data-call-ics>
                 <Icon icon={CalendarPlus} size="inline" />Add to my calendar (.ics)
               </a>
@@ -311,7 +330,7 @@ export default async function CallDetailPage({ params }: Props) {
           </Panel>
         )}
 
-        {call.documentEligibility ? (
+        {outOfScope ? null : call.documentEligibility ? (
           <Panel title="Can you apply?" className="print:hidden">
             <EligibilityCheck facts={call.documentEligibility.facts} documentUrl={call.documentEligibility.documentUrl} readAt={formatDateUtc(call.documentEligibility.extractedAt)}
               basis={call.documentEligibility.basis} sources={call.documentEligibility.sources} callId={call.id} closed={closed}

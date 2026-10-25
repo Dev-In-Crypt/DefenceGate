@@ -75,11 +75,14 @@ export function callRow(c: Call): Cell[] {
   const dl = c.deadline;
   // The same function the pages read, so the file and the page cannot say two things (site-qa2:N5).
   const kind = callStatusKind(c.status, getCallDeadline(c).state, c.openingDate);
-  const status = kind === 'closed' ? 'Closed' : kind === 'upcoming' ? 'Opens soon' : kind === 'pending' ? 'Opening date passed' : 'Open';
+  const status = kind === 'closed' ? 'Closed' : kind === 'upcoming' ? 'Opens soon' : kind === 'pending' ? 'Opening date passed'
+    : kind === 'unlisted' ? 'No longer listed by the source' : 'Open';
   const budget = c.budget && !isPlaceholderAmount(c.budget.amount) ? c.budget : null;
   return [
     c.id, c.title, c.funder, c.funderCountry, programmeNameOf(c), c.callId, c.topicId, c.actionType,
-    isoUtc(c.openingDate, c.openingDate !== null && isMidnight(c.openingDate)), isoUtc(dl, dl !== null && isMidnight(dl)),
+    // WP-132: a date-only deadline is written as the date, as the page and the .ics say it (49 of 54 rows read "T22:59:59Z", the end
+    // of the day in Brussels, about 7 hours after the 17:00 the documents set); the same rule as tenderRow
+    isoUtc(c.openingDate, c.openingDate !== null && isMidnight(c.openingDate)), isoUtc(dl, dl !== null && (c.deadlineIsDate ?? isMidnight(dl))),
     budget?.amount, budget?.currency, budget ? c.budgetScope : null, status,
     c.source.sourceName, safeHttpUrl(c.source.url) ?? '', c.source.licence, c.source.attribution, isoUtc(c.source.retrievedAt),
     isCallSlug(c.slug) ? absoluteUrl(`/funding/${c.slug}`) : '',

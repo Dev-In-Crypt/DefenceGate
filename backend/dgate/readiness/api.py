@@ -476,4 +476,6 @@ def _call(conn, c: Content, call_id: int, statuses, profile) -> dict[str, Any]:
         out["timings"].append(timing)
     if row["effective_status"] == "closed":
         out["text"] = "The call is closed."
+    elif row["effective_status"] == "unlisted":
+        out["text"] = "The source no longer lists this call."
     return out

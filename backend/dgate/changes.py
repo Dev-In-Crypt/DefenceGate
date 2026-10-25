@@ -141,7 +141,7 @@ def funding_events(conn, *, countries: list[str], now: datetime | None = None,
         f"{CALL_SELECT} WHERE NOT c.suppressed AND NOT c.out_of_scope AND c.first_seen_at >= %s"
         f"{' AND c.first_seen_at < %s' if bounded else ''} "
         f"AND (COALESCE(c.published_at, c.opens_at) IS NULL OR COALESCE(c.published_at, c.opens_at) >= %s) "
-        f"AND {EFFECTIVE_STATUS} <> 'closed'{country_sql}",
+        f"AND {EFFECTIVE_STATUS} NOT IN ('closed', 'unlisted'){country_sql}",
         [since, *([now] if bounded else []), published_from, *extra]).fetchall()
     moves = conn.execute(
         "SELECT ch.call_id, ch.field, ch.before_value, ch.after_value, ch.observed_at "

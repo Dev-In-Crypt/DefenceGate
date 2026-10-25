@@ -21,8 +21,12 @@ export function ukraineSentence(flag: boolean | null | undefined, reason: string
       + 'but the EDF call documents say that participation of entities established in Ukraine is pending the signature of that agreement, and we have found no official text that says it is in force. We do not mark this call open or closed.';
   }
   if (reason === 'programme_rule') {
-    return 'Not decided. Recipients of EDIP funding must be established in the Union or in an EEA EFTA associated country, which Ukraine is not. '
-      + 'No sentence we hold says whether entities established in Ukraine may apply to this call; where its document names Ukraine at all, it is in another role (for example as a member of a SEAP or as a state that designates a procurement agent). We do not mark this call open or closed.';
+    // WP-132 (round-7 audit, 116 and 117): "Not decided" stood beside a check that blocks a Ukrainian company under the same Regulation.
+    // The flag stays unknown (no sentence of the call says it, V3-A), but the answer for an applicant is the Regulation's, said once.
+    return 'Entities established in Ukraine cannot receive EDIP funding under this call: recipients must be established in the Union or in an EEA EFTA associated country, '
+      + 'and Ukraine is not an associated country of the Programme (Regulation (EU) 2025/2643, Articles 9(1) and 2). The eligibility check on this page applies that rule. '
+      + 'Where the call document names Ukraine, it is in another role (for example as a member of a SEAP or as a state that designates a procurement agent); '
+      + 'Ukrainian entities are served by the Ukraine Support Instrument.';
   }
   return null;
 }

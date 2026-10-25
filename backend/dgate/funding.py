@@ -94,10 +94,20 @@ ROLLING_MODELS = "('continuous', 'rolling', 'multiple cut-off')"
 # calendar and the .ics). The dates decide; `sourceStatus` still carries the source's word.
 # This one expression is the only place the rule lives: the list filters, the sort, the
 # calendar, the .ics and the CSV all read `status` from it.
+#
+# WP-132 (round-7 funding audit): a call the source last called open or forthcoming that it has stopped listing is `unlisted`, its own
+# status, not `closed` (the source did not say it closed): out of every open list and count, and its page says since when. The EU portal
+# publishes its whole standing list each night; HORIZON-BRIDGING-2027-01-12 and -13 left it on 22 October and HORIZON-CL4-2027-01-MAT-
+# PROD-50 on 8 October, and were still served open on 25 October. Two complete runs in a row without the call, not one: in the 30
+# nightly runs before 25 October every call that dropped out stayed out (each rise of the count is a run's new calls), and one bad
+# snapshot must not unlist a call.
+UNLISTED_AFTER_RUNS = 2
+UNLISTED = f"(c.unlisted_runs >= {UNLISTED_AFTER_RUNS} AND c.status IN ('open', 'forthcoming'))"
 EFFECTIVE_STATUS = f"""(CASE
     WHEN c.status IN ('open', 'forthcoming') AND c.deadline_at < now()
          AND COALESCE(lower(c.conditions_raw->>'deadline_model'), '')
              NOT IN {ROLLING_MODELS} THEN 'closed'
+    WHEN {UNLISTED} THEN 'unlisted'
     WHEN c.status = 'forthcoming' AND c.opens_at <= (now() AT TIME ZONE 'UTC')::date
          AND c.deadline_at >= now() THEN 'open'
     WHEN c.status = 'evaluated' OR c.status IS NULL THEN 'closed'
@@ -193,6 +203,8 @@ class FundingCall(BaseModel):
     regime: str
     funderCountry: str
     issuer: str | None
+    # open, forthcoming, closed, or (WP-132) unlisted: the source stopped listing a call it last called open or forthcoming
+    # (EFFECTIVE_STATUS); `lastSeenAt` is the last time it listed it
     status: str
     # What the source itself says (`forthcoming`, `open`, `closed`...). It differs from `status`
     # when the dates settle it: an opening day that has passed makes a forthcoming call open.
@@ -294,6 +306,9 @@ class FundingCallDetail(FundingCall):
     ukraineBasis: CascadeBasis | None = None
     # The regime the call is under and its headline conditions, with the source of each (dgate/rules_apply.py).
     rulesApply: dict[str, Any] | None = None
+    # WP-132: the scope rule no longer takes the call (WP-109, `call.out_of_scope`): left out of the lists and the sitemap; its page
+    # says it is outside DefenceGate's scope and is not indexed.
+    outOfScope: bool = False
 
 
 def serves_meta() -> bool:
@@ -427,6 +442,8 @@ _EDIP_SQL = ("(p.code = 'EDIP' OR (p.code = 'EDF' AND (upper(COALESCE(c.topic_co
 # call of the defence fund or EDIP (their recipients are legal entities, public or private: rules EDF-LEGAL-ENTITY,
 # EDIP-LEGAL-ENTITY, USI-LEGAL-ENTITY), a topic the EU portal flags for SMEs, a Polish call whose applicant types name an SME,
 # a micro or a large enterprise, a Spanish call whose beneficiary types name companies or SMEs; null where nothing we hold says.
+# WP-132: a Horizon Europe call whose own facts say nothing either way takes the work programme's general annexes ("Any legal
+# entity ... is eligible to participate"), read for the call: who_apply.decide, so it is in `who_may_apply_doc` with its sentence.
 # WP-92: the call's own eligibility facts come first (`call.who_may_apply_doc`, set by dgate/who_apply.py from the call
 # document or the topic's own conditions); the programme rules below only where those facts say nothing.
 _T = "('-' || upper(COALESCE(c.topic_code, '')) || '-')"
@@ -503,14 +520,18 @@ def eligibility_rows(programme_code: str, cond: dict[str, Any], row: dict[str, A
         if cond.get("for_smes"):
             add("SME-focused", "Yes")
         add("Deadline model", _nice(str(cond["deadline_model"])) if cond.get("deadline_model") else None)
+        # WP-132: the call's verified facts first (who_apply.consortium_of, with where they were read): the topic text's "at least 2
+        # Border or Coast Guard Authorities from at least 2 Member States" is a rule on some partners, not the consortium's size
         size, states = row.get("min_consortium_size"), row.get("min_member_states")
-        if size or states:
+        if row.get("consortium_rule"):
+            add("Minimum consortium", row["consortium_rule"])
+        elif size or states:
             parts = []
             if size:
                 parts.append(f"{size} legal entities")
             if states:
                 parts.append(f"from {states} Member States")
-            add("Minimum consortium", " ".join(parts))
+            add("Minimum consortium", " ".join(parts) + " (the topic's conditions)")
     elif programme_code == "PL-NCBR":
         add("Applicants", [_nice(v) for v in cond.get("applicant_types") or []])
         add("Source of funding", [_nice(v) for v in cond.get("sources_of_funding") or []])
@@ -952,8 +973,9 @@ def list_funding(
 
 @router.get("/v1/funding/slugs")
 def funding_slugs(conn=Depends(get_conn)):
+    # WP-132: a call outside the scope rule (WP-109) is no page to index: out of the sitemap, as it is out of the lists
     rows = conn.execute("SELECT c.id, c.title, c.last_seen_at FROM call c "
-                        "WHERE NOT c.suppressed ORDER BY c.id").fetchall()
+                        "WHERE NOT c.suppressed AND NOT c.out_of_scope ORDER BY c.id").fetchall()
     return [{"slug": make_slug(r["id"], r["title"]), "updatedAt": r["last_seen_at"]} for r in rows]
 
 
@@ -968,6 +990,7 @@ def get_funding(slug: str, conn=Depends(get_conn)):
     if row["suppressed"]:
         raise removed()
     out = to_call(row, detail=True)
+    out["outOfScope"] = bool(row.get("out_of_scope"))
     from .partners import area_label  # partners imports this module
 
     out["partnerArea"] = area_label(row.get("topic_code"))

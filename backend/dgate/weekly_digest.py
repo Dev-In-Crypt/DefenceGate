@@ -36,7 +36,15 @@ from pydantic import BaseModel
 
 from . import changes, eligibility
 from . import tenders as T
-from .funding import EFFECTIVE_STATUS, ROLLING_MODELS, ListMeta, get_conn, serves_meta, to_call
+from .funding import (
+    EFFECTIVE_STATUS,
+    ROLLING_MODELS,
+    UNLISTED,
+    ListMeta,
+    get_conn,
+    serves_meta,
+    to_call,
+)
 from .funding import SELECT as CALL_SELECT
 from .listcache import cache_list
 
@@ -231,7 +239,7 @@ def build_all(conn, week: str, *, now: datetime | None = None,
     closing_until = end + timedelta(days=CLOSING_DAYS)
     closing = conn.execute(
         f"{CALL_SELECT} WHERE NOT c.suppressed AND NOT c.out_of_scope AND c.deadline_at >= %s AND c.deadline_at < %s "
-        f"AND c.first_seen_at < %s AND c.status IN ('open', 'forthcoming') "
+        f"AND c.first_seen_at < %s AND c.status IN ('open', 'forthcoming') AND NOT {UNLISTED} "
         f"AND COALESCE(lower(c.conditions_raw->>'deadline_model'), '') NOT IN {ROLLING_MODELS} "
         f"ORDER BY c.deadline_at, c.id", (end, closing_until, end)).fetchall()
     lists = {"call-new": [(e["row"], e["changes"]) for e in cal if e["kind"] == "call-new"],

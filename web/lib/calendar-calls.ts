@@ -7,7 +7,7 @@
  */
 import type { CalendarEntry } from './calendar-tenders';
 import { getCallDeadline } from './deadline';
-import { formatDateLabelledUtc } from './format';
+import { formatDateLabelledUtc, programmeNameOf } from './format';
 import { ROLLING_NOTE } from './ics';
 import type { Call } from './types';
 
@@ -16,7 +16,7 @@ const dayOf = (iso: string) => new Date(iso).toISOString().slice(0, 10);
 
 export function callEntries(c: Call, ref: Date): CalendarEntry[] {
   if (!CALL_SLUG.test(c.slug)) return [];
-  const base = { kind: 'funding', id: c.id, title: c.title, href: `/funding/${c.slug}`, who: c.issuer ?? c.programmeName,
+  const base = { kind: 'funding', id: c.id, title: c.title, href: `/funding/${c.slug}`, who: c.issuer ?? programmeNameOf(c),
     country: c.funderCountry, sourceName: c.source.sourceName, note: null } as const;
   const d = getCallDeadline(c, ref);
   const out: CalendarEntry[] = [];

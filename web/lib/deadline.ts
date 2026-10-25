@@ -68,6 +68,7 @@ export function statusFromState(state: DeadlineState): StatusKind {
  * and can lag). "Closing soon" only refines an open call.
  */
 export function callStatusKind(status: CallStatus, state: DeadlineState, openingDate: IsoDateTime | null = null, ref: Date = now()): StatusKind {
+  if (status === 'unlisted') return 'unlisted';
   if (status === 'forthcoming') {
     if (state === 'closed') return 'closed';
     if (openingDate && openingPassed(openingDate, ref)) return 'pending';
@@ -106,6 +107,9 @@ export function urgentLabel(days: number): string {
   return `Closes in ${days} days`;
 }
 
+/** WP-132: the heading of a date-only call's badge on its closing day: the source gives no hour, and EU call documents usually set 17:00 Brussels. */
+export const CLOSING_DAY_LABEL = 'Closing day: check the cut-off hour';
+
 /** Single entry point for all deadline presentation. `soonDays`: where "Closing soon" begins (TENDER_SOON_DAYS for a tender). */
 export function getDeadline(deadline: IsoDateTime | null, ref: Date = now(), soonDays: number = SOON_DAYS): DeadlineInfo {
   const days = daysLeft(deadline, ref);
@@ -139,13 +143,28 @@ export function getCallDeadline(
       // A stamp at 00:00 UTC is the start of the day it names; the call is open until that day ends.
       const basis = midnight ? new Date(d.getTime() + DAY_MS - 1000).toISOString() : deadline;
       info = { ...getDeadline(basis, ref, soonDays), iso: deadline, utc: formatDateLabelledUtc(deadline), dateOnly: true };
+      // WP-132: on its last day a date-only call is open to midnight here, while the documents usually close at 17:00 Brussels
+      if (info.days === 0) info = { ...info, label: CLOSING_DAY_LABEL };
     }
   }
+  // WP-132: the source stopped listing the call; it did not say it closed. No countdown, no "open".
+  if (call.status === 'unlisted') return { ...info, state: 'closed', countdown: 'No longer listed', label: 'No longer listed by the source' };
   if (call.status === 'open' && call.rolling === true && info.state === 'closed') {
     return { ...info, state: 'normal', countdown: '', label: 'Open: rolling submission', rolling: true };
   }
   if (call.status !== 'closed' || info.state === 'closed') return info;
   return { ...info, state: 'closed', countdown: 'Closed', label: stateLabel('closed') };
+}
+
+/**
+ * WP-132: what a call says on its closing day. Date only: check the cut-off hour (the documents usually set 17:00 Brussels). A stated
+ * time: "Closes today, 17:00 CET (Brussels)", in the funder's zone (Brussels for an EU call). Null on any other day.
+ */
+export function closingDayNote(d: DeadlineInfo, funderCountry: string | null | undefined): string | null {
+  if (d.days !== 0 || d.state === 'closed' || d.rolling || !d.iso) return null;
+  if (d.dateOnly) return CLOSING_DAY_LABEL;
+  const local = localDeadline(d.iso, funderCountry === 'EU' ? 'BE' : funderCountry);
+  return `Closes today, ${local ?? d.utc.split(', ').pop()}`;
 }
 
 /** A planned notice, or one of unknown status, is not under time pressure: "Closing soon" is for open ones. */

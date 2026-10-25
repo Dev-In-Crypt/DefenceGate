@@ -772,8 +772,13 @@ def run_eu_portal() -> None:
                     if action == "changed":
                         log.info("call %s changed: %s", call.topic_code or call.native_id, fields_)
             writer.drain()
-            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
-                          **q.outcome())
+            outcome = q.outcome()
+            # WP-132: the snapshot is the whole standing list, so a complete run that did not list a call is one more run the source
+            # stopped listing it (151, 152, 155 stayed "open" for days after the portal dropped them). Not after a short or troubled run.
+            floor = cfg.floor(code)
+            if outcome.get("status", "success") == "success" and (floor is None or fetched >= floor):
+                log.info("%s: %s calls not listed by this run", code, db.count_unlisted(conn, src_id, run_id))
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed, **outcome)
         except Exception as exc:
             conn.rollback()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,

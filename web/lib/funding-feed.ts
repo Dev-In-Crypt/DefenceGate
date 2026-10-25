@@ -8,8 +8,7 @@
  */
 import { rfc3339, tagId, xmlText } from './atom';
 import { toQuery } from './filters';
-import { formatDateLabelledUtc, formatMoney, isPlaceholderAmount } from './format';
-import { PROGRAMMES } from './taxonomy';
+import { formatDateLabelledUtc, formatDateTimeUtc, formatMoney, isPlaceholderAmount, programmeNameOf } from './format';
 import type { Call, CallFilters } from './types';
 
 /** The filters of /funding the calendar file and the feed read (app/(public)/funding.ics/route.ts SEARCH_PARAMS); not the page or the view. */
@@ -33,16 +32,14 @@ export function feedCalls(calls: Call[]): Call[] {
   return [...calls].sort((a, b) => b.firstSeenAt.localeCompare(a.firstSeenAt) || b.id.localeCompare(a.id)).slice(0, FUNDING_FEED_MAX);
 }
 
-/**
- * WP-109 (p09): the programme a call is under, by name. The portal files the EDIP calls (the Ukraine Support Instrument's included) under
- * the European Defence Fund; their programme is the instrument the topic code names (`programme`), as the call page says.
- */
-export function programmeNameOf(c: Pick<Call, 'programme' | 'programmeName'>): string {
-  return c.programme === 'EDIP' || c.programme === 'EDIP-USI' ? PROGRAMMES[c.programme].name : c.programmeName;
-}
+/** WP-109 (p09): the programme a call is under, by name; it lives in lib/format.ts since WP-132 (funderLine reads it too). */
+export { programmeNameOf };
 
 function summary(c: Call): string {
-  const deadline = c.deadline ? `Deadline ${formatDateLabelledUtc(c.deadline)}${c.deadlineIsDate ? ' (the source gives a day and no time)' : ''}.` : 'No deadline stated.';
+  // WP-132: a stated time is said (WP-113 reads 17:00 Brussels from the call documents); a date only says it is one
+  const deadline = !c.deadline ? 'No deadline stated.'
+    : c.deadlineIsDate ? `Deadline ${formatDateLabelledUtc(c.deadline)}: the source gives a day and no time.`
+    : `Deadline ${formatDateTimeUtc(c.deadline)}.`;
   const programme = programmeNameOf(c);
   // WP-109 (p09): the programme once ("European Defence Fund, European Defence Fund"), the funder before it when it is another body
   const who = c.issuer && c.issuer !== programme ? `${c.issuer}, ${programme}` : c.funder && c.funder !== programme ? `${c.funder}, ${programme}` : programme;
