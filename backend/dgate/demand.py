@@ -116,9 +116,9 @@ PRIMES: tuple[tuple[str, str, tuple[str, str]], ...] = (
     ("General Dynamics (GDELS)", r"\bgeneral dynamics european land systems\b|^santa barbara sistemas\b",
      ("General Dynamics in the SIPRI Top 100, 2024; Santa Bárbara Sistemas as a GDELS company (FEINDEF exhibitor page)",
       "https://www.feindef.com/index.php/en/ficha-gdels-santa-barbara-sistemas-en")),
-    ("Indra", r"\bindra\b",
-     ("Indra's 2026 supplier selection for automotive firms (elDiario.es, 16 June 2026)",
-      "https://www.eldiario.es/motor/sector_y_mercado/fabricar-coches-componentes-vehiculos-militares-indra-busca-proveedores-automocion_1_13308288.html")),
+    # WP-125 (round 6, p03: a cable-harness maker's report cited a car-parts article as Indra's source): Indra is in the SIPRI
+    # Top 100; its 2026 supplier selection for automotive firms (elDiario.es) is said only to an automotive profile (approach.tsx)
+    ("Indra", r"\bindra\b", SIPRI),
     # WP-97: Spanish and other EU vehicle and defence makers beyond SIPRI, each with the public page read on 23 October 2026
     # (docs/verification/product/wp97-selfcheck.md). Rheinmetall Expal Munitions is marked by "rheinmetall" above.
     ("URO Vehículos Especiales", r"^uro vehiculos especiales\b",

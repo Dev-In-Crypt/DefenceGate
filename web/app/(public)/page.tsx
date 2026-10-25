@@ -27,9 +27,10 @@ const SAMPLE_SIZE = 3;
 const CANDIDATES = 20;
 /**
  * WP-121: the supplier profile's questions (components/readiness/supplier.tsx) as counted on the page (e2e/wp121.spec.ts): 19 for a company
- * outside Spain, 23 in Spain, 35 in Spain with EU funding too (docs/verification/round6/wp121-selfcheck.md).
+ * outside Spain, 23 in Spain, 35 in Spain with EU funding too (docs/verification/round6/wp121-selfcheck.md). WP-125: the services route
+ * (`?offer=services`) asks 18 outside Spain and 23 in Spain (e2e/wp125.spec.ts).
  */
-const SUPPLIER_QUESTIONS = '19 to 35 questions';
+const SUPPLIER_QUESTIONS = '18 to 35 questions';
 
 export const metadata: Metadata = buildMetadata({
   title: 'Defence and dual-use tenders and funding calls',
@@ -195,10 +196,11 @@ export default async function LandingPage() {
             {orgs && <Figure value={orgs.total} label={`${orgs.totalExact === false ? 'or more ' : ''}${plural(orgs.total, 'organisation')} in EU-funded defence projects`} />}
           </Tile>
           {/* WP-121: the questions as counted per route (docs/verification/round6/wp121-selfcheck.md): the readiness check's five steps ask
-              25 to 35 (its own lead says so), the supplier profile SUPPLIER_QUESTIONS */}
+              24 to 35, counted on the page by e2e/wp125.spec.ts after WP-125 made two questions of step 1 one, the supplier profile
+              SUPPLIER_QUESTIONS */}
           <Tile id="t-check" href="/check" question="Can I take part?" title="Check if my company qualifies" go="Start the check"
-            body={`One question first, then the check that fits. For EU funding, five steps of 25 to 35 questions: the answer says what the EDF, EDIP and SAFE rules mean for your company, with the rule text it rests on. To supply defence buyers, one page of ${SUPPLIER_QUESTIONS}.`}>
-            <Figure value={5} label="steps, 25 to 35 questions, no account" />
+            body={`One question first, then the check that fits. For EU funding, five steps of 24 to 35 questions: the answer says what the EDF, EDIP and SAFE rules mean for your company, with the rule text it rests on. To supply defence buyers, one page of ${SUPPLIER_QUESTIONS}.`}>
+            <Figure value={5} label="steps, 24 to 35 questions, no account" />
           </Tile>
         </ul>
         <p className="m-0 text-body text-ink-muted">

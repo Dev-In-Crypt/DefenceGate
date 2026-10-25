@@ -387,8 +387,11 @@ export function codeKind(codes: readonly string[]): CodeKind {
   const services = valid.filter((c) => Number(c.slice(0, 2)) >= 50).length;
   if (services * 2 > valid.length) return 'services';
   const overlap = (set: readonly string[]) => valid.filter((c) => set.includes(c)).length;
-  // automotive: the set, or any code of motor vehicles and their parts (341, 342, 343) and military-vehicle parts (3542)
-  const vehicle = valid.filter((c) => AUTOMOTIVE_SET.includes(c as never) || /^(341|342|343|3542)/.test(c)).length;
+  // automotive: the set, or any code of motor vehicles and their parts (341, 342, 343) and military-vehicle parts (3542), but only
+  // with a code of motor vehicles or their parts among them. WP-125 (p03: a cable-harness maker, 31611000 31612000 35422000, read
+  // "Automotive suppliers usually enter defence as subcontractors"): wiring sets and military-vehicle parts alone are no car industry.
+  const motor = valid.some((c) => /^34[123]/.test(c));
+  const vehicle = motor ? valid.filter((c) => AUTOMOTIVE_SET.includes(c as never) || /^(341|342|343|3542)/.test(c)).length : 0;
   const best = (['automotive', 'ammunition', 'machining'] as const).map((k) => ({ k, n: k === 'automotive' ? vehicle : overlap(CODE_SETS.find((s) => s.key === k)!.codes) }))
     .sort((a, b) => b.n - a.n)[0];
   return best.n * 2 >= valid.length ? best.k : 'goods';

@@ -22,7 +22,7 @@ const UA = {
 test('the readiness check asks the size, group and controlling-country questions and keeps them in version 5', async ({ page }) => {
   await save(page, { ...UA, step: 1, control: 'other' });
   await visit(page, '/readiness?step=1', { title: /readiness check/i, h1: 'Readiness check' });
-  await group(page, /Which of these is your organisation/).getByLabel('A company', { exact: true }).check();
+  await group(page, /What kind of organisation are you/).getByLabel('A company', { exact: true }).check();   // WP-125: the one question of step 1
   await group(page, /How many people does your organisation employ/).getByLabel('250 to 499', { exact: true }).check();
   await expect(group(page, /How many people does the whole group employ/)).toHaveCount(0);
   await group(page, /Is your company part of a group/).getByLabel('Yes', { exact: true }).check();

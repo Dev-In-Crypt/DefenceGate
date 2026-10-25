@@ -120,7 +120,7 @@ export function CallReadiness({ callId, headingLevel = 'h3' }: { callId: string;
       <section aria-labelledby={`readiness-${callId}`} className="flex flex-col gap-3">
         <H id={`readiness-${callId}`} className="m-0 text-h4">Your readiness for this call</H>
         <p className="m-0 text-body">
-          Answer the readiness check about your company (five steps, 25 to 35 questions depending on your answers), and this page will show whether the rules of
+          Answer the readiness check about your company (five steps, 24 to 35 questions depending on your answers), and this page will show whether the rules of
           this call and of its programme allow you to apply, what you would still need, and whether you can get it before the deadline. Programme
           rules are encoded for the EDF, EDIP and SAFE; for other calls, the call&rsquo;s own text is compared with your answers. Your answers are not stored on our server.
         </p>

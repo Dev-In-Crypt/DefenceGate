@@ -20,7 +20,7 @@ export const metadata: Metadata = buildMetadata({
 const CHOICES = [
   {
     title: 'EU defence funding',
-    body: 'May your company take part in the European Defence Fund, EDIP or SAFE? Five steps of 25 to 35 questions in all, depending on your answers, give a verdict for each programme, rule by rule, and what to obtain first.',
+    body: 'May your company take part in the European Defence Fund, EDIP or SAFE? Five steps of 24 to 35 questions in all, depending on your answers, give a verdict for each programme, rule by rule, and what to obtain first.',
     href: '/readiness', action: 'Start the readiness check',
   },
   {

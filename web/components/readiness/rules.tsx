@@ -4,7 +4,7 @@ import { OBLIGATION_WORD, OUTCOME_WORD, VERDICT_WORD, verdictMeaning, isoDay, or
 import type { Outcome, ProgrammeAssessment, RSource, RuleResult, Verdict } from '@/lib/readiness-types';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { cleanQuote } from '@/lib/quote';
-import { askedAt, notSure, type Profile } from '@/lib/profile';
+import { askedAt, askedInSteps, notSure, stepAsking, type Profile } from '@/lib/profile';
 import { Icon } from '@/components/dg/icon';
 import { cn } from '@/lib/utils';
 
@@ -112,7 +112,26 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false, supplie
   // WP-107 (p05): a software or services firm is not asked about components; those are not "missing answers" but one note, collapsed
   const isSkipped = (m: { field: string }) => skipped.includes(m.field.replace(/^profile\./, ''));
   const notAsked = a.missing.filter((m) => !unsure.includes(m) && isSkipped(m));
-  const missing = a.missing.filter((m) => !unsure.includes(m) && !isSkipped(m));
+  const open = a.missing.filter((m) => !unsure.includes(m) && !isSkipped(m));
+  // WP-125 (round 6, p02: "13 answers are missing" after all five steps, every one a question the steps never showed): on the readiness
+  // check's results only what the five steps ask counts as missing; the questions of the supplier page are listed apart, as optional
+  const inSteps = (m: { field: string }) => supplier || askedInSteps(m.field, profile);
+  const missing = open.filter(inSteps);
+  const elsewhere = open.filter((m) => !inSteps(m));
+  const item = (m: { field: string; question: string }) => {
+    // the wizard's step, the supplier profile's question (WP-65), or the wizard's step 4 for a requirement (WP-73); WP-125: on the readiness
+    // check's results a question of its steps links to its step, any other to the supplier page (a hidden follow-up to its parent there)
+    const step = supplier ? null : stepAsking(m.field, profile);
+    const href = step ? `/readiness?step=${step}` : askedAt(m.field, true, profile);
+    return (
+      <li key={m.field}>
+        {href
+          ? <Link href={href} className="inline-flex min-h-12 items-center font-semibold" {...(href.startsWith('/readiness/supplier') ? { 'data-supplier-asks': m.field } : {})}>{m.question}</Link>
+          // a question of the German or NATO/EU rules (WP-64) that no page of this check asks: the rule's source says what it means
+          : <span className="inline-flex min-h-12 items-center" data-not-asked={m.field}>{m.question} <span className="ml-1 text-ink-muted">(this check does not ask it; see the rule and its source)</span></span>}
+      </li>
+    );
+  };
   return (
     <article aria-labelledby={id} className="flex flex-col gap-4 rounded-lg border border-transparent bg-surface p-5 sm:p-7" data-programme={a.programme} data-verdict={a.verdict}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -157,20 +176,17 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false, supplie
       {missing.length > 0 && (
         <div className="flex flex-col gap-1 text-small" data-missing>
           <p className="m-0 font-bold">{missing.length === 1 ? '1 answer is missing:' : `${missing.length} answers are missing:`}</p>
-          <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
-            {missing.map((m) => {
-              // the wizard's step, the supplier profile's question (WP-65), or the wizard's step 4 for a requirement (WP-73)
-              const href = askedAt(m.field, supplier, profile);
-              return (
-                <li key={m.field}>
-                  {href
-                    ? <Link href={href} className="inline-flex min-h-12 items-center font-semibold" {...(href.startsWith('/readiness/supplier') ? { 'data-supplier-asks': m.field } : {})}>{m.question}</Link>
-                    // a question of the German or NATO/EU rules (WP-64) that no page of this check asks: the rule's source says what it means
-                    : <span className="inline-flex min-h-12 items-center" data-not-asked={m.field}>{m.question} <span className="ml-1 text-ink-muted">(this check does not ask it; see the rule and its source)</span></span>}
-                </li>
-              );
-            })}
-          </ul>
+          <ul className="m-0 flex list-none flex-col gap-0.5 p-0">{missing.map(item)}</ul>
+        </div>
+      )}
+      {elsewhere.length > 0 && (
+        <div className="flex flex-col gap-1 text-small" data-supplier-questions>
+          <p className="m-0 font-bold">
+            {elsewhere.length === 1 ? 'One more question for this route is on the supplier page (optional):' : `${elsewhere.length} more questions for this route are on the supplier page (optional):`}
+          </p>
+          <p className="m-0 max-w-prose text-ink-muted">The readiness check does not ask them. Until you answer them there, the rules that read them stay open.</p>
+          <ul className="m-0 flex list-none flex-col gap-0.5 p-0">{elsewhere.map(item)}</ul>
+          <p className="m-0"><Link href="/readiness/supplier" className="inline-flex min-h-11 items-center font-semibold">Go to the supplier page</Link></p>
         </div>
       )}
       {notAsked.length > 0 && (

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Download, Trash2, Upload } from 'lucide-react';
 import { BUYER_COUNTRIES } from '@/lib/taxonomy';
-import { CERTIFICATES, EU_QUESTION, HEADCOUNT_BANDS, STATUS_LABEL, controlChoice, holds, withHeld, exportProfile, firstStepToAnswer, importProfile, isEu, pctProblem, unanswered, visibleCodes, withControlChoice, type Profile, type Status } from '@/lib/profile';
+import { CERTIFICATES, EU_QUESTION, HEADCOUNT_BANDS, STATUS_LABEL, controlChoice, holds, withHeld, exportProfile, firstStepToAnswer, importProfile, isEu, kindOf, pctProblem, unanswered, visibleCodes, withControlChoice, withKind, type Profile, type Status } from '@/lib/profile';
 import { requirementSlug } from '@/lib/readiness';
 import { cn } from '@/lib/utils';
 import { Callout } from '@/components/dg/blocks';
@@ -59,11 +59,14 @@ export const SAFE_ROLE_OPTIONS = [{ value: 'contractor', label: 'We would be the
 type Update = (fn: (p: Profile) => Profile) => void;
 const SIZE_OF_BAND: Record<string, Profile['sizeClass']> = { lt50: 'small', '50_249': 'medium', '250_499': 'large', '500_1999': 'large', '2000plus': 'large' };
 
-/** The kind of a company or research body, its staff count and its group: the SME and small mid-cap rules count a group's staff together. */
-export function SizeQuestions({ profile, update }: { profile: Profile; update: Update }) {
+/**
+ * The kind of a company or research body, its staff count and its group: the SME and small mid-cap rules count a group's staff together.
+ * `kind={false}` (WP-125): the readiness check asks the kind in its one question of what the organisation is (`KindQuestion`).
+ */
+export function SizeQuestions({ profile, update, kind = true }: { profile: Profile; update: Update; kind?: boolean }) {
   return (
     <>
-      {(profile.applicantKind === '' || profile.applicantKind === 'company_or_research') && (
+      {kind && (profile.applicantKind === '' || profile.applicantKind === 'company_or_research') && (
         <Radios legend="Which of these is your organisation?" name="org-kind" value={profile.orgKind}
           hint="Calls for SMEs and small mid-caps (the EIC Accelerator and STEP) are for companies: a university or a research organisation that is not an enterprise cannot apply to them."
           options={[...ORG_KIND_OPTIONS]} onChange={(v) => update((p) => ({ ...p, orgKind: v }))} />
@@ -86,6 +89,26 @@ export const ORG_KIND_OPTIONS = [
   { value: 'company', label: 'A company' }, { value: 'university', label: 'A university or another higher-education institution' },
   { value: 'research', label: 'A research organisation that is not a university' },
 ] as const;
+/** WP-125: the public bodies of the applicant kind, the answers of the one question after the three kinds of company or research body. */
+const PUBLIC_KIND_OPTIONS = [
+  { value: 'contracting_authority', label: 'A contracting authority, for example a ministry or a procurement agency' },
+  { value: 'international_organisation', label: 'An international organisation' },
+  { value: 'seap', label: 'A SEAP (structure for European armament programmes)' },
+  { value: 'eda', label: 'The European Defence Agency' },
+] as const;
+/**
+ * WP-125 (round 6, p02: step 1 asked "What kind of organisation are you?" and then "Which of these is your organisation?"): one question,
+ * whose answer sets both inputs the rules read, the applicant kind (only some EDIP calls are open to public bodies) and the kind of
+ * company or research body (the SME and small mid-cap calls are for companies).
+ */
+function KindQuestion({ profile, update }: { profile: Profile; update: Update }) {
+  return (
+    <Radios legend="What kind of organisation are you?" name="org-kind" value={kindOf(profile)}
+      hint="Calls for SMEs and small mid-caps (the EIC Accelerator and STEP) are for companies: a university or a research organisation that is not an enterprise cannot apply to them. EDIP calls for common procurement are open to contracting authorities, international organisations, SEAPs and the European Defence Agency, not to companies."
+      options={[...ORG_KIND_OPTIONS, ...PUBLIC_KIND_OPTIONS]} onChange={(v) => update((p) => withKind(p, v))} />
+  );
+}
+
 const CONTROL_OTHER = [
   { value: 'cn', label: 'China' }, { value: 'ru_by', label: 'Russia or Belarus' }, { value: 'other_non_eu', label: 'Another country outside the EU' },
   { value: 'unsure', label: 'I am not sure' },
@@ -280,17 +303,8 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
                 { value: 'software_services', label: 'We make software or services (no physical product of our own)' },
               ]}
               onChange={(v) => set('offering', v)} />
-            <Radios legend="What kind of organisation are you? (optional)" name="applicant-kind" value={profile.applicantKind}
-              hint="Only a few calls care: EDIP calls for common procurement are open to contracting authorities, international organisations, SEAPs and the European Defence Agency, not to companies. Leave it empty if you do not know; it is then never read as “a company”."
-              options={[
-                { value: 'company_or_research', label: 'A company or a research body, including a university' },
-                { value: 'contracting_authority', label: 'A contracting authority, for example a ministry or a procurement agency' },
-                { value: 'international_organisation', label: 'An international organisation' },
-                { value: 'seap', label: 'A SEAP (structure for European armament programmes)' },
-                { value: 'eda', label: 'The European Defence Agency' },
-              ]}
-              onChange={(v) => set('applicantKind', v)} />
-            <SizeQuestions profile={profile} update={update} />
+            <KindQuestion profile={profile} update={update} />
+            <SizeQuestions profile={profile} update={update} kind={false} />
           </div>
         )}
 

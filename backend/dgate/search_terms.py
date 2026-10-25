@@ -44,6 +44,9 @@ class Group:
     folded: tuple[tuple[str, ...], ...]      # the same, folded
     # WP-110: the codes whose main-code notices are the product itself (the search's code part; never a secondary code)
     anchors: tuple[str, ...] = ()
+    # WP-125: words that, typed, search the group, but that no other word of it searches ("foundry": the place, not the
+    # product; "castings" found a water-pipe tender through the code title "Foundry moulds"), folded
+    typed_only: tuple[tuple[str, ...], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -58,7 +61,8 @@ def _data() -> tuple[tuple[Group, ...], tuple[BuyerAbbreviation, ...]]:
     raw = json.loads(DATA.read_text(encoding="utf-8"))
     groups = tuple(Group(g["id"], g["label"], tuple(g["cpv"]),
                          tuple(tuple(SEPARATORS.split(t.strip())) for t in g["terms"]),
-                         tuple(tuple(fold_words(t)) for t in g["terms"]), tuple(g.get("anchors", ())))
+                         tuple(tuple(fold_words(t)) for t in g["terms"]), tuple(g.get("anchors", ())),
+                         tuple(tuple(fold_words(t)) for t in g.get("typed_only", ())))
                    for g in raw["groups"])
     buyers = tuple(BuyerAbbreviation(b["abbr"], b["country"], tuple(tuple(fold_words(n)) for n in b["names"]))
                    for b in raw["buyers"])
@@ -111,7 +115,7 @@ def expand(words: list[str]) -> Expanded:
     while i < len(words):
         best: tuple[int, Group] | None = None
         for g in gs:
-            for term in g.folded:
+            for term in g.folded + g.typed_only:
                 n = len(term)
                 if n and tuple(folded[i:i + n]) == term and (best is None or n > best[0]):
                     best = (n, g)

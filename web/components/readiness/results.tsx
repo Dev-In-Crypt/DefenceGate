@@ -5,7 +5,7 @@ import { ArrowRight, ChevronDown, Pencil, Printer } from 'lucide-react';
 import { Icon } from '@/components/dg/icon';
 import { COUNTRIES, countryName } from '@/lib/taxonomy';
 import { isoDay } from '@/lib/readiness';
-import { SUPPLY_ROUTES, answerProblems, hasSupplier, providesServices, skippedFields, wantsEuFunding, type Profile } from '@/lib/profile';
+import { SUPPLY_ROUTES, answerProblems, askedAt, hasSupplier, providesServices, skippedFields, wantsEuFunding, type Profile } from '@/lib/profile';
 import { Callout } from '@/components/dg/blocks';
 import { Button } from '@/components/dg/button';
 import { EmptyState, ErrorState, Skeleton } from '@/components/dg/feedback';
@@ -167,6 +167,20 @@ function OtherFunding({ country }: { country: string }) {
   );
 }
 
+/**
+ * WP-125 (round 6, p02): a specialist's question names where this check asks it; after the five steps alone, the supplier page's
+ * questions (US-origin components, a foreign investor) are said to be there, not left as if the steps had skipped them.
+ */
+function SpecialistAsk({ ask, supplier, profile }: { ask: { field: string; question: string }; supplier: boolean; profile: Profile }) {
+  const href = askedAt(ask.field, supplier, profile);
+  return (
+    <p className="m-0 text-small text-ink-muted">
+      To answer: {href ? <Link href={href} className="font-semibold">{ask.question}</Link> : ask.question}
+      {href?.startsWith('/readiness/supplier') && !supplier && ' (on the supplier page, optional)'}
+    </p>
+  );
+}
+
 /** `fromSupplier` (WP-97): reached from the supplier profile (`?from=supplier`): "Change my answers" leads back there. */
 export function ResultsView({ fromSupplier = false }: { fromSupplier?: boolean } = {}) {
   const { profile, ready } = useProfile();
@@ -219,7 +233,7 @@ export function ResultsView({ fromSupplier = false }: { fromSupplier?: boolean }
                   <li key={f.key} className="flex flex-col gap-1 rounded-lg border border-edge bg-surface p-4" data-consultant-flag={f.key}>
                     <h3 className="m-0 text-body font-bold">{f.title}</h3>
                     <ConsultantNote text={f.text} />
-                    {f.asks.map((a) => <p key={a.field} className="m-0 text-small text-ink-muted">To answer: {a.question}</p>)}
+                    {f.asks.map((a) => <SpecialistAsk key={a.field} ask={a} supplier={hasSupplier(profile)} profile={profile} />)}
                   </li>
                 ))}
               </ul>

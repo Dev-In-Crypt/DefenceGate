@@ -81,12 +81,12 @@ for (const theme of ['light', 'dark'] as const) {
 test('3: the check tile says the questions it asks, not "five short sets"', async ({ page }) => {
   await visit(page, '/', HOME);
   const tile = page.locator('[data-tile]').nth(2);
-  await expect(tile).toContainText('five steps of 25 to 35 questions');
-  await expect(tile).toContainText('To supply defence buyers, one page of 19 to 35 questions.');
+  await expect(tile).toContainText('five steps of 24 to 35 questions');
+  await expect(tile).toContainText('To supply defence buyers, one page of 18 to 35 questions.');
   await expect(tile).not.toContainText(/Five short sets/i);
   // the readiness check says the same of itself; the chooser page too
-  await visit(page, '/readiness', { title: /readiness/i, h1: /readiness/i, text: [/25 to 35 in all/] });
-  await visit(page, '/check', { title: /Check my company/, h1: 'Check my company', text: [/Five steps of 25 to 35 questions/] });
+  await visit(page, '/readiness', { title: /readiness/i, h1: /readiness/i, text: [/24 to 35 in all/] });
+  await visit(page, '/check', { title: /Check my company/, h1: 'Check my company', text: [/Five steps of 24 to 35 questions/] });
 });
 
 /** The questions a form shows now: each group (a fieldset) once, and each field outside a group. */

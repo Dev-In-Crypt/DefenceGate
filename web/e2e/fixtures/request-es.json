@@ -9,6 +9,7 @@
   "handles_classified": true,
   "legal_form": "legal_person",
   "non_eu_component_cost_pct": 10.0,
+  "org_kind": "company",
   "product_regime": "military",
   "restricted_third_country_component": false,
   "safe_role": "contractor",
