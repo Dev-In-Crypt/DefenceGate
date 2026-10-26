@@ -9,3 +9,4 @@ broken pages, wrong data). Everything else is written here and not worked on unt
 | Generic Polish fire service (PSP) buyer rows 184800 and 174324 collect other towns' notices | data tidy-up, not wrong totals |
 | 52 municipality (gmina) names to check against TERYT | cosmetic |
 | 34 rejected merge candidates could be written as REJECT | bookkeeping |
+| Detailed visitor statistics with self-hosted Umami (referrers, paths); owner asked 26 Oct 2026 | new feature; needs a privacy update |
