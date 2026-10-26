@@ -36,8 +36,11 @@ integration (9c4295c). Only the sentences below change; everything else stays wo
 "Browsing needs no account. We set no cookie while you browse; Cloudflare, which protects the site, may set two technically
 necessary cookies (section 4)."
 
+**Owner's instruction (26 Oct 2026):** legal terms, no plain-language version, no emphasis on the United States. The wording
+below follows it (revised the same day).
+
 **"In short", new bullet after the access-log bullet.** Proposed:
-"Every request to the site passes through Cloudflare (United States), which protects it against automated floods (section 2)."
+"Requests to the site are processed by Cloudflare, our provider of network security and content delivery (section 2)."
 
 **Section 2, first paragraph.** 1.7: "When your browser loads a page, the server and the reverse proxy in front of it record
 the technical details of the request: ..." Proposed (the rest of the paragraph unchanged):
@@ -45,13 +48,11 @@ the technical details of the request: ..." Proposed (the rest of the paragraph u
 reverse proxy on it record the technical details of the request: ..."
 
 **Section 2, new paragraph after the retention sentence.** Proposed:
-"Cloudflare, Inc. (United States) stands in front of the server as our processor. It receives every request to the site and
-our answer to it: your IP address, the time, the full address requested including any search words, your browser's headers
-and the page or file we send back, and it assigns a country to your IP address. It uses this to deliver the site and to tell
-visitors from automated floods (it may show a short browser check before a page). Requests are handled in the Cloudflare
-data centre nearest to you, normally one in Europe for visitors in Europe; Cloudflare also processes this data in the United
-States. [Transfer basis: to be completed after the lawyer's check, see above.] Legal basis: our legitimate interest in a
-secure and available service (Art. 6(1)(f) GDPR). Cloudflare keeps its records according to its own policy."
+"Cloudflare, Inc. acts as our processor (Art. 28 GDPR) for network security and content delivery. It processes the request
+data described above (IP address, time, requested address, request headers) and our response in order to deliver the site and
+to detect and mitigate automated traffic (bot management and rate limiting; a browser check may be shown before a page).
+Legal basis: Art. 6(1)(f) GDPR, our legitimate interest in the security and availability of the service. Retention on
+Cloudflare's side follows its own policy."
 
 **Section 4, first sentence.** 1.7: "While you browse, the site sets no cookies. These are the only items it ever stores in
 your browser:" Proposed:
@@ -68,9 +69,14 @@ no consent banner is shown. None of them is used for tracking."
 **Section 8, the Cloudflare item.** 1.7: "Cloudflare, Inc. (USA), as the provider of the domain name service only: it answers
 requests for the domain's address and can see the address of the resolver that asks. Traffic to the site does not pass
 through Cloudflare." Proposed:
-"Cloudflare, Inc. (United States), as a processor: it provides the domain name service and stands in front of the server, so
-every request to the site and our answer pass through it (section 2). It processes them in its network, including in the
-United States."
+"Cloudflare, Inc., as a processor: domain name service, network security and content delivery for all requests to the site
+(section 2). Where data is processed outside the EEA, the transfer is based on the EU-US Data Privacy Framework (Art. 45
+GDPR)."
+
+(Owner approved this sentence on 26 Oct 2026. Checked the same day on dataprivacyframework.gov/list: Cloudflare, Inc., EU-U.S.
+DPF "Active - Re-certification under Review", HR and non-HR data.)
+
+**Approved by the owner on 26 October 2026; to be published as privacy 1.8.**
 
 ## /data/sovereignty: proposed changes (`web/app/(public)/data/sovereignty/page.tsx`)
 
@@ -81,13 +87,9 @@ content delivery network or proxy in front of it: visitors connect to it directl
 
 **Row "Domain registration and name service (DNS)" (outside the EU).** Proposed new title and note:
 - what: "Domain registration, name service (DNS) and the proxy in front of the server"
-- who: "Cloudflare, Inc." / where: "United States company; requests are handled in its data centre nearest the visitor, and
-  it also processes data in the United States" / eu: "No"
-- note: "Cloudflare is the registrar, answers the question “what is the server’s address?”, and stands in front of the
-  server: every page and API request, with the visitor's IP address, the address requested and the browser's headers, passes
-  through it, and so does our answer. It ends the encrypted connection itself. It is there to keep automated floods off the
-  site; it may set the cookies `__cf_bm` and, after a browser check, `cf_clearance` (privacy notice, sections 2 and 4). It acts
-  as our processor."
+- who: "Cloudflare, Inc." / where and eu: unchanged from the current row
+- note: "Registrar, name service, and processor for network security and content delivery: all requests to the site pass
+  through it (privacy notice, sections 2 and 4)."
 
 **"What this page does not say" list:** no change (it already says US companies are in the path).
 
