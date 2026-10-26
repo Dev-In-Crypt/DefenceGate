@@ -115,11 +115,11 @@ SEARCH_RESULTS = 100           # how many newest matches are read to count the n
 # asks again (the form carries the versions it shows) and /me says `termsCurrent: false` for
 # an account that accepted an older one. Keep in step with web/app/(public)/terms and privacy,
 # and keep a dated copy of the text in docs/legal/versions/.
-TERMS_VERSION = "2.1"          # published 24 October 2026
-PRIVACY_VERSION = "1.6"        # published 24 October 2026
-# WP-123: the first privacy notice that describes accounts with a password (draft:
-# docs/legal/drafts/privacy-v1.7-draft.md). Accounts stay closed while the published one is older,
-# whatever the mail relay says: nobody is asked for a password the notice says we do not use.
+TERMS_VERSION = "2.2"          # published 26 October 2026 (WP-140)
+PRIVACY_VERSION = "1.7"        # published 26 October 2026 (WP-140)
+# WP-123: the first privacy notice that describes accounts with a password (published as 1.7,
+# docs/legal/versions/privacy-v1.7-2026-10-26.md). Accounts stay closed while the published one is
+# older, whatever the mail relay says: nobody is asked for a password the notice says we do not use.
 PASSWORD_PRIVACY_VERSION = "1.7"
 
 # What a person may pick on the pricing page and bring to /signup (WP-122 buttons). Remembered on the
@@ -207,12 +207,15 @@ def _version(v: str) -> tuple[int, ...]:
 def accounts_problem() -> str | None:
     """Why accounts are closed, or None when they are open: a mail relay that is configured and
     passed its health check, a published privacy notice that describes password accounts, and in
-    production a key of the API's own for the account secrets."""
+    production a key of the API's own for the account secrets and the owner's switch
+    (DGATE_ACCOUNTS_OPEN=1, WP-140: publishing the notice must not open sign-in by itself)."""
     if _version(PRIVACY_VERSION) < _version(PASSWORD_PRIVACY_VERSION):
         return "privacy notice"
     cfg = settings()
     if cfg.env == "production" and not cfg.account_key.strip():
         return "DGATE_ACCOUNT_KEY"
+    if cfg.env == "production" and not cfg.accounts_open:
+        return "DGATE_ACCOUNTS_OPEN"
     if not mailer.ready():
         return "mail"
     return None

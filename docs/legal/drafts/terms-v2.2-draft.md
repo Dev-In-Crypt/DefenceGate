@@ -1,5 +1,9 @@
 # Terms of use, version 2.2: DRAFT for the owner's approval (WP-123, 25 October 2026)
 
+**WP-140: published 26 October 2026** (terms 14 and 20 as drafted below) on the owner's approval of 25 October; the text in
+force is `docs/legal/versions/terms-v2.2-2026-10-26.md` and the registration form now names 2.2 (`TERMS_VERSION`). The
+**WP-124 term "Paid plans"** at the end of this file is not published and remains a draft until Creem is set up.
+
 **Not published.** The page `web/app/(public)/terms/page.tsx` keeps version 2.1 (published 24 October 2026) until the
 owner approves this text. The registration form shows the version the API names (`TERMS_VERSION`, now "2.1"); bump it
 to "2.2" when the page is published, together with the privacy notice 1.7 (docs/legal/drafts/privacy-v1.7-draft.md).

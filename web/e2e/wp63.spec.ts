@@ -55,7 +55,9 @@ test('/alerts and /privacy: no "no date", no bracketed placeholder for the mail 
   await expect(page.locator('main')).not.toContainText(/There is no date|being prepared|calendar file/);
   await visit(page, '/privacy', { title: /privacy/i, h1: /privacy/i });
   await expect(page.locator('main')).not.toContainText('[mail provider');
-  await expect(page.locator('main')).toContainText('None has been chosen yet, which is why sign-in is not open');
+  // WP-140: privacy 1.7 names the provider the owner chose (was: 'None has been chosen yet, which is why sign-in is not open').
+  await expect(page.locator('main')).toContainText('They are sent through Brevo (Sendinblue SAS, France), acting as our processor.');
+  await expect(page.locator('main')).not.toContainText('None has been chosen yet');
 });
 
 /**
