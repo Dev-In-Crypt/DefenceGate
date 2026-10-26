@@ -19,6 +19,20 @@ function formToQuery(form: HTMLFormElement, defaults: FormDefaults = {}): string
 }
 
 /**
+ * WP-146: a control the visitor changed since the server's HTML (its default state, which hydration leaves alone) and is not
+ * still typing in. A search box applies on Enter, which submits the plain GET form before hydration, so it never counts.
+ */
+function changedSinceLoad(el: Element): boolean {
+  if (el instanceof HTMLSelectElement) {
+    const d = [...el.options].find((o) => o.defaultSelected);
+    return !!d && !d.selected;
+  }
+  if (!(el instanceof HTMLInputElement) || el.type === 'search') return false;
+  if (el.type === 'checkbox' || el.type === 'radio') return el.checked !== el.defaultChecked;
+  return el !== document.activeElement && el.value !== el.defaultValue;
+}
+
+/**
  * Makes the first `<form>` inside `ref` live (progressive enhancement: without scripts it is a plain GET form with its button).
  *
  *  - A checkbox waits `CHECKBOX_DEBOUNCE_MS` for the next tick; a radio, a select, a date and the submit (Enter, the button)
@@ -65,6 +79,11 @@ function useLiveForm(ref: React.RefObject<HTMLElement | null>, defaults: FormDef
     const onSubmit = (e: SubmitEvent) => { e.preventDefault(); go(); };
     form.addEventListener('change', onChange);
     form.addEventListener('submit', onSubmit);
+    // WP-146: a tap before hydration (a slow phone) fired its `change` before these listeners existed; the form still holds it.
+    // Apply it now as its own event would have: a checkbox waits for the next tick, anything else goes at once.
+    const early = [...form.elements].filter(changedSinceLoad) as HTMLInputElement[];
+    if (early.some((t) => t.type !== 'checkbox')) go();
+    else if (early.length > 0) timer.current = setTimeout(go, CHECKBOX_DEBOUNCE_MS);
     return () => {
       form.removeEventListener('change', onChange);
       form.removeEventListener('submit', onSubmit);
