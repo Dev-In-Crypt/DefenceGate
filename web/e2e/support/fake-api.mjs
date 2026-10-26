@@ -185,13 +185,16 @@ function route(url) {
   if (p === '/v1/digest/weeks') return [200, [{ week: '2026-W42', weekFrom: '2026-10-12T00:00:00Z', weekTo: '2026-10-19T00:00:00Z', counts: null, computedAt: null }]];
   if (p === '/v1/sources') return [200, sources()];
   if (p === '/v1/funding' && q.get('q') === 'wp132') {
-    const items = [FUNDING[9002], FUNDING[9003], FUNDING[9004], FUNDING[9005]].map(({ outOfScope, ...c }) => c);
-    return [200, { items: Number(q.get('page') ?? 1) === 1 ? items : [], total: items.length, page: Number(q.get('page') ?? 1), pageSize: Number(q.get('pageSize') ?? 10), meta: { updatedAt: NOW } }];
+    // WP-145b: none of these carries the no-funding label: `uaNoFundingTotal` is 0 and the filter `uaNoFunding=true` keeps nothing
+    const items = [FUNDING[9002], FUNDING[9003], FUNDING[9004], FUNDING[9005]].map(({ outOfScope, ...c }) => c)
+      .filter((c) => q.get('uaNoFunding') !== 'true' || c.ukraineNoFunding);
+    return [200, { items: Number(q.get('page') ?? 1) === 1 ? items : [], total: items.length, page: Number(q.get('page') ?? 1), pageSize: Number(q.get('pageSize') ?? 10), uaNoFundingTotal: 0, meta: { updatedAt: NOW } }];
   }
   if (p === '/v1/funding' && q.get('q') === 'wp145') {
     // the API's filter `uaNoFunding=true`: only the calls whose document says it (funding.py)
     const items = [FUNDING[9005], FUNDING[9006]].filter((c) => q.get('uaNoFunding') !== 'true' || c.ukraineNoFunding);
-    return [200, { items, total: items.length, page: 1, pageSize: Number(q.get('pageSize') ?? 10), meta: { updatedAt: NOW } }];
+    // WP-145b: the labelled calls among those that match every filter but this one (funding.py `uaNoFundingTotal`): 9006
+    return [200, { items, total: items.length, page: 1, pageSize: Number(q.get('pageSize') ?? 10), uaNoFundingTotal: 1, meta: { updatedAt: NOW } }];
   }
   if (p === '/v1/funding') return [200, { items: [], total: 0, page: 1, pageSize: Number(q.get('pageSize') ?? 10) }];
   if (/^\/v1\/funding\/\d+/.test(p)) {

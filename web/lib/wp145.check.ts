@@ -13,6 +13,7 @@ import { callFit, fitLabel } from './fit';
 import { parseProfile } from './profile';
 import { parseCallFilters, toQuery } from './filters';
 import { ukraineSentence } from './ukraine';
+import { allCalls, queryCalls } from './mock/calls';
 
 const SAID = 'Entities established in Ukraine are not eligible to receive funding under this call.';
 const data = JSON.parse(readFileSync('lib/data/wp93-pairs.json', 'utf8'));
@@ -49,5 +50,13 @@ const f = parseCallFilters({ uaNoFunding: 'true' });
 assert.equal(f.uaNoFunding, true);
 assert.match(toQuery(f), /uaNoFunding=true/);
 assert.equal(parseCallFilters({ uaNoFunding: 'yes' }).uaNoFunding, undefined);
+
+// WP-145b: the count the filter bar shows the choice by (the API's `uaNoFundingTotal`, backend/dgate/funding.py; the demo twin here):
+// the labelled calls among those that match every filter but this one. The demo data has none, like production on 26 Oct 2026.
+assert.ok(readFileSync('../backend/dgate/funding.py', 'utf8').includes('"uaNoFundingTotal": ua_no_funding_total'), 'funding.py uaNoFundingTotal');
+assert.equal(allCalls().filter((x) => x.ukraineNoFunding === true).length, 0);
+assert.equal(queryCalls({ status: 'all' }).uaNoFundingTotal, 0);
+assert.equal(queryCalls({ status: 'all', uaNoFunding: true }).uaNoFundingTotal, 0, 'counted before its own filter, as the API');
+assert.equal(queryCalls({ status: 'all', uaNoFunding: true }).total, 0);
 
 console.log('wp145 checks passed');

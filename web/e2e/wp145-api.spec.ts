@@ -28,6 +28,27 @@ test('the filter lists those calls only', { tag: '@fake-api' }, async ({ page })
   await expect(card(page, 'Key electronic components')).toHaveCount(0);
 });
 
+// WP-145b: the choice is offered only where a call carries the label (none does on 26 Oct 2026), so the folded form stays short (wp47)
+test('the filter is offered, with its count, only when a call carries the label', { tag: '@fake-api' }, async ({ page }) => {
+  const box = page.locator('input[name="uaNoFunding"][value="true"]');
+  await visit(page, '/funding?q=wp145', FUNDING);
+  await expect(box).toHaveCount(1);
+  await expect(box).not.toBeChecked();
+  await expect(page.locator('label', { has: box })).toContainText('Only calls whose document says Ukrainian entities cannot receive funding (1)');
+  // the calls of WP-132 (9002-9005): none carries it; the Ukraine filter beside it stays
+  await visit(page, '/funding?q=wp132', FUNDING);
+  await expect(box).toHaveCount(0);
+  await expect(page.locator('input[name="ukraine"][value="true"]')).toHaveCount(1);
+});
+
+test('typed into the URL where no call carries the label, the filter stays ticked and the list is honestly empty', { tag: '@fake-api' }, async ({ page }) => {
+  await visit(page, '/funding?q=wp132&uaNoFunding=true', FUNDING);
+  await expect(page.locator('main')).toContainText('No calls match');
+  await expect(page.locator('input[name="uaNoFunding"][value="true"]')).toBeChecked();
+  await expect(card(page, 'Key electronic components')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /without the Ukrainian-funding filter/ })).toBeVisible();
+});
+
 test('the call page says it in a line, with the document’s sentence', { tag: '@fake-api' }, async ({ page }) => {
   await visit(page, '/funding/9006-wp132-call-9006', { title: /Precision engagement/, h1: 'Precision engagement' });
   await expect(page.locator('[data-ua-no-funding]').first()).toHaveText(BADGE);

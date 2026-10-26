@@ -100,7 +100,7 @@ export function CallListTemplate({
       <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8">
         <div className={FILTER_COLUMN}>
           <FilterBar filters={filters} basePath={basePath} hide={hide} view={view === 'calendar' ? view : undefined}
-            countries={fundersWithCoverage(health.sources, filters.country)} cascadeTotal={result.cascadeTotal} ukraineTotal={result.ukraineTotal} />
+            countries={fundersWithCoverage(health.sources, filters.country)} cascadeTotal={result.cascadeTotal} ukraineTotal={result.ukraineTotal} uaNoFundingTotal={result.uaNoFundingTotal} />
           {saveSearch}
           {exportHref && result.total > 0 && <ResultTools csvHref={exportHref} calendarHref={calendarHref} icsHref={filters.status === 'closed' ? undefined : icsHref} className="hidden lg:flex" total={result.total} status={filters.status} />}
           {result.total > 0 && filters.status !== 'closed' && subscribe && <div className="hidden lg:block">{subscribe}</div>}

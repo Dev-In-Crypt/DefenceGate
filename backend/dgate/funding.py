@@ -358,6 +358,8 @@ class FundingPage(BaseModel):
     cascadeTotal: int | None = None
     # Calls open to Ukrainian participants among those that match every filter but this one.
     ukraineTotal: int | None = None
+    # WP-145b: calls whose document says Ukrainian entities cannot receive funding, among those that match every filter but this one.
+    uaNoFundingTotal: int | None = None
 
 
 class SourceHealth(BaseModel):
@@ -947,15 +949,18 @@ def list_funding(
 
     # The counts the filter bar shows: each is the number of calls that match every other filter, this one included
     # as "yes" (cascade funding; open to Ukrainian participants), so the two counts follow each other's choice.
-    def count_with(*extra: str) -> int:
+    def count_with(*extra: str, args: tuple = ()) -> int:
         return conn.execute(f"SELECT count(*) AS n FROM ({SELECT} WHERE {' AND '.join([*where, *extra])}) c",
-                            params).fetchone()["n"]
+                            [*params, *args]).fetchone()["n"]
 
+    cascade_clause = ["c.cascade IS TRUE"] if cascade == "true" else []
+    ukraine_clause = ["c.open_to_ukraine IS TRUE"] if ukraine == "true" else []
+    # WP-145b: the calls whose document refuses funding to Ukrainian entities, with the two other choices applied; the
+    # filter bar offers this choice only when it can find one (none does on 26 Oct 2026).
+    ua_no_funding_total = count_with(*cascade_clause, *ukraine_clause, "c.open_to_ukraine_reason = %s", args=(NO_FUNDING,))
     if uaNoFunding == "true":
         where.append("c.open_to_ukraine_reason = %s")
         params.append(NO_FUNDING)
-    cascade_clause = ["c.cascade IS TRUE"] if cascade == "true" else []
-    ukraine_clause = ["c.open_to_ukraine IS TRUE"] if ukraine == "true" else []
     cascade_total = count_with(*ukraine_clause, "c.cascade IS TRUE")
     ukraine_total = count_with(*cascade_clause, "c.open_to_ukraine IS TRUE")
     where.extend([*cascade_clause, *ukraine_clause])
@@ -998,7 +1003,7 @@ def list_funding(
 
     return {"items": [to_call(r) for r in rows], "total": total,
             "page": page, "pageSize": pageSize, "search": search, "cascadeTotal": cascade_total,
-            "ukraineTotal": ukraine_total,
+            "ukraineTotal": ukraine_total, "uaNoFundingTotal": ua_no_funding_total,
             "meta": list_meta(conn, "grant") if with_meta is True else {}}
 
 

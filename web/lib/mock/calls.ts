@@ -265,6 +265,8 @@ export function queryCalls(f: CallFilters, ref: Date = now()): Paginated<Call> {
     if (f.q && !(query && query.matches(text, [c.callId, c.topicId].filter(Boolean).join(' ')))) return false;
     return true;
   });
+  // WP-145b: like the API, the labelled calls with the cascade and Ukraine choices applied (the filter bar offers the choice only then)
+  const uaNoFundingTotal = items.filter((c) => c.ukraineNoFunding === true && (!f.cascade || c.cascade === true) && (!f.ukraine || c.openToUkraine === true)).length;
   // WP-145: like the API, before the counts
   if (f.uaNoFunding) items = items.filter((c) => c.ukraineNoFunding === true);
   // The calls with cascade funding among those that match every other filter (the API's `cascadeTotal`).
@@ -303,7 +305,7 @@ export function queryCalls(f: CallFilters, ref: Date = now()): Paginated<Call> {
   const pageSize = f.pageSize ?? DEFAULT_PAGE_SIZE;
   const page = f.page ?? 1;
   return {
-    items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize, cascadeTotal, ukraineTotal,
+    items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize, cascadeTotal, ukraineTotal, uaNoFundingTotal,
     search: f.q ? { terms: query?.terms ?? [], alsoSearched: query?.alsoSearched ?? [] } : null,
   };
 }

@@ -27,12 +27,14 @@ const BUDGET_PRESETS = [1_000_000, 5_000_000, 10_000_000, 25_000_000, 50_000_000
  * `hide` removes groups fixed by a sub-page (e.g. a sub-page fixed to one country hides country).
  * `countries` is the list of funder countries with coverage (see fundersWithCoverage); default is all.
  */
-export function FilterBar({ filters, basePath, hide = [], view, countries = FUNDER_COUNTRIES, cascadeTotal, ukraineTotal }: {
+export function FilterBar({ filters, basePath, hide = [], view, countries = FUNDER_COUNTRIES, cascadeTotal, ukraineTotal, uaNoFundingTotal }: {
   filters: CallFilters; basePath: string; hide?: FilterGroup[]; view?: string; countries?: CountryCode[];
   /** Calls with cascade funding among those that match the other filters (the API's `cascadeTotal`); absent: no count. */
   cascadeTotal?: number | null;
   /** Calls open to Ukrainian participants among those that match the other filters (the API's `ukraineTotal`); absent: no count. */
   ukraineTotal?: number | null;
+  /** WP-145b: calls whose document refuses funding to Ukrainian entities among those that match the other filters; the choice shows only above 0 (or when chosen). */
+  uaNoFundingTotal?: number | null;
 }) {
   const show = (g: FilterGroup) => !hide.includes(g);
   const currency = filters.currency ?? DEFAULT_CURRENCY;
@@ -92,9 +94,12 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
               A call is counted only where its document, its text or its programme’s regulation says Ukrainian entities may take part.
               A call that is not counted may still be open: its answer is unknown. See the <Link href="/glossary#open-to-ukraine" className="font-semibold">glossary</Link>.
             </p>
-            {/* WP-145: the badge "No funding for Ukrainian entities", where the call document says so */}
-            <Choice name={PARAM.uaNoFunding} value="true" defaultChecked={filters.uaNoFunding === true}
-              label="Only calls whose document says Ukrainian entities cannot receive funding" />
+            {/* WP-145: the badge "No funding for Ukrainian entities", where the call document says so. WP-145b: offered only when a call
+                carries it (none on 26 Oct 2026), or when the URL chose it, so it can be unticked; an empty list then says so honestly. */}
+            {((uaNoFundingTotal ?? 0) > 0 || filters.uaNoFunding === true) && (
+              <Choice name={PARAM.uaNoFunding} value="true" defaultChecked={filters.uaNoFunding === true}
+                label={`Only calls whose document says Ukrainian entities cannot receive funding${typeof uaNoFundingTotal === 'number' ? ` (${uaNoFundingTotal})` : ''}`} />
+            )}
           </FoldGroup>
         )}
         {show('who') && (
