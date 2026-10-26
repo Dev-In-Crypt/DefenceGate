@@ -5,6 +5,25 @@
 # included) gets the same token filter as the access log below: a sign-in token is a
 # credential and must not be written to any log (review of 13 October 2026, M6).
 {
+	# WP-147: Cloudflare in front (proxy mode). The client address is Cloudflare's CF-Connecting-IP only when the connection
+	# comes from one of Cloudflare's published ranges; from anywhere else the header is ignored and the connection's own
+	# address stays the client's, so this is harmless while the proxy is off. {client_ip} (access log `client_ip`, the
+	# X-Forwarded-For sent to the API and the site below) is that address; `remote_ip` stays the connection's.
+	# The ranges line is rewritten by infra/cloudflare-ranges.sh (prints a diff, writes with --yes); infra/origin-lock.sh
+	# reads it. Keep it on one line.
+	servers {
+		# cloudflare-ranges fetched 2026-10-26 from https://www.cloudflare.com/ips-v4 and https://www.cloudflare.com/ips-v6
+		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+		client_ip_headers CF-Connecting-IP
+	}
+
+	# WP-147: Let's Encrypt by HTTP-01 only. Behind Cloudflare's proxy TLS-ALPN-01 cannot succeed (Cloudflare ends the TLS
+	# connection, the acme-tls/1 handshake never reaches us); HTTP-01 on port 80 passes through it. Same CA as before (the
+	# default issuer without an email is Let's Encrypt alone), so the stored certificates are kept.
+	cert_issuer acme {
+		disable_tlsalpn_challenge
+	}
+
 	# Logs go to files in a volume and not to the container's stdout: Docker rotates by size
 	# only, and the Privacy notice promises a maximum age. `logprune` (docker-compose.yml)
 	# removes lines and rolled files older than 14 days every hour; roll_keep_for is the
@@ -96,6 +115,10 @@
 			# 25 Oct 2026). Only a failed dial is retried for any method; a request that reached the API is never sent twice.
 			lb_try_duration 30s
 			lb_try_interval 250ms
+			# WP-147: the visitor's address as resolved above (Cloudflare's CF-Connecting-IP when the peer is Cloudflare, else the
+			# peer), alone: the site reads the first entry and the API the last, and Caddy would otherwise append the peer to the
+			# list a trusted proxy sent, which starts with whatever the visitor put there.
+			header_up X-Forwarded-For {client_ip}
 			transport http {
 				dial_timeout 5s
 				response_header_timeout 20s
@@ -117,6 +140,10 @@
 			# WP-127: the same hold as the API's while the web container is replaced (a deploy).
 			lb_try_duration 30s
 			lb_try_interval 250ms
+			# WP-147: the visitor's address as resolved above (Cloudflare's CF-Connecting-IP when the peer is Cloudflare, else the
+			# peer), alone: the site reads the first entry and the API the last, and Caddy would otherwise append the peer to the
+			# list a trusted proxy sent, which starts with whatever the visitor put there.
+			header_up X-Forwarded-For {client_ip}
 			# The framework's cache and prerender markers are not for clients.
 			header_down -X-Nextjs-Cache
 			header_down -X-Nextjs-Prerender

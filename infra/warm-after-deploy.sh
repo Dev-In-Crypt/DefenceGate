@@ -13,7 +13,10 @@ BASE="https://${DOMAIN:-localhost}"
 fail=0
 for path in / /tenders "/tenders?status=closed" "/tenders?status=all" /funding /buyers /suppliers /organisations /networks/consortium-gaps /networks/ukraine-partners \
             /changes /digest /market /calendar /data /changes.atom /digest.atom /funding.atom /calendar.ics /sitemap.xml; do
-    out=$(curl -s -o /dev/null -A 'DefenceGate-warm/1.0' -w '%{http_code} %{time_total}' --max-time 60 "${BASE}${path}")
+    # WP-147: straight to this server's proxy, not through Cloudflare: the origin's caches are the ones to fill, and
+    # Cloudflare's bot rule would answer a cookieless client on /organisations with a challenge instead of the page.
+    out=$(curl -s -o /dev/null -A 'DefenceGate-warm/1.0' -w '%{http_code} %{time_total}' --max-time 60 \
+          --resolve "${DOMAIN:-localhost}:443:127.0.0.1" "${BASE}${path}")
     echo "warm: ${out} ${path}"
     case "$out" in 5*) fail=1 ;; esac
 done
