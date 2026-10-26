@@ -405,6 +405,10 @@ def check(facts: dict[str, Any], p: dict[str, Any], ctx: dict[str, str] | None =
         verdict, reason = country_status(c, p["country"], ctx)
         line = _line("country", "Country", verdict, reason, c.get("quote"))
         lines.append(line if verdict == "no" else with_note(line, c, country_note(c, p["country"], p.get("more"))))
+    # WP-145: eligibility-check.ts, the call document says Ukrainian entities cannot receive funding: a Ukrainian applicant is blocked by it
+    said = (ctx or {}).get("ukraineNoFunding")
+    if said and p["country"] == "UA":
+        lines.append(_line("ukraine_funding", UA_NO_FUNDING, "no", UA_NO_FUNDING_REASON, said))
     # WP-99: eligibility-check.ts, the non-government controlled areas of Ukraine and Horizon Europe: not checked, and said so
     if p["country"] == "UA" and (p.get("more") or {}).get("uaOccupied") == "yes" and (ctx or {}).get("programme") == "HORIZON":
         lines.append(_line("territory", "Non-government controlled areas", "check",
@@ -693,6 +697,10 @@ def applicant_fit(chip: str, topic: str, profile: dict[str, Any] | None) -> dict
 BLOCKED_AS = {
     "USI-TERRITORY": "Your company is established in a non-government controlled area of Ukraine",
 }
+# WP-145: lib/eligibility-check.ts UA_NO_FUNDING, UA_NO_FUNDING_REASON
+UA_NO_FUNDING = "No funding for Ukrainian entities"
+UA_NO_FUNDING_REASON = ("The call document says Ukrainian entities cannot receive funding under this call, and your company is established "
+                        "in Ukraine.")
 # WP-99: lib/fit.ts NO_UA_PARTNER
 NO_UA_PARTNER = "Not without a Ukrainian partner (you said none takes part)"
 # WP-102 (p05, 149): a call only designated bodies may apply to, others joining them as partners: said on the badge, not "nothing blocks you"
@@ -751,7 +759,7 @@ def with_programme(doc: dict[str, Any], prog: dict[str, Any] | None) -> dict[str
 
 def call_fit(call: dict[str, Any] | None, profile: dict[str, Any] | None, assessment: dict[str, Any] | None) -> dict[str, Any]:
     """lib/fit.ts `callFit`: `call` is {state, facts, programme, topic}; `assessment` the assess payload without a call."""
-    ctx = {"programme": call["programme"], "topic": call["topic"]} if call else None
+    ctx = {"programme": call["programme"], "topic": call["topic"], "ukraineNoFunding": call.get("ukraineNoFunding")} if call else None
     doc = fit_of(call["facts"], profile, ctx) if call and call["state"] == "read" else {"fit": "unknown", "result": None, "conditions": [], "blockedBy": []}
     with_rules = with_programme(doc, programme_fit(assessment, programmes_of_call(call["programme"], call["topic"]) if call else []))
     if not call:

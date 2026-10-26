@@ -85,13 +85,16 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
           </FoldGroup>
         )}
         {show('ukraine') && (
-          <FoldGroup legend="Ukrainian participants" count={filters.ukraine === true ? 1 : 0}>
+          <FoldGroup legend="Ukrainian participants" count={(filters.ukraine === true ? 1 : 0) + (filters.uaNoFunding === true ? 1 : 0)}>
             <Choice name={PARAM.ukraine} value="true" defaultChecked={filters.ukraine === true}
               label={`Only calls open to Ukraine${typeof ukraineTotal === 'number' ? ` (${ukraineTotal})` : ''}`} />
             <p className="m-0 text-small text-ink-muted">
               A call is counted only where its document, its text or its programme’s regulation says Ukrainian entities may take part.
               A call that is not counted may still be open: its answer is unknown. See the <Link href="/glossary#open-to-ukraine" className="font-semibold">glossary</Link>.
             </p>
+            {/* WP-145: the badge "No funding for Ukrainian entities", where the call document says so */}
+            <Choice name={PARAM.uaNoFunding} value="true" defaultChecked={filters.uaNoFunding === true}
+              label="Only calls whose document says Ukrainian entities cannot receive funding" />
           </FoldGroup>
         )}
         {show('who') && (

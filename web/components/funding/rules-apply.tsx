@@ -12,6 +12,7 @@ export const UKRAINE_BASIS: Record<string, string> = {
   topic_text: 'From the topic’s own conditions',
   call_text: 'From the call’s conditions text',
   programme_rule: 'From the regulation of this regime',
+  call_document_no_funding: 'From the call document',
   edf_association_unconfirmed: 'From the EDF call documents and the regulation',
   call_document_closed_list: 'From the call document’s list of eligible countries',
   topic_text_associated: 'From the topic’s own conditions and the general annexes',

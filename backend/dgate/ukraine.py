@@ -27,6 +27,12 @@ sentence it rests on. In this order:
                       procurement agent, a recipient of additional quantities) and none says whether a Ukrainian
                       entity may apply. A flag stronger than the document is not served (V3-A): it is unknown, with
                       the Regulation's sentence as the evidence, unless the document itself says Ukraine is (not) eligible.
+  6b. `call_document_no_funding`  WP-145 (owner, 26 October 2026), checked first for an EDIP call (never for one of the Ukraine
+                      Support Instrument): its stored call document says, in one sentence, that entities established in Ukraine (or
+                      controlled from it) cannot receive funding or are not eligible. The flag stays unknown (whether they may take
+                      part without funding is another question); the evidence is that sentence, which the call page and the list
+                      card say, and the eligibility check blocks a Ukrainian applicant with it. Read on 26 October 2026: none of
+                      the 10 EDIP calls' documents has such a sentence (docs/verification/round6/wp145-selfcheck.md).
   7. `edf_association_unconfirmed`  an EDF call: Ukraine may take part as an associated country
                       "in accordance with the conditions laid down in the EU-Ukraine Association
                       Agreement" (Regulation (EU) 2021/697, Article 5, as replaced), the EDF call
@@ -49,8 +55,9 @@ from . import eligibility, verdict
 from .regime import EDF, EDIP, HORIZON, USI, regime_of
 
 REASONS = ("call_document", "call_document_closed_list", "topic_text", "call_text", "topic_text_associated", "horizon_associated",
-           "programme_rule", "edf_association_unconfirmed", "not_stated")
+           "programme_rule", "call_document_no_funding", "edf_association_unconfirmed", "not_stated")
 EVIDENCE_MAX = 450
+NO_FUNDING = "call_document_no_funding"
 
 # Verbatim from the Official Journal text (CELLAR), read on 18 October 2026.
 USI_RULE = ("Only legal entities established in the Union or in Ukraine and having their executive management "
@@ -87,6 +94,23 @@ _ASSOCIATED = re.compile(r"associated|Ukrain", re.I)
 # Not a list that adds or names other countries ("...and the following additional associated countries: Canada").
 _HORIZON_TOPIC = re.compile(
     r"[^.]*\blimited\s+to\s+legal\s+entities\s+established\s+in\s+Member\s+States\s+and\s+Associated\s+Countries\s*\.", re.I)
+# WP-145: a sentence of an EDIP call document that refuses funding to Ukrainian entities. Its subject is entities established in
+# Ukraine (Ukrainian entities, entities controlled from Ukraine), never a SEAP that has Ukraine as a member or a state's role.
+_UA_SUBJECT = re.compile(r"(?:established|located|based)\s+in\s+Ukraine|Ukrainian\s+(?:legal\s+)?(?:entit|applicant|organi[sz]ation|compan|bod|"
+                         r"participant|beneficiar)|controll?ed\s+(?:from|by)\s+(?:\w+\s+){0,2}Ukrain", re.I)
+_REFUSED = re.compile(r"\b(?:not\s+(?:be\s+)?eligible|ineligible|cannot|can\s+not|may\s+not|shall\s+not|will\s+not|excluded|"
+                      r"without\s+(?:any\s+)?(?:EU\s+|Union\s+)?funding|no\s+(?:EU\s+|Union\s+)?funding)\b", re.I)
+_FUNDING = re.compile(r"fund|eligib|recipient|beneficiar|grant", re.I)
+_DOC_SENTENCE = re.compile(r"(?<=[.;!?])\s+|\s+[−–•]\s+")
+
+
+def no_funding_sentence(text: str | None) -> str | None:
+    """WP-145: the sentence of a call document that says entities established in Ukraine (or controlled from it) cannot receive
+    funding or are not eligible, else None. PDF text breaks lines inside sentences, so the whitespace is joined first."""
+    for part in _DOC_SENTENCE.split(re.sub(r"\s+", " ", text or "")):
+        if _UA_SUBJECT.search(part) and _REFUSED.search(part) and _FUNDING.search(part) and not _TERRITORY.search(part):
+            return _clip(part)
+    return None
 
 
 def _clip(text: str) -> str:
@@ -133,8 +157,13 @@ def _closed_list(fact: dict[str, Any]) -> str | None:
 
 def decide(call: dict[str, Any], facts: dict[str, Any]) -> tuple[bool | None, str, str | None]:
     """(flag, reason, evidence) of one call. `facts` are its verified eligibility facts as served
-    (`eligibility.read_many`); `call` has `programme_code`, `topic_code` and `eligibility_text`."""
+    (`eligibility.read_many`); `call` has `programme_code`, `topic_code` and `eligibility_text`, and may have `document_text`,
+    the stored text of its call document (WP-145)."""
     regime = regime_of(call.get("programme_code") or "", call.get("topic_code"))
+    if regime is EDIP:
+        said = no_funding_sentence(f"{call.get('document_text') or ''}\n{call.get('eligibility_text') or ''}")
+        if said:
+            return None, NO_FUNDING, said
     fact = facts.get("eligible_countries")
     if fact and fact["scope"] != "general":
         answer = _fact_answer(call.get("topic_code"), fact)
@@ -173,14 +202,19 @@ def run(conn, *, write: bool = False) -> dict[str, int]:
     """Decide every call. Writes only the calls whose answer changed; a second run changes nothing."""
     rows = conn.execute(
         """SELECT c.id, p.code AS programme_code, c.topic_code, c.type_of_action, c.conditions_raw, c.eligibility_text,
-                  c.open_to_ukraine, c.open_to_ukraine_reason, c.open_to_ukraine_evidence
+                  c.open_to_ukraine, c.open_to_ukraine_reason, c.open_to_ukraine_evidence,
+                  -- WP-145: the stored call documents of the EDIP calls, the only ones whose text is read here
+                  CASE WHEN c.topic_code LIKE 'EDF-EDIP-P-%%' THEN
+                    (SELECT string_agg(t.text, E'\\n') FROM jsonb_array_elements(COALESCE(c.conditions_raw->'documents', '[]'::jsonb)) d
+                       JOIN call_document_text t ON t.url = d->>'url' WHERE d->>'label' ILIKE '%%call document%%') END AS document_text
              FROM call c JOIN programme p ON p.id = c.programme_id ORDER BY c.id""").fetchall()
     served = eligibility.read_many(
         conn, [(r["id"], r["conditions_raw"], r["eligibility_text"], r["topic_code"], r["type_of_action"]) for r in rows])
-    counts = {"calls": len(rows), "yes": 0, "no": 0, "unknown": 0, "changed": 0}
+    counts = {"calls": len(rows), "yes": 0, "no": 0, "unknown": 0, "changed": 0, "no_funding": 0}
     for r in rows:
         flag, reason, evidence = decide(r, served[r["id"]]["facts"])
         counts["yes" if flag is True else "no" if flag is False else "unknown"] += 1
+        counts["no_funding"] += reason == NO_FUNDING
         if (flag, reason, evidence) == (r["open_to_ukraine"], r["open_to_ukraine_reason"], r["open_to_ukraine_evidence"]):
             continue
         counts["changed"] += 1

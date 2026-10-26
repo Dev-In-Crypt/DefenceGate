@@ -1,7 +1,7 @@
 // A fake of the parts of the API that WP-52b reads, shaped as docs/design/API_CONTRACT.md ("Changes of 19 October 2026") says, with the
 // numbers of the UX audit of 19 October 2026: 1,449 open notices with a deadline (593 in November), 287,634 closed notices that stop at
 // position 10,000, 2,311 changes in 14 days (3,100 for Poland), a digest week of 873 new notices. For e2e/wp52b-api.spec.ts, e2e/wp127-api.spec.ts and
-// e2e/wp132-api.spec.ts (five funding calls, 9001-9005); nothing else uses it.
+// e2e/wp132-api.spec.ts (five funding calls, 9001-9005) and e2e/wp145-api.spec.ts (9005, 9006); nothing else uses it.
 //
 // `npx playwright test` against a local build starts it and a second `next start` that reads it (playwright.config.ts, the
 // fake-api-* projects, WP-128). By hand, against a site of your own:
@@ -147,6 +147,10 @@ const FUNDING = {
   9003: fundingCall(9003, { title: 'Advanced materials for miniaturised energy harvesting', deadline: '2026-10-12T21:59:59Z' }),
   9004: fundingCall(9004, { title: 'Strengthening cybersecurity capacities', programme: 'DIGITAL', programmeName: 'Digital Europe Programme', deadline: '2026-10-12T15:00:00Z', deadlineIsDate: false }),
   9005: fundingCall(9005, { title: 'Key electronic components', programme: 'EDIP', programmeName: 'European Defence Fund', topicId: 'EDF-EDIP-P-2027-LS-IRA-KEC' }),
+  // WP-145 (e2e/wp145-api.spec.ts): an EDIP call whose document says Ukrainian entities cannot receive funding. No production call
+  // document says so (26 October 2026): the sentence is made up for the test.
+  9006: fundingCall(9006, { title: 'Precision engagement', programme: 'EDIP', programmeName: 'European Defence Fund', topicId: 'EDF-EDIP-P-2027-LS-IRA-PE',
+    ukraineNoFunding: true, ukraineBasis: { reason: 'call_document_no_funding', evidence: 'Entities established in Ukraine are not eligible to receive funding under this call.' } }),
 };
 
 function route(url) {
@@ -183,6 +187,11 @@ function route(url) {
   if (p === '/v1/funding' && q.get('q') === 'wp132') {
     const items = [FUNDING[9002], FUNDING[9003], FUNDING[9004], FUNDING[9005]].map(({ outOfScope, ...c }) => c);
     return [200, { items: Number(q.get('page') ?? 1) === 1 ? items : [], total: items.length, page: Number(q.get('page') ?? 1), pageSize: Number(q.get('pageSize') ?? 10), meta: { updatedAt: NOW } }];
+  }
+  if (p === '/v1/funding' && q.get('q') === 'wp145') {
+    // the API's filter `uaNoFunding=true`: only the calls whose document says it (funding.py)
+    const items = [FUNDING[9005], FUNDING[9006]].filter((c) => q.get('uaNoFunding') !== 'true' || c.ukraineNoFunding);
+    return [200, { items, total: items.length, page: 1, pageSize: Number(q.get('pageSize') ?? 10), meta: { updatedAt: NOW } }];
   }
   if (p === '/v1/funding') return [200, { items: [], total: 0, page: 1, pageSize: Number(q.get('pageSize') ?? 10) }];
   if (/^\/v1\/funding\/\d+/.test(p)) {

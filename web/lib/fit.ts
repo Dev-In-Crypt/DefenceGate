@@ -290,6 +290,8 @@ export interface CallFacts {
   /** The programme chip (EDF, HORIZON, DIGITAL, NATIONAL...) and the topic code: they decide whose rules and which association apply. */
   programme: string;
   topic: string;
+  /** WP-145: the call document's sentence that Ukrainian entities cannot receive funding under the call; null or absent: it says nothing of it. */
+  ukraineNoFunding?: string | null;
 }
 
 /**
@@ -299,7 +301,7 @@ export interface CallFacts {
  * `POST /v1/readiness/assess` answer without a call (null while it has not come or failed).
  */
 export function callFit(call: CallFacts | null, profile: Profile | null, assessment: Pick<Assessment, 'assessments' | 'roadmap'> | null): FitResult {
-  const ctx: CallContext | undefined = call ? { programme: call.programme, topic: call.topic } : undefined;
+  const ctx: CallContext | undefined = call ? { programme: call.programme, topic: call.topic, ukraineNoFunding: call.ukraineNoFunding } : undefined;
   const doc: FitResult = call && call.state === 'read' ? fitOf(call.facts, profile, ctx) : { fit: 'unknown', result: null, conditions: [], blockedBy: [] };
   const withRules = withProgramme(doc, programmeFit(assessment, call ? programmesOfCall(call.programme, call.topic) : []));
   if (!call) return withRules;

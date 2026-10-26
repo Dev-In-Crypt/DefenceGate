@@ -43,6 +43,7 @@ from .listcache import cache_list
 from .normalise import redact_emails
 from .sources import edf_factsheets
 from .suppress import removed
+from .ukraine import NO_FUNDING
 
 router = APIRouter()
 
@@ -415,7 +416,7 @@ def fit_facts(ids: str = Query(..., min_length=1, max_length=1200, pattern=r"^[0
         raise HTTPException(422, f"at most {MAX_FIT_IDS} calls at a time")
     rows = conn.execute(
         """SELECT c.id, c.topic_code, c.type_of_action, c.conditions_raw, c.eligibility_text, pr.code AS programme_code,
-                  s.code AS source_code, s.commercial_ok
+                  s.code AS source_code, s.commercial_ok, c.open_to_ukraine_reason, c.open_to_ukraine_evidence
              FROM call c JOIN programme pr ON pr.id = c.programme_id LEFT JOIN source s ON s.id = c.source_id
             WHERE c.id = ANY(%s) AND NOT c.suppressed""", (wanted,)).fetchall()
     servable = [r for r in rows if r["source_code"] in SOURCE_TEXT_SOURCES and r["commercial_ok"] is True]
@@ -426,6 +427,9 @@ def fit_facts(ids: str = Query(..., min_length=1, max_length=1200, pattern=r"^[0
     for r in rows:
         # Which programme's rules judge the call is decided by the browser from these two (lib/fit.ts programmesOfCall).
         which = {"programme": programme_of(r["programme_code"]), "topic": r["topic_code"]}
+        if r["open_to_ukraine_reason"] == NO_FUNDING:
+            # WP-145: the call document's sentence that Ukrainian entities cannot receive funding (the verdict blocks with it); absent otherwise
+            which["ukraineNoFunding"] = redact_emails(r["open_to_ukraine_evidence"])
         got = read.get(r["id"]) or eligibility.page_rules(r["conditions_raw"])
         if got is None:
             items[str(r["id"])] = {"state": "no_source", "basis": None, "facts": {}, **which}

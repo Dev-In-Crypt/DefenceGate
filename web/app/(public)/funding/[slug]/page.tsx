@@ -35,6 +35,7 @@ import { mergeSameText } from '@/lib/long-text';
 import { otherTopicCode, whatItFunds, whoLimits } from '@/lib/funding-path';
 import { WHO_BADGE } from '@/lib/filters';
 import { ApplySummary, UkraineOnly } from '@/components/funding/apply-summary';
+import { UA_NO_FUNDING } from '@/lib/eligibility-check';
 
 export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }> };
@@ -152,6 +153,8 @@ export default async function CallDetailPage({ params }: Props) {
             {!outOfScope && <Tag>{REGIMES[call.regime]}</Tag>}
             {call.cascade === true && <Tag>Cascade funding</Tag>}
             {call.openToUkraine === true && <Tag>Open to Ukraine</Tag>}
+            {/* WP-145: the call document says Ukrainian entities cannot receive funding under this call */}
+            {call.ukraineNoFunding === true && <span data-ua-no-funding className="contents"><Tag>{UA_NO_FUNDING}</Tag></span>}
             {call.whoMayApply && <Tag>{WHO_BADGE[call.whoMayApply]}</Tag>}
             {call.smeOnly === true && <Tag>SMEs only</Tag>}
             {!outOfScope && <StatusPill status={callStatusKind(call.status, d.state, call.openingDate)} />}
@@ -343,7 +346,8 @@ export default async function CallDetailPage({ params }: Props) {
           <Panel title="Can you apply?" className="print:hidden">
             <EligibilityCheck facts={call.documentEligibility.facts} documentUrl={call.documentEligibility.documentUrl} readAt={formatDateUtc(call.documentEligibility.extractedAt)}
               basis={call.documentEligibility.basis} sources={call.documentEligibility.sources} callId={call.id} closed={closed}
-              ctx={{ programme: call.programme, topic: call.topicId }} rulesApply={call.rulesApply} />
+              ctx={{ programme: call.programme, topic: call.topicId, ukraineNoFunding: call.ukraineBasis?.reason === 'call_document_no_funding' ? call.ukraineBasis.evidence : null }}
+              rulesApply={call.rulesApply} />
           </Panel>
         ) : call.eligibilityState === 'not_read' ? (
           <Panel title="Can you apply?" className="print:hidden">

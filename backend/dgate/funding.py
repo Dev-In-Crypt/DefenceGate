@@ -25,6 +25,7 @@ from . import db, textsearch
 from .config import settings
 from .normalise import VALUE_NOT_READ_SOURCES, http_url, redact_emails
 from .suppress import removed
+from .ukraine import NO_FUNDING
 
 router = APIRouter()
 
@@ -230,6 +231,9 @@ class FundingCall(BaseModel):
     # Open to Ukrainian participants: true or false where a source we hold says so, null where nothing
     # does (dgate/ukraine.py). Null is "unknown", not "no".
     openToUkraine: bool | None = None
+    # WP-145: the call document says Ukrainian entities cannot receive funding under this call (an EDIP call; the sentence is the
+    # detail's `ukraineBasis.evidence`). False where it does not say so.
+    ukraineNoFunding: bool = False
     # WP-91: `companies` (a company can take part), `public` (only public bodies may apply), null where nothing we hold says.
     whoMayApply: str | None = None
     # WP-109: whether a university or a research organisation may apply (null: nothing we hold says)
@@ -745,6 +749,8 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         "eligibility": redact_emails(eligibility_rows(prog, cond, r)),
         "cascade": r.get("cascade"),
         "openToUkraine": r.get("open_to_ukraine"),
+        # WP-145: the call document says Ukrainian entities cannot receive funding under this call (ukraine.no_funding_sentence)
+        "ukraineNoFunding": r.get("open_to_ukraine_reason") == NO_FUNDING,
         "whoMayApply": r.get("who_may_apply"),
         "researchMayApply": r.get("research_may_apply"),
         "smeOnly": True if r.get("sme_only") is True else None,
@@ -835,6 +841,8 @@ def list_funding(
     cascade: str | None = Query(None, pattern="^true$"),
     # Only `true` is a filter: calls the flag says are open to Ukrainian participants (unknown is not included).
     ukraine: str | None = Query(None, pattern="^true$"),
+    # WP-145: only `true` is a filter: calls whose document says Ukrainian entities cannot receive funding under them.
+    uaNoFunding: str | None = Query(None, pattern="^true$"),
     # WP-91: who may apply, as `whoMayApply` states it: `companies` or `public` (a call nothing we hold speaks for is in neither).
     who: str | None = Query(None, pattern="^(companies|public|research)$"),
     page: int = Query(1, ge=1, le=1000),
@@ -943,6 +951,9 @@ def list_funding(
         return conn.execute(f"SELECT count(*) AS n FROM ({SELECT} WHERE {' AND '.join([*where, *extra])}) c",
                             params).fetchone()["n"]
 
+    if uaNoFunding == "true":
+        where.append("c.open_to_ukraine_reason = %s")
+        params.append(NO_FUNDING)
     cascade_clause = ["c.cascade IS TRUE"] if cascade == "true" else []
     ukraine_clause = ["c.open_to_ukraine IS TRUE"] if ukraine == "true" else []
     cascade_total = count_with(*ukraine_clause, "c.cascade IS TRUE")
