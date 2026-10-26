@@ -8,7 +8,7 @@ import { buildIcs } from '@/lib/ics';
 
 const PLAIN = 'text/plain; charset=utf-8';
 /** The filters of /funding (lib/filters.ts parseCallFilters); the page and the view are the list's, and are left out. */
-const SEARCH_PARAMS = ['q', 'programme', 'regime', 'country', 'status', 'from', 'to', 'min', 'max', 'currency', 'sort', 'cascade', 'ukraine', 'who'] as const;
+const SEARCH_PARAMS = ['q', 'programme', 'regime', 'country', 'status', 'from', 'to', 'min', 'max', 'currency', 'sort', 'cascade', 'ukraine', 'uaNoFunding', 'who'] as const;
 const CALL_SLUG = /^[0-9]{1,9}(-[a-z0-9-]{0,80})?$/;
 
 const refuse = (status: number, text: string) => new Response(text, { status, headers: { 'content-type': PLAIN, 'cache-control': 'no-store' } });

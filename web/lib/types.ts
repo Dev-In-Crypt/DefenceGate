@@ -115,6 +115,8 @@ export interface Call {
    * "unknown", never "no". Absent on older API builds.
    */
   openToUkraine?: boolean | null;
+  /** WP-145: the call document says Ukrainian entities cannot receive funding under this call (an EDIP call). Absent on older API builds. */
+  ukraineNoFunding?: boolean;
   /** WP-91: `companies` (a company can take part), `public` (only public bodies may apply); null or absent where nothing we hold says. */
   whoMayApply?: WhoMayApply | null;
   /** WP-109: whether a university or a research organisation may apply; null or absent where nothing we hold says. */
@@ -247,6 +249,8 @@ export interface CallFilters {
   cascade?: boolean;
   /** Only calls open to Ukrainian participants (the flag is true; unknown is not included). */
   ukraine?: boolean;
+  /** WP-145: only calls whose document says Ukrainian entities cannot receive funding under them (`ukraineNoFunding`). */
+  uaNoFunding?: boolean;
   /** WP-91: who may apply (`whoMayApply`): a call nothing we hold speaks for is in neither. */
   who?: WhoFilter;
   page?: number;

@@ -5,6 +5,7 @@ import { formatDateUtc, formatNumber, funderLine, isPlaceholderAmount, openingPh
 import { AWARD_VALUE_LABEL, anomalyNotes, isLongRunning, noticeValueLabel, subjectAddsTo, tenderChangedLabel, tenderStatusView, winnersLine } from '@/lib/tender-status';
 import { PROGRAMMES, REGIMES, isNonEnglish } from '@/lib/taxonomy';
 import { WHO_BADGE } from '@/lib/filters';
+import { UA_NO_FUNDING } from '@/lib/eligibility-check';
 import { displayName } from '@/lib/display-name';
 import { cpvOwnName } from '@/lib/cpv';
 import { matchedCpv } from '@/lib/tender-basis';
@@ -78,6 +79,8 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
             {call.cascade === true && <Tag>Cascade funding</Tag>}
             {!closed && <FitBadge id={call.id} />}
             {call.openToUkraine === true && <Tag>Open to Ukraine</Tag>}
+            {/* WP-145: the call document says Ukrainian entities cannot receive funding under this call */}
+            {call.ukraineNoFunding === true && <span data-ua-no-funding className="contents"><Tag>{UA_NO_FUNDING}</Tag></span>}
             <span className="ml-auto"><StatusPill status={callStatusKind(call.status, d.state, call.openingDate)} /></span>
           </div>
           <H lang={nonEnglish ? call.titleLanguage : undefined} className={CARD_TITLE}>

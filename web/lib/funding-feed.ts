@@ -12,7 +12,7 @@ import { formatDateLabelledUtc, formatDateTimeUtc, formatMoney, isPlaceholderAmo
 import type { Call, CallFilters } from './types';
 
 /** The filters of /funding the calendar file and the feed read (app/(public)/funding.ics/route.ts SEARCH_PARAMS); not the page or the view. */
-export const FUNDING_SEARCH_PARAMS = ['q', 'programme', 'regime', 'country', 'status', 'from', 'to', 'min', 'max', 'currency', 'sort', 'cascade', 'ukraine', 'who'] as const;
+export const FUNDING_SEARCH_PARAMS = ['q', 'programme', 'regime', 'country', 'status', 'from', 'to', 'min', 'max', 'currency', 'sort', 'cascade', 'ukraine', 'uaNoFunding', 'who'] as const;
 /** The calls a feed holds at most: the newest first. */
 export const FUNDING_FEED_MAX = 100;
 

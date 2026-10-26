@@ -25,7 +25,7 @@ export const PARAM = {
   q: 'q', programme: 'programme', regime: 'regime', country: 'country', status: 'status',
   from: 'from', to: 'to', min: 'min', max: 'max', currency: 'currency', sort: 'sort', page: 'page', view: 'view',
   scope: 'scope', goods: 'goods', hasOpen: 'hasOpen', cpv: 'cpv', year: 'year', cascade: 'cascade', ukraine: 'ukraine',
-  cpvMain: 'cpvMain', notCpv: 'notCpv', size: 'size', who: 'who',
+  cpvMain: 'cpvMain', notCpv: 'notCpv', size: 'size', who: 'who', uaNoFunding: 'uaNoFunding',
 } as const;
 /** WP-91: the values of `who` (the API's `whoMayApply`). */
 export const WHO_VALUES = ['companies', 'public', 'research'] as const;
@@ -94,6 +94,7 @@ export function parseCallFilters(sp: SearchParams): CallFilters {
     sort: oneOf(first(sp[PARAM.sort]), SORTS) ?? defaultCallSort(status),
     cascade: first(sp[PARAM.cascade]) === 'true' ? true : undefined,
     ukraine: first(sp[PARAM.ukraine]) === 'true' ? true : undefined,
+    uaNoFunding: first(sp[PARAM.uaNoFunding]) === 'true' ? true : undefined,
     who: oneOf(first(sp[PARAM.who]), WHO_VALUES),
     page: page && page >= 1 ? Math.min(Math.floor(page), MAX_PAGE) : 1,
     pageSize: DEFAULT_PAGE_SIZE,
@@ -129,6 +130,7 @@ export function toQuery(f: CallFilters, extra: Partial<Record<string, string | u
   if (f.sort && f.sort !== defaultCallSort(f.status)) p.set(PARAM.sort, f.sort);
   if (f.cascade) p.set(PARAM.cascade, 'true');
   if (f.ukraine) p.set(PARAM.ukraine, 'true');
+  if (f.uaNoFunding) p.set(PARAM.uaNoFunding, 'true');
   if (f.who) p.set(PARAM.who, f.who);
   if (f.page && f.page > 1) p.set(PARAM.page, String(f.page));
   for (const [k, v] of Object.entries(extra)) if (v) p.set(k, v);
@@ -141,7 +143,7 @@ export function activeFilterCount(f: CallFilters): number {
     f.q, f.programme?.length, f.regime?.length, f.country?.length,
     f.status !== DEFAULT_STATUS ? f.status : undefined,
     f.deadlineFrom, f.deadlineTo, f.budgetMin, f.budgetMax, f.currency, f.cascade ? 'cascade' : undefined, f.ukraine ? 'ukraine' : undefined,
-    f.who,
+    f.uaNoFunding ? 'uaNoFunding' : undefined, f.who,
   ].filter((v) => v !== undefined && v !== 0 && v !== '').length;
 }
 
@@ -164,6 +166,7 @@ export function describeCallFilters(f: CallFilters): string[] {
   else if (f.currency) out.push(`a budget stated in ${f.currency}`);
   if (f.cascade) out.push('financial support to third parties');
   if (f.ukraine) out.push('open to Ukrainian participants');
+  if (f.uaNoFunding) out.push('no funding for Ukrainian entities');
   if (f.who) out.push(WHO_WORDS[f.who].toLowerCase());
   return out;
 }
@@ -187,6 +190,7 @@ export function broadenings(f: CallFilters): Broadening[] {
   if (f.budgetMin !== undefined || f.budgetMax !== undefined) out.push({ label: 'with any budget', filters: { ...base, budgetMin: undefined, budgetMax: undefined } });
   if (f.cascade) out.push({ label: 'without the financial-support filter', filters: { ...base, cascade: undefined } });
   if (f.ukraine) out.push({ label: 'without the Ukraine filter', filters: { ...base, ukraine: undefined } });
+  if (f.uaNoFunding) out.push({ label: 'without the Ukrainian-funding filter', filters: { ...base, uaNoFunding: undefined } });
   if (f.who) out.push({ label: 'whoever may apply', filters: { ...base, who: undefined } });
   return out;
 }
@@ -527,6 +531,7 @@ export function ignoredFilters(sp: SearchParams, kind: ListKind): string[] {
       codes(PARAM.regime, REGIME_CODES, 'regime');
       choice(PARAM.cascade, ['true']);
       choice(PARAM.ukraine, ['true']);
+      choice(PARAM.uaNoFunding, ['true']);
       choice(PARAM.who, WHO_VALUES);
     }
     const from = day(PARAM.from);
@@ -550,7 +555,7 @@ export const CHANGE_PARAMS = ['country', 'scope', 'goods', 'q', 'cpv', 'cpvMain'
  * any other is refused as the feeds refuse it (`/tenders/export.csv?bogus=1` was answered as if it were not there).
  */
 export const TENDER_EXPORT_PARAMS = ['q', 'country', 'status', 'scope', 'goods', 'cpv', 'cpvMain', 'notCpv', 'from', 'to', 'min', 'max', 'currency', 'sort', 'page', 'size', 'publishedFrom', 'publishedTo', 'cursor'] as const;
-export const CALL_EXPORT_PARAMS = ['q', 'programme', 'regime', 'country', 'status', 'from', 'to', 'min', 'max', 'currency', 'sort', 'page', 'cascade', 'ukraine', 'who'] as const;
+export const CALL_EXPORT_PARAMS = ['q', 'programme', 'regime', 'country', 'status', 'from', 'to', 'min', 'max', 'currency', 'sort', 'page', 'cascade', 'ukraine', 'uaNoFunding', 'who'] as const;
 export const CALENDAR_PARAMS = ['kind', 'country', 'view', 'month', 'page', 'q', 'cpv', 'cpvMain', 'notCpv', 'scope', 'goods', 'from', 'to', 'min', 'max', 'currency'] as const;
 
 /**

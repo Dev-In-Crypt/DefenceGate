@@ -1355,3 +1355,15 @@ Rate limit: 15 tokens (the five list searches as separate requests cost 22).
 - `eligibility` row `Minimum consortium`: from the call's verified facts (`min_entities`, `min_countries`, `single_applicant_allowed`)
   with where they were read in brackets ("At least 5 legal entities from at least 3 countries (the topic's conditions)", "None: a
   single legal entity may apply (the EIC work programme)"); without such facts, the topic text's rule with "(the topic's conditions)".
+
+## Changes of 26 October 2026 (WP-145: EDIP calls and Ukrainian applicants)
+
+- `ukraineBasis.reason` has a new value, `call_document_no_funding`: an EDIP call (topic code `EDF-EDIP-P-`, never the Ukraine
+  Support Instrument) whose stored call document says, in one sentence, that entities established in Ukraine (or controlled from
+  it) cannot receive funding or are not eligible (`ukraine.no_funding_sentence`). `evidence` is that sentence; `openToUkraine`
+  stays `null` (whether they may take part without funding is another question). On 26 October 2026 no EDIP call document says it.
+- Every call in `/v1/funding` and `/v1/funding/{slug}` has `ukraineNoFunding: boolean` (true for that reason). `uaNoFunding`
+  (query, optional, only `true`) keeps those calls only; `cascadeTotal` and `ukraineTotal` count with it applied.
+- `GET /v1/fit/facts`: each item has `ukraineNoFunding: string | null`, the sentence; the verdict (`verdict.call_fit`,
+  `lib/fit.ts callFit`) adds the line `ukraine_funding` "No funding for Ukrainian entities" (no) for an applicant established in
+  Ukraine, with the sentence as its quote.

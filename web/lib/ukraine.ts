@@ -20,6 +20,8 @@ export function ukraineSentence(flag: boolean | null | undefined, reason: string
     return 'Conditional on the association agreement, not confirmed. Ukraine may take part in the European Defence Fund as an associated country under the EU-Ukraine association agreement, '
       + 'but the EDF call documents say that participation of entities established in Ukraine is pending the signature of that agreement, and we have found no official text that says it is in force. We do not mark this call open or closed.';
   }
+  // WP-145: an EDIP call whose own document says it (backend/dgate/ukraine.py no_funding_sentence): its sentence is quoted under this one
+  if (reason === 'call_document_no_funding') return 'Ukrainian entities cannot receive funding under this call: the call document says so.';
   if (reason === 'programme_rule') {
     // WP-132 (round-7 audit, 116 and 117): "Not decided" stood beside a check that blocks a Ukrainian company under the same Regulation.
     // The flag stays unknown (no sentence of the call says it, V3-A), but the answer for an applicant is the Regulation's, said once.

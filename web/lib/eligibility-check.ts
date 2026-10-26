@@ -61,7 +61,12 @@ export interface Profile {
 }
 
 /** WP-93: the call a check is for, so that "countries associated to the programme" can be read (lib/fit.ts `programmesOfCall` words). */
-export interface CallContext { programme: string; topic: string }
+/** WP-145: `ukraineNoFunding`, the call document's sentence that Ukrainian entities cannot receive funding under the call (an EDIP call). */
+export interface CallContext { programme: string; topic: string; ukraineNoFunding?: string | null }
+
+/** WP-145: backend/dgate/verdict.py UA_NO_FUNDING, UA_NO_FUNDING_REASON, word for word. */
+export const UA_NO_FUNDING = 'No funding for Ukrainian entities';
+export const UA_NO_FUNDING_REASON = 'The call document says Ukrainian entities cannot receive funding under this call, and your company is established in Ukraine.';
 
 export type Verdict = 'yes' | 'check' | 'no';
 export interface Line { key: string; label: string; verdict: Verdict; reason: string; quote?: string }
@@ -473,6 +478,10 @@ export function check(facts: EligibilityFacts, p: Profile, ctx?: CallContext): R
     const s = countryStatus(c, p.country, ctx);
     const line: Line = { key: 'country', label: 'Country', verdict: s.verdict, reason: s.reason, quote: c.quote };
     lines.push(s.verdict === 'no' ? line : withNote(line, c, countryNote(c, p.country, p.more)));
+  }
+  // WP-145: the call document says Ukrainian entities cannot receive funding: a Ukrainian applicant is blocked, with that sentence
+  if (ctx?.ukraineNoFunding && p.country === 'UA') {
+    lines.push({ key: 'ukraine_funding', label: UA_NO_FUNDING, verdict: 'no', reason: UA_NO_FUNDING_REASON, quote: ctx.ukraineNoFunding });
   }
   // WP-99: the Ukraine Support Instrument excludes the non-government controlled areas of Ukraine (Regulation (EU) 2025/2643, Article 26(1));
   // for Horizon Europe (and its EIC) no text we hold says whether Ukraine's association covers them. Said, not left in silence.

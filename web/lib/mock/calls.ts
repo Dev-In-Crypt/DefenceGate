@@ -265,6 +265,8 @@ export function queryCalls(f: CallFilters, ref: Date = now()): Paginated<Call> {
     if (f.q && !(query && query.matches(text, [c.callId, c.topicId].filter(Boolean).join(' ')))) return false;
     return true;
   });
+  // WP-145: like the API, before the counts
+  if (f.uaNoFunding) items = items.filter((c) => c.ukraineNoFunding === true);
   // The calls with cascade funding among those that match every other filter (the API's `cascadeTotal`).
   const cascadeTotal = items.filter((c) => c.cascade === true).length;
   if (f.cascade) items = items.filter((c) => c.cascade === true);
