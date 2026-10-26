@@ -54,10 +54,14 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const name = displayName(buyer.name, 'title');
   return buildMetadata({
     title: name,
-    description: `${name}: ${formatNumber(buyer.tenderCount)} defence ${plural(buyer.tenderCount, 'tender')} in the archive, ${formatNumber(buyer.openCount)} open now.`,
+    description: buyer.scope === 'all'
+      ? `${name}: ${formatNumber(buyer.tenderCount)} ${plural(buyer.tenderCount, 'notice')} outside the default scope, ${SCOPE_CHOICES.relevant.label}.`
+      : `${name}: ${formatNumber(buyer.tenderCount)} defence ${plural(buyer.tenderCount, 'tender')} in the archive, ${formatNumber(buyer.openCount)} open now.`,
     path: `/buyers/${buyer.slug}`,
-    // WP-144: one unit's view is not indexed; its canonical is the plain page
-    noindex: pageOf(sp) > 1 || showAll(sp) || buyer.tenderCount === 0 || sp.unit !== undefined,
+    // WP-144: one unit's view is not indexed (its canonical is the plain page); nor is a buyer whose notices are all outside
+    // the default scope, as their notices' own pages are not (a notice page is indexed only in the core scope)
+    noindex: pageOf(sp) > 1 || showAll(sp) || buyer.tenderCount === 0 || buyer.scope === 'all'
+      || Boolean((Array.isArray(sp.unit) ? sp.unit[0] : sp.unit)?.trim()),
   });
 }
 
@@ -75,7 +79,9 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
   const cpv = parseTenderFilters(sp).cpv;
   // WP-144: one unit of the buyer (a name its notices state), chosen from its own units; an unknown one shows them all
   const unit = chosenUnit(buyer.units, sp.unit);
-  const own = { buyer: buyer.id, cpv, unit: unit?.key };
+  // WP-144 item 5: a buyer whose defence notices are all outside the default scope (dual-use) lists them under All notices
+  const outside = buyer.scope === 'all';
+  const own = { buyer: buyer.id, cpv, unit: unit?.key, ...(outside ? { scope: 'all' as const } : {}) };
   const narrowed = Boolean(cpv || unit);
   const hrefOf = (p: number) => `/buyers/${buyer.slug}${toTenderQuery({ cpv, unit: unit?.key, page: p, sort: undefined })}`;
   const all = showAll(sp);
@@ -98,7 +104,7 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
     page === 1 ? getTenders({ ...own, status: 'planned', pageSize: plannedSize }, { cacheable: !narrowed }).catch(() => null) : Promise.resolve(null),
     getTenders({ ...own, status: 'closed', sort: 'published-desc', page, pageSize: TENDER_PAGE_SIZE }, { cacheable: page === 1 && !narrowed }),
     // The profile is an extra: a buyer page still renders when the API cannot answer it.
-    page === 1 && buyer.tenderCount > 0 ? getBuyerProfile(buyer) : Promise.resolve(null),
+    page === 1 && buyer.tenderCount > 0 && !outside ? getBuyerProfile(buyer) : Promise.resolve(null),
     // WP-105: under the page's CPV filter too, with contract values
     page === 1 ? getBuyerSuppliers(buyer, cpv ?? undefined) : Promise.resolve(null),
   ]);
@@ -152,9 +158,15 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
             </ul>
           </details>
         ) : <p className="m-0 max-w-prose text-small text-ink-muted">{variantsLine(buyer.nameVariants)}</p>)}
-        <p className="m-0 max-w-prose text-small text-ink-muted">
+        {outside ? (
+          <p className="m-0 max-w-prose text-body" data-outside-scope>
+            None of this buyer&rsquo;s notices is in the default scope, {SCOPE_CHOICES.relevant.label} ({SCOPE_CHOICES.core.label.toLowerCase()} and {SCOPE_CHOICES.supply.label.toLowerCase()}).
+            The notices listed here are under {SCOPE_CHOICES.all.short}: {SCOPE_CHOICES.all.label.toLowerCase()}, for example a military product code bought by a civil buyer.
+            The counts above are of them; the tender list shows them when you choose {SCOPE_CHOICES.all.short}.
+          </p>
+        ) : <p className="m-0 max-w-prose text-small text-ink-muted">
           Counts cover the notices the tender list shows for this buyer under {SCOPE_CHOICES.relevant.label}: {SCOPE_CHOICES.core.label.toLowerCase()} and {SCOPE_CHOICES.supply.label.toLowerCase()}. <span data-count-basis>A national notice that is a copy of a TED notice is counted once, so the count can be lower than the notices we hold.</span> Each notice shows its own source.
-        </p>
+        </p>}
         {buyer.organisationSlug && (
           <p className="m-0 max-w-prose text-body">
             Also took part in funded projects: <Link href={`/organisations/${buyer.organisationSlug}`} className="font-semibold">see its projects, partners and EU funding</Link>.
@@ -166,18 +178,25 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
 
       {/* WP-100: the open tenders before the profile's tables and charts (on a phone they started 3,900 px down, five screens) */}
       {/* WP-90: the buyer's own tenders under a CPV code */}
-      <form method="get" action={`/buyers/${buyer.slug}`} role="search" aria-label="Filter this buyer's tenders"
-        className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5 sm:flex-row sm:flex-wrap sm:items-end" data-buyer-cpv>
-        {/* WP-144: one unit of the body (the names its notices state), each with its tenders; a GET form, so it works without script */}
-        {units.length > 0 && (
+      {/* WP-144: one unit of the body (the names its notices state), each with its tenders; a GET form of its own (works without
+          script), which carries the CPV filter, as the CPV form carries the unit */}
+      {units.length > 0 && (
+        <form method="get" action={`/buyers/${buyer.slug}`} aria-label="Choose a unit of this buyer"
+          className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5 sm:flex-row sm:items-end" data-buyer-unit-form>
           <Select name="unit" label="Unit" placeholder={`All units (${formatNumber(buyer.tenderCount)})`} defaultValue={unit?.key ?? ''}
-            options={unitOptions(units)} className="sm:min-w-72 sm:max-w-md" data-buyer-unit />
-        )}
+            options={unitOptions(units)} className="min-w-0 sm:min-w-72 sm:max-w-xl" data-buyer-unit />
+          {cpv && <input type="hidden" name="cpv" value={cpv.join(',')} />}
+          <Button type="submit">Show unit</Button>
+        </form>
+      )}
+      <form method="get" action={`/buyers/${buyer.slug}`} role="search" aria-label="Filter this buyer's tenders"
+        className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5 sm:flex-row sm:items-end" data-buyer-cpv>
         <TextInput name="cpv" maxLength={200} label="This buyer's tenders under a CPV code" placeholder="For example 357 or 35700000"
           defaultValue={cpv?.join(', ') ?? ''} className="sm:min-w-72" hint="Starts with the digits you enter; separate several with commas. The figures above stay all of its tenders." />
+        {unit && <input type="hidden" name="unit" value={unit.key} />}
         <div className="flex items-center gap-3">
           <Button type="submit">Show</Button>
-          {narrowed && <Link href={`/buyers/${buyer.slug}`} className="inline-flex min-h-11 items-center text-small font-bold">Clear</Link>}
+          {cpv && <Link href={`/buyers/${buyer.slug}${toTenderQuery({ unit: unit?.key, sort: undefined })}`} className="inline-flex min-h-11 items-center text-small font-bold">Clear</Link>}
         </div>
       </form>
       {narrowed && (

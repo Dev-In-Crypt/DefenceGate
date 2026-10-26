@@ -139,3 +139,47 @@ def test_the_worker_stores_every_buyers_units_and_the_api_reads_them(conn, clien
     stats.reset_cache()
     assert client.get(f"/v1/buyers/{head}").json()["units"] == live   # read from the snapshot until the next run
     assert [u["key"] for u in tenders.compute_buyer_units(conn)[str(head)]][-1] == "politechnika warszawska wydzial fizyki"
+
+
+# ------------------------------------------------------------------ item 5: a buyer of notices outside the default scope
+
+def dual_use(conn, native_id: str, buyer: str) -> int:
+    """A military product code bought by a civil buyer (production's 40319, TED 122655-2017, of the maritime office 9421): in
+    neither the core nor the supply scope, only under `all`."""
+    opp = Opportunity(source_code="ted", native_id=native_id, buyer_name_raw=buyer, title_original=f"Notice {native_id}",
+                      title_en=f"Notice {native_id}", country="PL", published_at=date(2017, 3, 30),
+                      deadline_at=FUTURE, cpv_codes=["35700000"], status="open", is_defence=True,
+                      sig_cpv=True, sig_cpv_military=True, sig_buyer=False, dual_use=True, buyer_class="other")
+    src = db.source_id(conn, "ted")
+    opp.buyer_org_id = db.resolve_organisation(conn, buyer, "PL", src_id=src)
+    oid, _ = db.upsert_opportunity(conn, opp, f"hash-ted-{native_id}", src)
+    conn.commit()
+    return oid
+
+
+def test_a_buyer_whose_notices_are_all_outside_the_default_scope_has_a_page_and_its_notice_links_to_it(conn, client):
+    opp = dual_use(conn, "122655-2017", "Dyrektor Urzędu Morskiego w Gdyni")
+    office = buyer_of(conn, opp)
+    old = buyer_of(conn, dual_use(conn, "1-2018", "Urzad Morski w Gdyni"))
+    merge(conn, office, old)                                     # as 283618 was merged into 9421
+    assert client.get("/v1/tenders", params={"buyer": office, "status": "all"}).json()["total"] == 0   # none in the default scope
+    page = client.get(f"/v1/buyers/{office}")
+    assert page.status_code == 200, page.text
+    b = page.json()
+    assert b["scope"] == "all" and b["tenderCount"] == 2 and b["openCount"] == 2 and b["openCoreCount"] is None
+    assert b["tenderCount"] == client.get("/v1/tenders", params={"buyer": office, "scope": "all", "status": "all"}).json()["total"]
+    assert b["units"] == [] and b["lastPublishedAt"].startswith("2017-03-30")
+    assert client.get(f"/v1/buyers/{old}").json()["id"] == str(office)                    # the merged row answers its head
+    assert client.get(f"/v1/tenders/{opp}").json()["buyerSlug"] == b["slug"]              # the notice's buyer line links to it
+    # neither on the buyer list nor in the sitemap, which list the default scope (a notice page is indexed in the core scope only)
+    assert str(office) not in {x["id"] for x in client.get("/v1/buyers").json()["items"]}
+    assert not [s for s in client.get("/v1/buyers/slugs").json() if s["slug"].startswith(f"{office}-")]
+
+
+def test_a_buyer_with_a_notice_in_the_default_scope_keeps_its_counts_there(conn, client):
+    head = university(conn)
+    extra = dual_use(conn, "7-2017", "Politechnika Warszawska")
+    assert buyer_of(conn, extra) == head
+    b = client.get(f"/v1/buyers/{head}").json()
+    assert b["scope"] == "relevant" and len(b["units"]) == 2      # the dual-use notice is no unit's and no count's
+    assert client.get("/v1/buyers/999999").status_code == 404

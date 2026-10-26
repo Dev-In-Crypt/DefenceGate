@@ -92,8 +92,26 @@ const sources = () => ({
   ],
 });
 
+// ---- WP-144 item 5 (e2e/wp144-api.spec.ts): a buyer whose only defence notice is outside the default scope (production's 9421,
+// "Dyrektor Urzędu Morskiego w Gdyni", TED 122655-2017: a military code bought by a maritime office, dual-use) ----
+const OUTSIDE_BUYER = {
+  id: '779003', slug: '779003-dyrektor-urzedu-morskiego-w-gdyni', name: 'Dyrektor Urzędu Morskiego w Gdyni', country: 'PL', tenderCount: 1,
+  openCount: 0, openCoreCount: null, lastPublishedAt: '2017-03-30T00:00:00Z', isDefenceBuyer: false, nameVariants: 0, organisationSlug: null,
+  scope: 'all', cpvCount: null, variantNames: [], units: [],
+};
+const outsideNotice = () => tender(779004, {
+  title: 'Command and control system for the maritime office', noticeId: '122655-2017', buyerId: '779003', buyerSlug: OUTSIDE_BUYER.slug,
+  buyerName: OUTSIDE_BUYER.name, country: 'PL', scope: 'supply', dualUse: true, buyerClass: 'other', legalBasis: null,
+  deadline: '2017-05-10T10:00:00Z', publishedAt: '2017-03-30T00:00:00Z', status: 'closed', statusNative: 'expired',
+});
+
 function tenders(q) {
   const status = q.get('status') ?? 'open';
+  if (q.get('buyer') === '779003') {
+    // the notice is listed under All notices only, as the API's scope filter reads it
+    const items = q.get('scope') === 'all' && (status === 'closed' || status === 'all') ? [outsideNotice()] : [];
+    return [200, { items, total: items.length, totalCapped: false, page: 1, pageSize: Number(q.get('pageSize') ?? 10), maxOffset: 10_000, meta: { updatedAt: NOW }, asOf: NOW }];
+  }
   const size = Number(q.get('pageSize') ?? 10);
   const page = Number(q.get('page') ?? 1);
   const offset = (page - 1) * size;
@@ -150,6 +168,9 @@ function route(url) {
   // WP-143 item 13: a buyer withheld as a natural person (410 with the owner's words); 779002 one removed on request
   if (/^\/v1\/buyers\/779001(-[a-z0-9-]*)?$/.test(p)) return [410, { detail: 'Name not shown: it identifies a private person.' }];
   if (/^\/v1\/buyers\/779002(-[a-z0-9-]*)?$/.test(p)) return [410, { detail: 'removed on request' }];
+  if (/^\/v1\/buyers\/779003(-[a-z0-9-]*)?$/.test(p)) return [200, OUTSIDE_BUYER];
+  if (/^\/v1\/buyers\/779003(-[a-z0-9-]*)?\/suppliers$/.test(p)) return [200, { items: [], suppliers: 0, contracts: 0, attribution: 'TED', cpv: [] }];
+  if (/^\/v1\/tenders\/779004(-[a-z0-9-]*)?$/.test(p)) return [200, outsideNotice()];
   if (/^\/v1\/tenders\/778\d{3}(-[a-z0-9-]*)?$/.test(p)) return [503, { detail: 'the query took too long; narrow the request' }, 0, { 'retry-after': '5' }];
   if (/^\/v1\/tenders\/\d+/.test(p) && !p.endsWith('/versions')) {
     const n = Number(/^\/v1\/tenders\/(\d+)/.exec(p)[1]);

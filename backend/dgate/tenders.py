@@ -949,8 +949,10 @@ def _present(conn, rows: list[dict[str, Any]], *, checked: bool = False) -> list
 
 def buyers_with_page(conn, rows: list[dict[str, Any]]) -> set[int]:
     """Of the buyers of these notices, the ones that have a buyer page. A page exists for a buyer family
-    with at least one notice of the default scope (`aggregate_sql`; WP-96: All defence, it was the core scope and a buyer
-    that only supplies (the armed forces buying food) had none, and a link to it was a 404 for 73 of the 389 buyers of the open list (WP-52, T14).
+    with at least one defence notice we show (WP-144 item 5: of any scope; a family whose notices are all outside the default
+    scope, dual-use, has a page that lists them, `_live_buyer`. Before, only the default scope, `aggregate_sql`; WP-96: All
+    defence, it was the core scope and a buyer that only supplies (the armed forces buying food) had none, and a link to it was a
+    404 for 73 of the 389 buyers of the open list (WP-52, T14)).
     A core notice settles it for its own buyer; the others are asked of the database in one query."""
     ids = {r["buyer_org_id"] for r in rows if r.get("buyer_org_id") and not r.get("buyer_withheld")}
     known = {r["buyer_org_id"] for r in rows
@@ -959,10 +961,10 @@ def buyers_with_page(conn, rows: list[dict[str, Any]]) -> set[int]:
     if not ask:
         return known
     got = conn.execute(
-        f"""SELECT x.id FROM unnest(%s::bigint[]) AS x(id)
+        """SELECT x.id FROM unnest(%s::bigint[]) AS x(id)
              WHERE EXISTS (SELECT 1 FROM opportunity o
                             WHERE o.buyer_org_id = ANY(dgate_family_ids(x.id))
-                              AND o.is_defence AND NOT o.suppressed AND NOT o.buyer_withheld AND {_api().SCOPE_SQL["relevant"]})""",
+                              AND o.is_defence AND NOT o.suppressed AND NOT o.buyer_withheld)""",
         (ask,)).fetchall()
     return known | {r["id"] for r in got}
 
@@ -3155,17 +3157,23 @@ def get_buyer(slug: str, conn=Depends(get_conn)):
     row = conn.execute(
         f"SELECT org.id, org.canonical_name, org.country, {family_defence('org')} AS is_defence_buyer "
         "FROM organisation org WHERE org.id = %s", (head,)).fetchone() if at is not None else None
+    if row:
+        row = {**row, "n": counts[at], "open_n": open_n[at], "last_published": last_published[at],
+               "variants": variants[at], "scope": "relevant"}
+    else:
+        row = _live_buyer(conn, head)
     if not row:
         gone = conn.execute("SELECT individual_reason FROM organisation WHERE id = %s AND suppressed", (org_id,)).fetchone()
         if gone:
             # WP-143: a buyer withheld as a natural person was not removed on request: the owner's words, still 410
             raise not_shown_person() if gone["individual_reason"] else removed()
         raise HTTPException(404, "no such buyer")
-    row = {**row, "n": counts[at], "open_n": open_n[at], "last_published": last_published[at],
-           "variants": variants[at]}
     out = _buyer(row, _buyer_names(conn, [row["id"]]))
+    out["scope"] = row["scope"]
+    if row["scope"] != "relevant":
+        out["openCoreCount"] = None
     # WP-96: of the open tenders (the list's default scope), the military goods and works, as `scope=core` counts them
-    if row["open_n"]:
+    elif row["open_n"]:
         where, params, _ = _tender_filters(None, None, None, "open", "core", None, row["id"], None, None, None,
                                            None, None, conn=conn)
         out["openCoreCount"] = _count(conn, where, params)[0]
@@ -3175,8 +3183,39 @@ def get_buyer(slug: str, conn=Depends(get_conn)):
     family = conn.execute("SELECT dgate_family_ids(%s) AS ids", (row["id"],)).fetchone()["ids"]
     out["organisationSlug"] = network_slug_of_buyer(conn, family)
     out["variantNames"] = variant_names(conn, row["id"], family, out["name"])
-    out["units"] = buyer_units(conn, row["id"]) if row["n"] else []
+    out["units"] = buyer_units(conn, row["id"]) if row["n"] and row["scope"] == "relevant" else []
     return out
+
+
+def _live_buyer(conn, head: int) -> dict[str, Any] | None:
+    """A buyer the stored aggregate (`buyer_base`) does not hold, counted now: one that is newer than the worker's last run
+    (in the default scope, as the aggregate counts it), or (WP-144 item 5, owner's decision of 26 October 2026) one whose
+    defence notices are all outside the default scope (a military product code bought by a civil buyer, dual-use: 2,084
+    buyers on production, 9421 "Dyrektor Urzędu Morskiego w Gdyni" among them), whose page then lists those under `scope`
+    `all`. None for a buyer with no defence notice we show, a row merged into another or one removed on request."""
+    org = conn.execute(
+        f"SELECT org.id, org.canonical_name, org.country, {family_defence('org')} AS is_defence_buyer FROM organisation org "
+        "WHERE org.id = %s AND org.merged_into IS NULL AND NOT org.suppressed", (head,)).fetchone()
+    if not org:
+        return None
+
+    def counted(status: str, scope: str) -> tuple[list[str], list[Any], int]:
+        where, params, _ = _tender_filters(None, None, None, status, scope, None, head, None, None, None, None, None,
+                                           conn=conn)
+        where.append("NOT o.buyer_withheld")
+        return where, params, _count(conn, where, params)[0]
+
+    for scope in ("relevant", "all"):
+        where, params, n = counted("all", scope)
+        if n:
+            break
+    else:
+        return None
+    last = conn.execute(f"SELECT max(o.published_at) AS d FROM opportunity o WHERE {' AND '.join(where)}",
+                        params).fetchone()["d"]
+    variants = conn.execute("SELECT count(*) AS n FROM buyer_family_member WHERE head_org_id = %s", (head,)).fetchone()["n"]
+    return {**org, "n": n, "open_n": counted("open", scope)[2], "last_published": last, "variants": variants,
+            "scope": scope}
 
 
 # WP-144: a buyer's units. A unit is the buyer's name as a notice states it, folded (`UNIT_KEY`), within the buyer's family;

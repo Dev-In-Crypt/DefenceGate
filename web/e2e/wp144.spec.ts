@@ -19,7 +19,7 @@ async function chooseUnit(page: Page) {
     'All units (3)', 'Demo Armaments Agency (2)', 'Demo Armaments Agency, Regional Logistics Base (1)',
   ]);
   await select.selectOption(UNIT);
-  await page.getByRole('button', { name: 'Show' }).click();
+  await page.getByRole('button', { name: 'Show unit' }).click();
   await page.waitForURL(/[?&]unit=/);
 }
 
@@ -27,7 +27,7 @@ async function expectUnitShown(page: Page) {
   expect(new URL(page.url()).searchParams.get('unit')).toBe(UNIT);
   await expect(page.locator('[data-unit-shown]')).toHaveText('Unit: Demo Armaments Agency, Regional Logistics Base');
   await expect(page.locator('[data-buyer-narrowed]')).toContainText('Showing the tenders of Demo Armaments Agency, Regional Logistics Base: 1 open');
-  const open = page.locator('section[aria-labelledby="open-tenders"] li');
+  const open = page.locator('section[aria-labelledby="open-tenders"] > ul > li');
   await expect(open).toHaveCount(1);
   await expect(open.first()).toContainText('Dostawa materiałów eksploatacyjnych dla warsztatów');
   await expect(page.locator('select[name="unit"]')).toHaveValue(UNIT);
@@ -45,16 +45,16 @@ test('a buyer of several units: the Unit choice narrows its tenders, in the addr
   await expectUnitShown(page);
   await page.getByRole('link', { name: 'Show all units' }).click();
   await page.waitForURL((u) => !u.searchParams.has('unit'));
-  await expect(page.locator('section[aria-labelledby="open-tenders"] li')).toHaveCount(3);
+  await expect(page.locator('section[aria-labelledby="open-tenders"] > ul > li')).toHaveCount(3);
 });
 
 test('the unit travels with the CPV filter and an unknown unit shows all of them', async ({ page }) => {
   await visit(page, `${BUYER}?unit=${encodeURIComponent(UNIT)}&cpv=445`, PAGE);
   await expect(page.locator('[data-buyer-narrowed]')).toContainText('the tenders of Demo Armaments Agency, Regional Logistics Base with a code under 445');
-  await expect(page.locator('section[aria-labelledby="open-tenders"] li')).toHaveCount(1);
+  await expect(page.locator('section[aria-labelledby="open-tenders"] > ul > li')).toHaveCount(1);
   await visit(page, `${BUYER}?unit=${encodeURIComponent('Wydział Fizyki')}`, PAGE);
   await expect(page.locator('[data-unit-shown]')).toHaveCount(0);
-  await expect(page.locator('section[aria-labelledby="open-tenders"] li')).toHaveCount(3);
+  await expect(page.locator('section[aria-labelledby="open-tenders"] > ul > li')).toHaveCount(3);
 });
 
 test('a buyer of one name has no Unit choice', async ({ page }) => {
@@ -75,7 +75,7 @@ test('the Unit choice is the branded select: named by its label, opened and chos
   await page.keyboard.press('Enter');
   await expect(combo).toBeFocused();
   await expect(combo).toHaveValue(UNIT);
-  await page.getByRole('button', { name: 'Show' }).click();
+  await page.getByRole('button', { name: 'Show unit' }).click();
   await page.waitForURL(/[?&]unit=/);
   await expectUnitShown(page);
 });

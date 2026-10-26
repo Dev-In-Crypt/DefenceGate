@@ -713,6 +713,8 @@ export interface Buyer {
   organisationSlug?: string | null;
   /** WP-144: on the buyer's own page, its units (the names its notices state), most tenders first; none below two. */
   units?: BuyerUnit[];
+  /** The scope the counts are of: `relevant` (the default), or WP-144 item 5 `all` for a buyer whose notices are all outside it. */
+  scope?: 'relevant' | 'all';
 }
 
 /** WP-144: a unit of a buyer: the buyer's name as its notices state it (folded: case, accents, punctuation). */
