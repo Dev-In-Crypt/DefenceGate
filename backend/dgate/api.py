@@ -40,7 +40,7 @@ from .config import require_production_secrets, settings
 from .hardening import BodyLimit, ETag, HeadAsGet, RateLimit, SecurityHeaders
 from .listcache import cache_list
 from .normalise import http_url, normalise_org_name, redact_emails
-from .suppress import WITHHELD_NAME, removed
+from .suppress import PERSON_NAME, WITHHELD_NAME, removed
 
 # A source whose last successful run is older than this is reported stale.
 # Every connector in Phase 1 runs daily, so a day and a half allows one missed
@@ -71,6 +71,24 @@ app = FastAPI(
     openapi_url="/openapi.json" if _docs else None,
     lifespan=_lifespan,
 )
+class _NameConnections:
+    """WP-143: the connections a request opens carry its route family as their application name (`db.APP_NAME`)."""
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        token = db.APP_NAME.set(db.route_family(scope.get("path", "")))
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            db.APP_NAME.reset(token)
+
+
+app.add_middleware(_NameConnections)  # innermost of all: the name is set where the route runs
 app.add_middleware(BodyLimit)         # innermost: its 413 still gets the security headers
 app.add_middleware(ETag)              # WP-114: inside the headers, so a 304 carries them too
 app.add_middleware(SecurityHeaders)
@@ -278,7 +296,8 @@ def _row_to_out(r: dict[str, Any], same_notice: list[dict[str, Any]] | None = No
         native_id=r["native_id"],
         buyer={
             "organisation_id": None if r.get("buyer_withheld") else r.get("buyer_org_id"),
-            "name": (WITHHELD_NAME if r.get("buyer_withheld")
+            # WP-143: a buyer withheld as a natural person is said so, not "on request"
+            "name": ((PERSON_NAME if r.get("buyer_person") else WITHHELD_NAME) if r.get("buyer_withheld")
                      else redact_emails(r["buyer_name_raw"])),
             "resolution_confidence": float(r["org_confidence"])
             if r.get("org_confidence") is not None else None,
@@ -438,7 +457,8 @@ def row_scope(r: dict[str, Any]) -> str:
 
 BASE_SELECT = f"""
     SELECT o.*, s.code AS source_code, s.attribution AS source_attribution,
-           org.confidence AS org_confidence, {EFFECTIVE_STATUS_SQL} AS eff_status
+           org.confidence AS org_confidence, {EFFECTIVE_STATUS_SQL} AS eff_status,
+           org.individual_reason IS NOT NULL AS buyer_person
       FROM opportunity o
       JOIN source s ON s.id = o.source_id
       LEFT JOIN organisation org ON org.id = o.buyer_org_id
@@ -539,12 +559,12 @@ SNAPSHOT_FIELDS = (
 )
 
 
-def public_snapshot(payload: dict[str, Any] | None, *, buyer_withheld: bool = False
+def public_snapshot(payload: dict[str, Any] | None, *, buyer_withheld: bool = False, buyer_person: bool = False
                     ) -> dict[str, Any]:
     """A stored version payload as it may be served: allow-listed and redacted."""
     kept = {k: v for k, v in (payload or {}).items() if k in SNAPSHOT_FIELDS}
     if buyer_withheld and "buyer_name_raw" in kept:
-        kept["buyer_name_raw"] = WITHHELD_NAME
+        kept["buyer_name_raw"] = PERSON_NAME if buyer_person else WITHHELD_NAME
     if "source_url" in kept:
         kept["source_url"] = http_url(kept["source_url"])
     return redact_emails(kept)
@@ -574,8 +594,9 @@ def get_versions(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)
     observation timestamp and the list of fields that changed. Not available
     from any upstream source.
     """
-    gone = conn.execute("SELECT suppressed, buyer_withheld, cpv_codes[1] AS main FROM opportunity "
-                        "WHERE id = %s AND is_defence", (opp_id,)).fetchone()
+    gone = conn.execute("SELECT o.suppressed, o.buyer_withheld, o.cpv_codes[1] AS main, "
+                        "(SELECT b.individual_reason IS NOT NULL FROM organisation b WHERE b.id = o.buyer_org_id) AS person "
+                        "FROM opportunity o WHERE o.id = %s AND o.is_defence", (opp_id,)).fetchone()
     if gone and gone["suppressed"]:
         raise removed()
     withheld = bool(gone and gone["buyer_withheld"])
@@ -597,7 +618,7 @@ def get_versions(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)
         raise HTTPException(404, "not found")
     versions = []
     for r in rows:
-        snapshot = public_snapshot(r["payload"], buyer_withheld=withheld)
+        snapshot = public_snapshot(r["payload"], buyer_withheld=withheld, buyer_person=bool(gone and gone["person"]))
         notes = redact_emails(r["notes"])
         if main_code_first(snapshot, main):
             notes = [*notes, MAIN_CODE_NOTE]

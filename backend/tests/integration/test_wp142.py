@@ -36,7 +36,9 @@ def test_a_stored_set_lists_what_the_live_search_lists_with_the_notices_written_
     a = [_titled(conn, f"W-142-A{i}", "Armoured vehicles and ammunition", s) for i, s in enumerate(("open", "closed", "awarded"))]
     _titled(conn, "W-142-B", "Armoured vehicles")                                   # not a match
     got = warm_lists.run(conn, write=True)
-    assert got["failed"] == 0 and got["search_sets_written"] == got["search_sets"] == len(tenders.search_set_words())
+    # WP-143: a word that matches nothing is not stored (counted in search_sets_empty)
+    assert got["failed"] == 0 and got["search_sets"] == len(tenders.search_set_words())
+    assert got["search_sets_written"] >= 1 and got["search_sets_written"] + got["search_sets_empty"] == got["search_sets"]
     row = conn.execute("SELECT ids FROM search_match_set WHERE q = 'ammunition'").fetchone()
     assert sorted(row["ids"]) == sorted(a)
     # after the set: a new match, and a match whose title no longer matches

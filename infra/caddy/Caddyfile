@@ -147,10 +147,13 @@
 	# credential, and the same URL comes back as the `Referer` of the next same-site request.
 	# The filter encoder drops the `token` query parameter from the logged URI and Referer
 	# (review of 13 October 2026, M6). Everything else in the line is as before.
+	# WP-143: 10 files held 13 hours on 26 October 2026 (crawlers, ~15,000 requests an hour, a 50 MiB file every 1.3 h,
+	# 2.2-2.5 MB each once gzipped on rolling). 300 hold the 14 days the Privacy notice allows at that rate, in about 0.75 GB
+	# (1.5 GB at twice the rate; 13 GB free); roll_keep_for and logprune still delete anything older than 14 days.
 	log {
 		output file /var/log/caddy/access.log {
 			roll_size 50MiB
-			roll_keep 10
+			roll_keep 300
 			roll_keep_for 336h
 		}
 		format filter {

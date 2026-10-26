@@ -45,7 +45,7 @@ from pydantic import BaseModel
 from . import db, money
 from .config import settings
 from .suppliers import ValueSum
-from .suppress import removed
+from .suppress import not_shown_person, removed
 from .tenders import (
     COLLAPSE_REPEATS,
     CORE,
@@ -738,9 +738,9 @@ def get_buyer_profile(slug: str):
             return buyer_profile(conn, org_id)
     found = cached(("buyer", org_id), build)
     with _connection() as conn:
-        if conn.execute("SELECT 1 FROM organisation WHERE id = %s AND suppressed",
-                        (org_id,)).fetchone():
-            raise removed()
+        gone = conn.execute("SELECT individual_reason FROM organisation WHERE id = %s AND suppressed", (org_id,)).fetchone()
+        if gone:
+            raise not_shown_person() if gone["individual_reason"] else removed()     # WP-143, as get_buyer
     if found is None:
         raise HTTPException(404, "no such buyer")
     return found

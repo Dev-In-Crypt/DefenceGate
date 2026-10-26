@@ -18,6 +18,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import socket
 import threading
 from contextlib import contextmanager
@@ -239,9 +240,20 @@ def opportunity_from_payload(payload: dict[str, Any]) -> Opportunity:
     return Opportunity(**values)
 
 
+# WP-143 (r9-system: 148 statement time-outs in a day, every one logged as app=[unknown]): the API names each connection by
+# the route family of its request (`api._NameConnections`), so the Postgres log and pg_stat_activity say which endpoint ran it.
+APP_NAME: ContextVar[str | None] = ContextVar("dgate_app_name", default=None)
+
+
+def route_family(path: str) -> str:
+    """'/v1/tenders/123-slug/versions' -> 'dgate-api /v1/tenders/{id}/versions' (an application name is at most 63 bytes)."""
+    return ("dgate-api " + re.sub(r"/\d[^/]*", "/{id}", path or "/"))[:63]
+
+
 @contextmanager
 def connect(dsn: str) -> Iterator[psycopg.Connection]:
-    conn = psycopg.connect(dsn, row_factory=dict_row)
+    name = APP_NAME.get()
+    conn = psycopg.connect(dsn, row_factory=dict_row, **({"application_name": name} if name else {}))
     try:
         yield conn
         conn.commit()

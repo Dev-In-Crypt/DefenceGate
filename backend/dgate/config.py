@@ -532,6 +532,10 @@ class Settings:
     # silently at start-up.
     catch_up_max_days: int = field(
         default_factory=lambda: _env_int("DGATE_CATCH_UP_MAX_DAYS", 7))
+    # WP-143 (r13 deploy, 26 October 2026): a missed scheduled job (requalify_weekly, hours of one core) waits this long after
+    # the worker started, so a deploy's first minutes, when the site and the API start cold, are not also its busiest.
+    catch_up_jobs_delay_seconds: int = field(
+        default_factory=lambda: _env_int("DGATE_CATCH_UP_JOBS_DELAY_SECONDS", 300))
 
 
     def s3_settings(self) -> dict[str, Any]:

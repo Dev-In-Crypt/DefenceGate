@@ -29,6 +29,8 @@
 #        $C up -d --no-build --wait api worker
 #   4. Only then the site, again waiting for its healthcheck:
 #        $C --profile web up -d --no-build --no-deps --wait web
+#   5. WP-143: warm the pages most visitors and crawlers open first, one at a time, before a burst meets an empty cache:
+#        sh infra/warm-after-deploy.sh
 # A healthcheck that does not pass within its start period fails `--wait`: stop there (`docker compose logs api web` says
 # why) and go back to the previous commit before the site is touched.
 
@@ -379,6 +381,11 @@ services:
       # (2 GB ceiling for a night load), api ~0.2 GB (512 MB), web ~0.25 GB: 1.5-2.0 GB in use, the rest page cache.
       # Limits are ceilings, not reservations.
       NODE_OPTIONS: --max-old-space-size=448
+      # WP-143: the render gate (web/gate.cjs): anonymous page renders at once, how many more may wait, and how long. Past
+      # that a request is answered 503 with Retry-After 30 at once (the bot flood of 26 Oct 2026 piled up to 30 s instead).
+      DG_GATE_ACTIVE: "12"
+      DG_GATE_QUEUE: "24"
+      DG_GATE_WAIT_MS: "5000"
     mem_limit: 768m
     pids_limit: 256
     cap_drop: [ALL]
