@@ -141,6 +141,24 @@ export function otherTopicCode(topic: string, text: string): string | null {
   return found && found[1] !== parts[parts.length - 1] ? `${base}-${found[1]}` : null;
 }
 
+// ---------------------------------------------------------------- WP-137: the call's own limits beside who may apply
+
+const LIMIT_LABEL: Record<string, string> = { established: 'Where you must be established', control: 'Control from elsewhere' };
+
+/**
+ * The rows the "Who can apply" panel shows beside the badge (backend who_apply.limits_of): the call's own sentence that limits where an
+ * applicant is established (Art. 22.5 of the Horizon Europe Regulation, EuroHPC JU 138-143) or excludes entities controlled from elsewhere
+ * ("controlled by China", 154), before any general rule of the work programme. `lead` says the badge's answer holds only within them.
+ */
+export function whoLimits(call: Pick<Call, 'whoMayApply' | 'whoMayApplyLimits'>): { lead: string; rows: { label: string; value: string }[] } | null {
+  const limits = call.whoMayApplyLimits ?? [];
+  if (limits.length === 0) return null;
+  const lead = call.whoMayApply === 'companies'
+    ? 'Companies can take part, but only within these limits of the call’s own conditions:'
+    : 'The call’s own conditions limit who may take part:';
+  return { lead, rows: limits.map((l) => ({ label: LIMIT_LABEL[l.kind] ?? 'Limit', value: l.note ? `“${l.quote}” ${l.note}` : `“${l.quote}”` })) };
+}
+
 // ---------------------------------------------------------------- "What it funds"
 
 /** The commercial subject of a call in plain words: its title and the source's topic keywords. No description is stored. */

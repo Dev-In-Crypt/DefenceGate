@@ -238,7 +238,9 @@ class OpportunityOut(BaseModel):
 
 
 def _twins(conn, ids: list[int]) -> dict[int, list[dict[str, Any]]]:
-    """For a page of rows, the same notice in the other sources, by TED number."""
+    """For a page of rows, the same notice in the other sources, by TED number. Two rows of one source that name the
+    same TED notice are two notices of that source, not copies (WP-138: 245 call-offs of one BWI framework, all linked
+    to the newest TED notice of their procedure, were each other's "same notice")."""
     if not ids:
         return {}
     # WP-135: and a Polish notice in the bulletin and in its mirror, by its BZP number
@@ -251,7 +253,7 @@ def _twins(conn, ids: list[int]) -> dict[int, list[dict[str, Any]]]:
                    AND b.native_id = a.ted_ref)
              OR (a.source_id = (SELECT id FROM source WHERE code = 'ted')
                    AND b.ted_ref = a.native_id)
-             OR (a.ted_ref IS NOT NULL AND b.ted_ref = a.ted_ref)
+             OR (a.ted_ref IS NOT NULL AND b.ted_ref = a.ted_ref AND b.source_id <> a.source_id)
              OR ({_tenders.polish_pair("a", "b")}))
           JOIN source bs ON bs.id = b.source_id
          WHERE a.id = ANY(%s)

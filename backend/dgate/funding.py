@@ -280,6 +280,14 @@ class CascadeBasis(BaseModel):
     evidence: str | None
 
 
+class WhoLimit(BaseModel):
+    # WP-137 (who_apply.limits_of): `established` (where an applicant must be established) or `control` (entities controlled from
+    # elsewhere are excluded), with the call's own sentence and its note
+    kind: str
+    quote: str
+    note: str
+
+
 class FundingCallDetail(FundingCall):
     conditionsText: str | None = None
     # WP-92: what the call funds, at most three sentences of the topic description's Objective / Expected outcome that
@@ -309,6 +317,9 @@ class FundingCallDetail(FundingCall):
     # WP-132: the scope rule no longer takes the call (WP-109, `call.out_of_scope`): left out of the lists and the sitemap; its page
     # says it is outside DefenceGate's scope and is not indexed.
     outOfScope: bool = False
+    # WP-137: the call's own limits beside "Companies can take part" (Art. 22.5 of the Horizon Europe Regulation, a control restriction):
+    # who_apply.limits_of on the served facts; empty when the call states none
+    whoMayApplyLimits: list[WhoLimit] = []
 
 
 def serves_meta() -> bool:
@@ -583,6 +594,15 @@ def titles(programme_code: str, country: str | None, title: str,
 EU_FUNDER = "European Commission"
 
 
+def programme_name_of(chip: str, stored: str) -> str:
+    """WP-137 (round-8 data audit fund-8): the name of the programme the call is labelled with. The portal files the EDIP and the Ukraine
+    Support Instrument calls under the EDF, so the programme row's name is "European Defence Fund" for them; the chip (`programme_of`)
+    is EDIP or EDIP-USI, and the name follows it (`regime.EDIP`, `regime.USI`; web/lib/taxonomy.ts PROGRAMMES)."""
+    from .regime import EDIP, USI
+
+    return {"EDIP": EDIP.name, "EDIP-USI": USI.name}.get(chip, stored)
+
+
 def funder_of(programme_code: str, issuer: str | None, programme_name: str) -> str:
     """Who pays, from the call's own fields: the issuing body where the source names one, the
     programme for a national call without one, otherwise the Commission."""
@@ -694,7 +714,7 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         "id": str(r["id"]),
         "slug": make_slug(r["id"], r["title"]),
         "programme": programme_of(prog, r.get("topic_code")),
-        "programmeName": r["programme_name"],
+        "programmeName": programme_name_of(programme_of(prog, r.get("topic_code")), r["programme_name"]),
         "funder": redact_emails(funder_of(prog, r.get("issuer"), r["programme_name"])),
         "callId": r.get("call_identifier"),
         "topicId": r.get("topic_code") or r["native_id"],
@@ -998,6 +1018,10 @@ def get_funding(slug: str, conn=Depends(get_conn)):
         read = eligibility_of(conn, row)
         out["documentEligibility"] = read["documentEligibility"]
         out["eligibilityState"] = read["state"]
+        if read["documentEligibility"]:
+            from . import who_apply
+
+            out["whoMayApplyLimits"] = redact_emails(who_apply.limits_of(read["documentEligibility"]["facts"]))
         out["eligibilitySources"] = read["sources"]
     else:
         # WP-93 (finding 6): an agency's page whose text is not served may still state a rule; the facts come without its words

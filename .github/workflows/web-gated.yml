@@ -124,21 +124,29 @@ jobs:
           E2E_REAL_ACCOUNTS=1 E2E_BASE_URL=https://localhost:3444 npx playwright test e2e/wp123.spec.ts
 
       # The API answers at build time, so the statically built list pages see accounts open (wp124 saves a search).
+      # WP-139 (run 40223247542): `next start` hands the port to a child titled "next-server (v15...)", which `pkill -f 'next
+      # start'` missed; the billing-open server then failed with EADDRINUSE and wp122 tested the billing-closed one. Both are
+      # stopped, the ports are waited for, and the billing-open server gets a port of its own.
       - name: Build (billing open)
         run: |
+          pkill -f 'next-server' || true
           pkill -f 'next start' || true
           pkill -f 'https-proxy.mjs' || true
+          timeout 30 bash -c 'while curl -s -o /dev/null http://127.0.0.1:3102/ || curl -sk -o /dev/null https://localhost:3444/; do sleep 1; done'
           NEXT_PUBLIC_BILLING_OPEN=1 DG_API_URL=$REAL_API npx next build
 
       - name: wp122 and wp124 on the billing-open build
         env:
           NEXT_PUBLIC_BILLING_OPEN: "1"
         run: |
-          DG_API_URL=$REAL_API DG_E2E_CREEM_ORIGIN=$CREEM_MOCK nohup npx next start -p 3102 -H 127.0.0.1 > /tmp/next-billing.log 2>&1 &
-          nohup node e2e/support/https-proxy.mjs 3444 3102 /tmp/key.pem /tmp/cert.pem > /tmp/proxy-billing.log 2>&1 &
+          DG_API_URL=$REAL_API DG_E2E_CREEM_ORIGIN=$CREEM_MOCK nohup npx next start -p 3103 -H 127.0.0.1 > /tmp/next-billing.log 2>&1 &
+          nohup node e2e/support/https-proxy.mjs 3444 3103 /tmp/key.pem /tmp/cert.pem > /tmp/proxy-billing.log 2>&1 &
           timeout 90 bash -c 'until curl -sk -o /dev/null https://localhost:3444/pricing; do sleep 1; done'
+          # the server that answers is the billing-open build (a plan's button), not a leftover
+          curl -sk https://localhost:3444/pricing | grep -q 'href="/signup?plan=pro&amp;billing=monthly"' \
+            || { echo "the server on 3444 is not the billing-open build"; exit 1; }
           # wp122's own browser contexts (375 px, themes) do not ignore certificate errors: plain http, /pricing needs no cookie
-          E2E_BASE_URL=http://127.0.0.1:3102 npx playwright test e2e/wp122.spec.ts
+          E2E_BASE_URL=http://127.0.0.1:3103 npx playwright test e2e/wp122.spec.ts
           E2E_REAL_BILLING=1 E2E_CREEM_WEBHOOK_SECRET=$CREEM_WEBHOOK_TEST_VALUE E2E_CREEM_MOCK_URL=$CREEM_MOCK \
             E2E_BASE_URL=https://localhost:3444 npx playwright test e2e/wp124.spec.ts
 

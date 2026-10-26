@@ -574,6 +574,17 @@ def _fact_refusal(a: dict[str, Any] | None, b: dict[str, Any] | None) -> str | N
     return _number_clash([a, b])
 
 
+# WP-138: the candidate methods that rest on a number both rows state (or one row stated before its false number was
+# cleared): the only ground on which two rows of a name two bodies bear (`org_repair.twin_name`) are one body.
+NUMBER_METHODS = frozenset({"identifier", "cleared_register_number"})
+
+
+def _twin_named(a: dict[str, Any], b: dict[str, Any]) -> bool:
+    from .org_repair import twin_name  # imported here, as in `_generic`
+
+    return twin_name(a["country"], a["name"]) or twin_name(b["country"], b["name"])
+
+
 def _generic(o: dict[str, Any], rows: list[dict[str, Any]]) -> bool:
     """A name that is no one body's: one more than one public body bears (`org_repair.ambiguous_name`), or another
     row's name without its place ('zaklad karny' beside 'zaklad karny we wronki')."""
@@ -596,6 +607,8 @@ def plan_reviewed(pairs: list[dict[str, Any]], orgs: dict[int, dict[str, Any]], 
         if r is None or r["decision"] != "ACCEPT":
             continue
         why = "not_pending" if p["status"] != "pending" else _fact_refusal(orgs.get(p["a"]), orgs.get(p["b"]))
+        if not why and p.get("match_method") not in NUMBER_METHODS and _twin_named(orgs[p["a"]], orgs[p["b"]]):
+            why = "twin_name"           # WP-138: two gminas called Łagów; only a number joins such rows
         if why:
             refused[why] += 1
             continue

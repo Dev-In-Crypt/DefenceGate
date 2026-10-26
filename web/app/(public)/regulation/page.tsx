@@ -18,7 +18,8 @@ export const revalidate = 3600;
 
 const meta = buildMetadata({
   title: 'Regulatory tracker',
-  description: 'Changes in the rules that matter to a defence supplier (SAFE, EDIP, the Ukraine Support Instrument, the European Defence Fund, the defence procurement directive), each with the official source and the day we last checked it.',
+  // WP-139 (r8 audit: the trim kept 55 characters, the part before the bracket): one that fits the 160 a description has
+  description: 'Changes in the rules a defence supplier works under: SAFE, EDIP, the Ukraine Support Instrument, the EDF and directive 2009/81, each with its official source.',
   path: '/regulation',
 });
 export const metadata: Metadata = { ...meta, alternates: { ...meta.alternates, types: { 'application/atom+xml': '/regulation.atom' } } };

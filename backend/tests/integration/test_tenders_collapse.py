@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 from fastapi.testclient import TestClient
 
-from dgate import api, db, stats
+from dgate import api, db, stats, tenders
 from dgate.normalise import Opportunity
 
 pytestmark = pytest.mark.integration
@@ -123,6 +123,25 @@ def test_only_the_newest_republication_of_a_procedure_is_shown(client, conn):
     put(conn, "200-2026", procedure="proc-1", published=date(2026, 10, 1))
     put(conn, "300-2026", procedure="proc-2")
     assert ids(client) == ["200-2026", "300-2026"]
+
+
+def test_call_offs_of_one_framework_stay_separate_and_a_repeat_still_collapses(client, conn):
+    """WP-138 (r8-data problem 2): BWI's staffing framework is one procedure with hundreds of call-offs, each an award
+    notice with its own number and title; the newest hid the others from the list and from the buyer's count. A notice
+    that repeats one of them (a corrigendum, a re-publication: the same title) still stands for it."""
+    a = put(conn, "800-2026", procedure="proc-f", status="awarded", deadline=None, published=date(2026, 9, 1),
+            title="2000281264 ANÜ Operations Specialist (P4) Bonn")
+    put(conn, "801-2026", procedure="proc-f", status="awarded", deadline=None, published=date(2026, 9, 2),
+        title="2000284335 ANÜ Senior Project Manager (P9) Berlin")
+    put(conn, "802-2026", procedure="proc-f", status="awarded", deadline=None, published=date(2026, 9, 3),
+        title="2000281264 ANÜ Operations Specialist (P4) Bonn")            # repeats 800-2026
+    assert ids(client) == ["801-2026", "802-2026"]
+    assert ids(client, status="closed") == ["801-2026", "802-2026"]
+    buyer = conn.execute("SELECT buyer_org_id FROM opportunity WHERE id = %s", (a,)).fetchone()["buyer_org_id"]
+    assert ids(client, buyer=str(buyer)) == ["801-2026", "802-2026"]
+    # the buyer's count as the worker stores it (the list's own collapse)
+    org_ids, counts = tenders.compute_buyer_base(conn, exact=True)[:2]
+    assert dict(zip(org_ids, counts, strict=True))[buyer] == 2
 
 
 def test_an_award_notice_does_not_hide_the_call_for_competition(client, conn):

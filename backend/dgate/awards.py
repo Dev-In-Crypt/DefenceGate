@@ -29,7 +29,7 @@ import re
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any
 
 import httpx
@@ -148,6 +148,14 @@ _PL_TRAILING_PERSON = re.compile(r",\s+[A-ZŁŚŻŹĆ][a-ząćęłńóśźż]+\s
 _PL_TRADE_WORDS = frozenset("""przedsiebiorstwo firma zaklad uslugi uslugowe handlowo produkcyjno agencja biuro
     pphu phu puh fhu ppuh phpu zphu zp mk pw ph""".split())
 _ADDRESS = re.compile(r"\bul\.|\b\d{2}-\d{3}\b")
+# WP-138 (pl_ezam raw check of 25 October 2026): public bodies the Polish rules read as sole traders: a two-word gmina
+# and a three-word state centre as a person's name, a public healthcare unit (SP ZOZ) for its "zakład", a municipal
+# company acting for its city for the postal code in its name. 5 of the 10 live rows whose number or name equals a
+# contractor read as a person were such bodies. A name with one of these words and no Polish given name is a public body.
+# ponytail: the heads of public-body names only; a sole trader trading as an "ośrodek" with his given name stays a person.
+_PL_PUBLIC_BODY = frozenset("""gmina gminy gminny gminne miasto miasta powiat powiatu powiatowy powiatowe starostwo
+    wojewodztwo wojewodzki wojewodzka wojewodzkie samodzielny samodzielna publiczny publiczna publiczne osrodek
+    osrodka szpital szpitala urzad urzedu komenda""".split())
 _PL_GIVEN = frozenset("""piotr andrzej jan krzysztof tomasz pawel michal marcin jacek grzegorz rafal marek adam lukasz
     waldemar kazimierz robert zbigniew stanislaw mariusz dariusz artur arkadiusz bartlomiej dawid krystyna anna
     iwona jadwiga malgorzata katarzyna agnieszka barbara ewa maria joanna magdalena monika teresa elzbieta zofia
@@ -297,6 +305,8 @@ def person_reason(name: str, identifier: str | None = None, country: str | None 
         return "person_in_trading_name"
     has_marker = bool(words & _CORPORATE)
     legal_form = bool(words & _LEGAL_FORMS)
+    if country == "PL" and words & _PL_PUBLIC_BODY and not words & _PL_GIVEN:
+        return None                     # WP-138: a gmina, a hospital, a state centre: a public body, no person's name
     if not legal_form and _ADDRESS.search(raw):
         return "person_in_trading_name"            # a street or a postal code in a name: a sole trader's
     tokens = [t.strip(",;()\"'“”«»") for t in raw.replace(".", " ").split()]
@@ -908,9 +918,17 @@ def run_awards(*, since: date = DEFAULT_SINCE, limit: int | None = None,
                 load_awards(conn, client, writer, src_id, ted_id, since=since, limit=limit,
                             counters=c, pause=pause, sleep=nap)
                 writer.drain()
-                # WP-103: the floor is every notice asked: one TED did not return makes the run partial, not success
+                # WP-103: the floor is every notice asked: one TED did not return makes the run partial, not success.
+                # WP-139: and never below the day's floor (config `_TED_AWARDS_FLOORS`), less what the day's earlier runs
+                # read: a weekday on which nothing was asked was "success" (run 488 of 25 Oct, expected_min 0).
+                earlier = conn.execute(
+                    """SELECT COALESCE(sum(records_fetched), 0) AS n FROM ingest_run
+                        WHERE source_id = %s AND id <> %s AND status IN ('success', 'partial')
+                          AND started_at >= date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'""",
+                    (src_id, run_id)).fetchone()["n"]
+                day_floor = cfg.floor(SOURCE_CODE, datetime.now(timezone.utc).date()) or 0
                 conn.execute("UPDATE ingest_run SET expected_min = %s WHERE id = %s",
-                             (c["candidates"] - c["skipped_bad_number"], run_id))
+                             (max(c["candidates"] - c["skipped_bad_number"], day_floor - earlier, 0), run_id))
                 refresh_award_twins(conn)
                 db.finish_run(conn, run_id, fetched=c["fetched"], new=c["awards_new"], changed=0,
                               detail=dict(c))

@@ -478,7 +478,7 @@ def check(facts: dict[str, Any], p: dict[str, Any], ctx: dict[str, str] | None =
                 lines.append(_line("control", "Ownership control", "check", "The call restricts control from outside the eligible countries, and only some of the EEA EFTA states are eligible under it: check which one controls your company.", q))
             elif _EXCEPTION.search(way):
                 tail = f": {own_note(own)}" if own_note(own) else ""
-                lines.append(_line("control", "Ownership control", "check", f"The call restricts entities controlled from outside the eligible countries, but the document allows a way round or narrows the restriction{tail}. Read it before you decide.", q))
+                lines.append(_line("control", "Ownership control", "check", f"{CONTROL_WAY_ROUND} allows a way round or narrows the restriction{tail}. Read it before you decide.", q))
             else:
                 lines.append(_line("control", "Ownership control", "no", "Entities controlled from outside the eligible countries are excluded, and the document names no exception.", q))
         elif abroad == "unsure":
@@ -694,6 +694,13 @@ NATIONALITY_PREFIX = "Only if your staff are "
 _NATIONALITY = re.compile(r"Only staff of (.+?) nationality")
 
 
+# WP-137 (EuroHPC JU 138-143: "Nothing known blocks you" to a company controlled from outside the eligible countries): lib/fit.ts
+# CONTROL_WAY_ROUND, CONTROL_WORD. The call excludes such a company unless its way round (guarantees approved by the country of
+# establishment) applies: the badge names that condition.
+CONTROL_WAY_ROUND = "The call restricts entities controlled from outside the eligible countries, but the document"
+CONTROL_WORD = "Controlled from outside: only on the exception the call allows"
+
+
 def nationality_word(reason: str) -> str:
     m = _NATIONALITY.search(reason)
     return f"{NATIONALITY_PREFIX}{f'{m.group(1)} nationals' if m else 'of the nationality the call names'}"
@@ -770,6 +777,9 @@ def fit_word(r: dict[str, Any]) -> str:
                             if x["key"] == "nationality" and x["verdict"] == "check"), None)
         if nationality:
             return nationality_word(nationality["reason"])
+        if any(x["key"] == "control" and x["verdict"] == "check" and x["reason"].startswith(CONTROL_WAY_ROUND)
+               for x in ((r.get("result") or {}).get("lines") or [])):
+            return CONTROL_WORD
         n = condition_count(r)
         return f"Nothing known blocks you, {n} {'condition' if n == 1 else 'conditions'} to check" if n > 0 else "Nothing known blocks you"
     return "Eligible" if fit == "yes" else "Rules not read"

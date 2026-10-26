@@ -23,6 +23,7 @@ and a second run finds nothing left to do.
     python -m dgate.ops.link_twins --source fr_boamp --limit 500 --yes
     python -m dgate.ops.link_twins --fill-raw --yes         # BOAMP procedure ids from the store
     python -m dgate.ops.link_twins --fill-placsp 2026-08 2026-10 --yes   # PLACSP ids from monthly archives
+    python -m dgate.ops.link_twins --relink --method procedure_id --yes  # WP-138: each call-off its own TED notice
 """
 
 from __future__ import annotations
@@ -87,12 +88,27 @@ def link_stated(conn, *, write: bool = False, source: str | None = None,
               FROM todo WHERE o.id = todo.id""", params).rowcount
 
 
+# WP-138: the TED notice that is the national notice itself. TED's title is "<country> – <CPV label> – <title>" (or the
+# title alone), the national one is the title: BKMS "2000283351 ANÜ IT Expert (Stufe P8) München, Berlin, Bonn," is TED
+# "Deutschland – Überlassung von Personal einschließlich Zeitarbeitskräfte – 2000283351 ANÜ IT Expert (Stufe P8) ...".
+# Runs of white space count as one space (BKMS keeps the buyer's line breaks and double spaces, TED does not).
+def _ws(col: str) -> str:
+    return f"regexp_replace(btrim({col}), '\\s+', ' ', 'g')"
+
+
+SAME_TITLE = (f"({_ws('t.title_original')} = {_ws('{n}.title_original')} "
+              f"OR right({_ws('t.title_original')}, length({_ws('{n}.title_original')}) + 3) "
+              f"= ' – ' || {_ws('{n}.title_original')})")
+
+
 def link_procedure(conn, *, write: bool = False, source: str | None = None,
                    limit: int | None = None) -> int:
     """Rows that share an eForms procedure identifier with a TED row.
 
     A procedure has several TED notices (the call, a corrigendum, the award); the one
-    chosen is the newest with the row's own status, which is the one the list shows.
+    chosen is the one with the row's own status and title (WP-138: a framework's call-offs
+    are one procedure, and each has its own TED notice), then the newest with the row's
+    own status, which is the one the list shows.
     """
     ted, only = _ted_id(conn), _only(source, conn)
     params = {"ted": ted, "only": only, "limit": limit, "conf": CONFIDENCE["procedure_id"]}
@@ -100,7 +116,7 @@ def link_procedure(conn, *, write: bool = False, source: str | None = None,
     pid_t = _NORM.format(col="t.procedure_identifier")
     best = f"""
         WITH cand AS (
-            SELECT o.id, o.status, o.procedure_identifier FROM opportunity o
+            SELECT o.id, o.status, o.procedure_identifier, o.title_original FROM opportunity o
              WHERE o.source_id <> %(ted)s AND o.ted_ref IS NULL
                AND o.procedure_identifier IS NOT NULL
                AND (%(only)s::int IS NULL OR o.source_id = %(only)s)
@@ -111,7 +127,7 @@ def link_procedure(conn, *, write: bool = False, source: str | None = None,
                 ON t.source_id = %(ted)s AND t.procedure_identifier IS NOT NULL
                AND {pid_t} = {pid_n}
              ORDER BY c.id, (t.status IS NOT DISTINCT FROM c.status) DESC,
-                      t.published_at DESC NULLS LAST, t.id DESC)"""
+                      {SAME_TITLE.format(n='c')} DESC, t.published_at DESC NULLS LAST, t.id DESC)"""
     if not write:
         return conn.execute(best + " SELECT count(*) AS n FROM best", params).fetchone()["n"]
     return conn.execute(
@@ -119,6 +135,38 @@ def link_procedure(conn, *, write: bool = False, source: str | None = None,
                       SET ted_ref = best.native_id, twin_method = 'procedure_id',
                           twin_confidence = %(conf)s
                      FROM best WHERE o.id = best.id AND o.ted_ref IS NULL""", params).rowcount
+
+
+def relink_procedure(conn, *, write: bool = False, source: str | None = None) -> int:
+    """WP-138: a link by procedure identifier made before the title counted names the newest TED notice of the
+    procedure with the row's status, and every call-off of a framework named the same one (BWI: 246 BKMS call-offs
+    under TED 689828-2026, so each listed the other 245 as the same notice and borrowed that one's value). Where that
+    TED notice is not the row's own title and one of the procedure with the row's status is, the link moves to it
+    (the newest such). Only `procedure_id` links; a stated or heuristic link is never touched. A second run finds
+    nothing. The link it replaces is the newest TED notice of the procedure with the row's status, so the order
+    `link_procedure` had before WP-138 gives it back."""
+    ted, only = _ted_id(conn), _only(source, conn)
+    todo = f"""
+        WITH todo AS (
+            SELECT n.id, (SELECT t.native_id FROM opportunity t
+                           WHERE t.source_id = %(ted)s AND t.procedure_identifier = n.procedure_identifier
+                             AND t.status IS NOT DISTINCT FROM n.status AND {SAME_TITLE.format(n='n')}
+                           ORDER BY t.published_at DESC NULLS LAST, t.id DESC LIMIT 1) AS native_id
+              FROM opportunity n
+             WHERE n.twin_method = 'procedure_id' AND n.source_id <> %(ted)s
+               AND (%(only)s::int IS NULL OR n.source_id = %(only)s)
+               AND NOT EXISTS (SELECT 1 FROM opportunity t
+                                WHERE t.source_id = %(ted)s AND t.native_id = n.ted_ref
+                                  AND {SAME_TITLE.format(n='n')}))"""
+    params = {"ted": ted, "only": only}
+    if not write:
+        return conn.execute(todo + " SELECT count(*) AS n FROM todo WHERE native_id IS NOT NULL",
+                            params).fetchone()["n"]
+    done = conn.execute(todo + """ UPDATE opportunity o SET ted_ref = todo.native_id
+                                     FROM todo WHERE o.id = todo.id AND todo.native_id IS NOT NULL""",
+                        params).rowcount
+    conn.commit()
+    return done
 
 
 # Every pair of a national row and a TED row that agree on what the heuristic requires.
@@ -328,6 +376,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="only this method (repeatable); default all, strongest first")
     parser.add_argument("--fill-raw", action="store_true",
                         help="first read BOAMP procedure identifiers from the raw store")
+    parser.add_argument("--relink", action="store_true",
+                        help="first move procedure-id links to the TED notice with the row's own title (WP-138)")
     parser.add_argument("--fill-placsp", nargs=2, type=_month, metavar=("FROM", "TO"),
                         help="first read PLACSP procedure identifiers from monthly archives")
     args = parser.parse_args(argv)
@@ -342,6 +392,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.fill_placsp:
             n = fill_from_archives(conn, _months(*args.fill_placsp), write=args.yes)
             log.info("placsp procedure identifiers %s: %s", "set" if args.yes else "to set", n)
+        if args.relink:
+            n = relink_procedure(conn, write=args.yes, source=args.source)
+            log.info("procedure-id links %s to the TED notice of the same title: %s",
+                     "moved" if args.yes else "to move", n)
         counts = run(conn, write=args.yes, methods=tuple(args.method or METHODS),
                      source=args.source, limit=args.limit)
     for method, n in counts.items():

@@ -139,6 +139,14 @@ _MATINE_FLOORS = {d: 1 for d in range(7)}
 # open set is at its smallest, which is what 50 leaves room for.
 _EU_PORTAL_FLOORS = {day: 50 for day in range(7)}
 
+# WP-139 (r8 audit: run 488 of 25 Oct fetched 0 with expected_min 0 and was "success"). The TED award reader's floor was
+# only the notices it asked (WP-103), so a day on which nothing was asked passed. It reads the core result notices the
+# 06:15 TED run brought: measured per TED publication day, 7 Sep - 23 Oct 2026, 5 to 27 (mean 13), Monday to Friday, none
+# at weekends. The 14:10 run of Tuesday to Saturday finds one publication day; Sunday's and Monday's find none. The floor
+# is about 40% of the smallest day and counts the whole UTC day: a second run after a catch-up that read them all is not
+# short (`awards.run_awards`).
+_TED_AWARDS_FLOORS = {0: 0, 1: 2, 2: 2, 3: 2, 4: 2, 5: 2, 6: 0}   # Monday = 0
+
 # Spain, the national subsidies register. The run scans every call central
 # government registered in a fourteen-day window, then keeps the few a supplier
 # could answer, so what the floor guards is the scan: 1,344 calls in the 279 days
@@ -193,6 +201,7 @@ def _default_floors() -> dict[str, dict[int, int]]:
         "nl_tenderned": _weekday_floors("DGATE_FLOOR_NL_TENDERNED", _TENDERNED_FLOORS),
         "de_bkms": _weekday_floors("DGATE_FLOOR_DE_BKMS", _DE_BKMS_FLOORS),
         "eu_portal": _weekday_floors("DGATE_FLOOR_EU_PORTAL", _EU_PORTAL_FLOORS),
+        "ted_awards": _weekday_floors("DGATE_FLOOR_TED_AWARDS", _TED_AWARDS_FLOORS),
         "es_bdns": _weekday_floors("DGATE_FLOOR_ES_BDNS", _BDNS_FLOORS),
         "pl_ncbr": _weekday_floors("DGATE_FLOOR_PL_NCBR", _NCBR_FLOORS),
         "se_vinnova": _weekday_floors("DGATE_FLOOR_SE_VINNOVA", _VINNOVA_FLOORS),
@@ -460,6 +469,11 @@ class Settings:
     networks_hour: int = field(default_factory=lambda: _env_int("DGATE_NETWORKS_HOUR", 2))
     cordis_floor: int = field(default_factory=lambda: _env_int("DGATE_FLOOR_CORDIS", 400_000))
     edf_floor: int = field(default_factory=lambda: _env_int("DGATE_FLOOR_EDF_FACTSHEETS", 150))
+    # WP-139: the EU portal's second daily run (`pipeline.run_topic_details`, 04:35) recorded no floor (runs 409, 428, 449,
+    # 485). It reads the topic pages that lack details, 1 to 150 a run; in its 18 runs of 24 Sep - 25 Oct 2026 every page
+    # asked was read. Its floor is this share of the pages asked (at least one): a withdrawn topic or two stays quiet, a
+    # portal that stops answering part-way is `partial`.
+    eu_topics_floor_share: float = 0.5
     # Per-day official total against what a run landed (ops/controls.py); one request a day
     # per source. Off in the test suite.
     completeness_check: bool = field(
