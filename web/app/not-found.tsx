@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getAccountStatus } from '@/lib/account';
+import { getHealth } from '@/lib/api';
 import { NOT_FOUND_META } from '@/lib/seo';
 import { HeaderBar } from '@/components/dg/header-bar';
 import { Footer } from '@/components/dg/footer';
@@ -22,7 +23,7 @@ const LINKS = [
  * It lives outside the (public) layout, so it draws the header and footer itself.
  */
 export default async function NotFound() {
-  const { open } = await getAccountStatus();
+  const [{ open }, health] = await Promise.all([getAccountStatus(), getHealth()]);
   return (
     <>
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-pill focus:bg-surface focus:px-5 focus:py-3 focus:font-bold">
@@ -51,7 +52,7 @@ export default async function NotFound() {
           <Button href="/">Back to the home page</Button>
         </div>
       </main>
-      <Footer />
+      <Footer health={health} />
     </>
   );
 }

@@ -15,8 +15,9 @@ export async function GET(request: Request): Promise<Response> {
       status: 502, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' },
     });
   }
-  const body = buildRegulationAtom(feed, { origin: SITE.url.replace(/\/$/, ''), generatedAt: new Date().toISOString() });
   const lastModified = new Date(`${feed.lastChecked ?? '1970-01-01'}T00:00:00Z`);
+  // WP-142: an empty tracker is dated like its Last-Modified, not by the clock (as /digest.atom: the clock changed the ETag every second)
+  const body = buildRegulationAtom(feed, { origin: SITE.url.replace(/\/$/, ''), generatedAt: lastModified.toISOString() });
   const etag = etagOf(body);
   const headers = { etag, 'last-modified': lastModified.toUTCString(), 'cache-control': 'public, max-age=3600' };
   if (notModified(request, etag, lastModified)) return new Response(null, { status: 304, headers });

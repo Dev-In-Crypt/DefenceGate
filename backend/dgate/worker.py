@@ -489,7 +489,8 @@ def job_buyer_families() -> JobResult:
 
 def job_warm_lists() -> JobResult:
     """Every four hours: pre-compute the slow tender views (closed and all, every country, the
-    first pages, and the scope counts) into `list_snapshot` (ops/warm_lists.py). The API reads
+    first pages, and the scope counts) into `list_snapshot` (ops/warm_lists.py), and the match sets of the frequent
+    search words (WP-142, `search_match_set`). The API reads
     a row by key before it runs the query. About ten minutes of one core; derived data only."""
     counts: dict[str, int] = {}
 

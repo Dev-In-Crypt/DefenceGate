@@ -37,6 +37,7 @@ Decisions that shape it:
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import re
 from collections import defaultdict
@@ -1160,12 +1161,19 @@ def search_ids(conn, match: str, params: list[Any]) -> list[int] | None:
     from .config import settings
 
     memo = _SEARCH_MEMO.get()
-    budget = settings().search_ids_ms
-    if memo is None or budget <= 0 or not hasattr(conn, "execute"):
+    if memo is None or not hasattr(conn, "execute"):
         return None
     key = (match, repr(params))
     if key in memo:
         return memo[key]
+    # WP-142: a search the worker keeps a match set for is read from it, whatever its size
+    if (got := stored_matches(conn, match, params)) is not None:
+        memo[key] = got
+        return got
+    budget = settings().search_ids_ms
+    if budget <= 0:
+        memo[key] = None
+        return None
     keep = settings().list_cache_seconds > 0
     if keep and stats._get(("search-ids", *key), stats._search_cache) is False:
         memo[key] = None                                     # known not to qualify
@@ -1189,6 +1197,87 @@ def search_ids(conn, match: str, params: list[Any]) -> list[int] | None:
     return got
 
 
+# WP-142 (r8-system, WP-139's open item): a frequent search word matches thousands of notices ("ammunition" 8,851, "fuel" 7,024
+# on 26 October 2026), past SEARCH_IDS_MAX, and every statement of its list re-ran the trigram scans of its regular expressions
+# (2.0 s and 0.9 s): 3.3 s cold for the list, 3.5 s for page 2 of "fuel". The worker keeps the matches of the searches people
+# make most (`search_set_words`) in `search_match_set` (migration 0142), with the xmin of the snapshot they were read in. A
+# request reads the set and re-tests only the search rows written since (`opportunity_search.changed_xid` at or past that
+# xmin, set by the row's trigger), so the ids are those of the live condition now, the list and its counts read the same ids
+# (`search_ids`, once per request), and a set older than SEARCH_SET_HOURS is not used (the live query, as before).
+SEARCH_SET_HOURS = 24
+# Re-testing a row costs about 0.26 ms for "ammunition" (14 expressions; 18,000 rows took 4.7 s on production): past this many
+# rows written since the set, the live query is cheaper. A normal day writes about 200 new search rows.
+SEARCH_SET_RETEST_MAX = 2000
+
+
+def search_set_key(match: str, params: list[Any]) -> str:
+    """The key of a stored match set: the condition and its parameters, as `search_ids` keys its memo."""
+    return hashlib.sha256(f"{match}\n{params!r}".encode()).hexdigest()
+
+
+def stored_matches(conn, match: str, params: list[Any]) -> list[int] | None:
+    """The ids of the search rows that pass `match` now, from the worker's stored set and the rows written since it was
+    read; None when there is no fresh set for it (or the read failed: the live query then runs, as before)."""
+    try:
+        with conn.transaction():
+            row = conn.execute(
+                "SELECT ids, snapshot_xmin::text AS xmin FROM search_match_set "
+                "WHERE key = %s AND computed_at > now() - make_interval(hours => %s)",
+                (search_set_key(match, params), SEARCH_SET_HOURS)).fetchone()
+            if row is None:
+                return None
+            changed = conn.execute(
+                f"SELECT ts.id, ({match}) AS hit FROM opportunity_search ts WHERE ts.changed_xid >= %s::xid8 LIMIT %s",
+                [*params, row["xmin"], SEARCH_SET_RETEST_MAX + 1]).fetchall()
+    except psycopg.Error:
+        return None
+    if len(changed) > SEARCH_SET_RETEST_MAX:
+        return None                                          # a large load since the set: the live query until the next one
+    hits = {r["id"] for r in changed if r["hit"]}
+    misses = {r["id"] for r in changed if not r["hit"]}
+    return sorted((set(row["ids"]) | hits) - misses)
+
+
+def search_set_words() -> list[str]:
+    """The searches the worker keeps a match set for: the first term of every product group (the searches whose expansion
+    costs most: "ammunition" reads 14 regular expressions) and DGATE_SEARCH_SET_WORDS, as typed (another spelling of one,
+    "Ammunition", is a search of its own and runs live)."""
+    from .config import settings
+    from .search_terms import groups
+
+    return list(dict.fromkeys([*(" ".join(g.terms[0]) for g in groups()), *settings().search_set_words]))
+
+
+def refresh_search_sets(conn, *, write: bool = False) -> dict[str, int]:
+    """Read and store the match set of every `search_set_words` search (the worker, with `ops/warm_lists`); a stored set of
+    a search no longer listed is deleted. Report only unless `write`."""
+    keys: list[str] = []
+    written = removed = 0
+    for q in search_set_words():
+        built = search_match(q)
+        if built is None:
+            continue
+        match, params = built
+        key = search_set_key(match, params)
+        keys.append(key)
+        if not write:
+            continue
+        # One statement: the ids and the xmin of the snapshot they were read in (what a request re-tests from)
+        conn.execute(
+            f"""INSERT INTO search_match_set (key, q, ids, snapshot_xmin, computed_at)
+                SELECT %s, %s, coalesce(array_agg(ts.id ORDER BY ts.id), '{{}}'), pg_snapshot_xmin(pg_current_snapshot()), now()
+                  FROM opportunity_search ts WHERE {match}
+                ON CONFLICT (key) DO UPDATE SET q = EXCLUDED.q, ids = EXCLUDED.ids, snapshot_xmin = EXCLUDED.snapshot_xmin,
+                                                computed_at = EXCLUDED.computed_at""",
+            [key, q, *params])
+        conn.commit()
+        written += 1
+    if write:
+        removed = len(conn.execute("DELETE FROM search_match_set WHERE key <> ALL(%s) RETURNING 1", (keys,)).fetchall())
+        conn.commit()
+    return {"search_sets": len(keys), "search_sets_written": written, "search_sets_removed": removed}
+
+
 def searched_once(fn):
     """An endpoint whose calls of `_tender_filters` read a search's matches once per call (`search_ids`)."""
     @wraps(fn)
@@ -1199,6 +1288,79 @@ def searched_once(fn):
         finally:
             _SEARCH_MEMO.reset(token)
     return run
+
+
+def search_match(q: str | None) -> tuple[str, list[Any]] | None:
+    """The condition (written over `opportunity_search ts`) a notice passes for the search text `q`, and its parameters; None
+    when `q` holds no word. One place, so the list, its counts, the export and the stored match sets (`stored_matches`, WP-142)
+    can never read a search differently."""
+    text = (q or "").replace("\x00", "").strip()
+    words = search_words(text)
+    if not words:
+        return None
+    params: list[Any] = []
+    # Every word must begin a word of the title (the original, or the English one TED gives) or the buyer's
+    # name, accents and punctuation folded on both sides (migration 0054); the notice number is matched
+    # as typed. The folded titles are trigram-indexed. WP-90: or the English title of one of the notice's
+    # own CPV codes (`cpv_labels`, over the GIN index of migration 0099).
+    # WP-98: the words in any order, each slot of `search_terms.expand` filled by the typed words or a term of its group in
+    # another language ("fardamento": "uniform", "Bekleidung" ...); a run of words is also read against the English
+    # titles of the codes together ("spare parts": 34330000), where one of them alone names too many codes.
+    # WP-101: over `opportunity_search` (migration 0113), the same texts folded once when the notice was written: a
+    # candidate of the trigram indexes is re-checked against stored text, where `dg_fold` of the title per term made
+    # "Drehteile Frästeile" 12.6 s on production. A withheld buyer has no name there. The condition is a correlated
+    # EXISTS so that the collapse rules (`collapse_clauses`, which rewrite `o.` for the twin) read the twin's own row.
+    # WP-110 (round-4 re-check): the codes are read by the notice's MAIN code (`ts.main_heads`, migration 0122): over any
+    # code, CPV 45311000 Electrical wiring work beside a canteen's construction made it a "wiring harness". A slot of a
+    # product group reads the group's own codes (`anchors`), not the titles of codes its words begin ("wiring" named
+    # 45311000), and its words never read the buyer's name (the Polish cyberspace centre made all its notices "cyber").
+    per_word = ("(ts.title_en LIKE dg_word_pattern(%s) "
+                "OR ts.title_original LIKE dg_word_pattern(%s) "
+                "OR ts.buyer_name LIKE dg_word_pattern(%s){labels})")
+    product_word = "(ts.title_en LIKE dg_word_pattern(%s) OR ts.title_original LIKE dg_word_pattern(%s))"
+    slots = []
+    expanded = expand(words)
+    for alts, group in zip(expanded.slots, expanded.slot_groups, strict=True):
+        alt_sql = []
+        # The typed words stay words in any order (below); the group's other terms are phrases, as written
+        singles = alts[1:]
+        if group is not None:
+            # A product group: the typed words (all of them, any order) or a term of the group (a phrase) in a title,
+            # or the main code under one of the group's anchors.
+            # The other terms of a group as one regular expression per column ("a word begins with one of them", a
+            # term of several words as that phrase, over the same trigram indexes). In chunks of RX_TERMS: over a longer
+            # alternation pg_trgm keeps fewer trigrams and the index hands back ten times the matches to re-check
+            # (drone: 12,966 candidates for 1,306 matches; 4 terms: exact). Titles only.
+            folded = [re.escape(" ".join(fold_words(" ".join(t)))) for t in singles]
+            for k in range(0, len(folded), RX_TERMS):
+                rx = " (?:" + "|".join(folded[k:k + RX_TERMS]) + ")"
+                alt_sql.append("ts.title_en ~ %s OR ts.title_original ~ %s")
+                params += [rx] * 2
+            if group.anchors:
+                alt_sql.append(TS_MAIN_HEADS)
+                params.append(list(group.anchors))
+            alt_sql.append("(" + " AND ".join([product_word] * len(alts[0])) + ")")
+            params += [w for w in alts[0] for _ in range(2)]
+            slots.append("(" + " OR ".join(alt_sql) + ")")
+            continue
+        for alt in alts[:1]:
+            ands = []
+            for w in alt:
+                codes = codes_for_word(w)
+                ands.append(per_word.format(labels=f" OR {TS_MAIN_HEADS}" if codes else ""))
+                params += [w] * 3 + ([list(codes)] if codes else [])
+            together = codes_for_words(tuple(alt)) if len(alt) > 1 else ()
+            if together:
+                params.append(list(together))
+            alt_sql.append("(" + " AND ".join(ands) + ")" + (f" OR {TS_MAIN_HEADS}" if together else ""))
+        slots.append("(" + " OR ".join(alt_sql) + ")")
+    # (one slot of several words has just read them together)
+    together = codes_for_words(tuple(words)) if len(words) > 1 and len(slots) > 1 else ()
+    if together:
+        params.append(list(together))
+    match = ("((" + " AND ".join(slots) + ")" + (f" OR {TS_MAIN_HEADS}" if together else "")
+             + " OR ts.native_id ILIKE %s)")
+    return match, [*params, _like(text)]
 
 
 def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min_, max_, currency,
@@ -1222,73 +1384,9 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
 
     where += status_conditions(status, eff)
 
-    text = (q or "").replace("\x00", "").strip()
-    words = search_words(text)
-    if words:
-        # Every word must begin a word of the title (the original, or the English one TED gives) or the buyer's
-        # name, accents and punctuation folded on both sides (migration 0054); the notice number is matched
-        # as typed. The folded titles are trigram-indexed. WP-90: or the English title of one of the notice's
-        # own CPV codes (`cpv_labels`, over the GIN index of migration 0099).
-        # WP-98: the words in any order, each slot of `search_terms.expand` filled by the typed words or a term of its group in
-        # another language ("fardamento": "uniform", "Bekleidung" ...); a run of words is also read against the English
-        # titles of the codes together ("spare parts": 34330000), where one of them alone names too many codes.
-        # WP-101: over `opportunity_search` (migration 0113), the same texts folded once when the notice was written: a
-        # candidate of the trigram indexes is re-checked against stored text, where `dg_fold` of the title per term made
-        # "Drehteile Frästeile" 12.6 s on production. A withheld buyer has no name there. The condition is a correlated
-        # EXISTS so that the collapse rules (`collapse_clauses`, which rewrite `o.` for the twin) read the twin's own row.
-        # WP-110 (round-4 re-check): the codes are read by the notice's MAIN code (`ts.main_heads`, migration 0122): over any
-        # code, CPV 45311000 Electrical wiring work beside a canteen's construction made it a "wiring harness". A slot of a
-        # product group reads the group's own codes (`anchors`), not the titles of codes its words begin ("wiring" named
-        # 45311000), and its words never read the buyer's name (the Polish cyberspace centre made all its notices "cyber").
-        per_word = ("(ts.title_en LIKE dg_word_pattern(%s) "
-                    "OR ts.title_original LIKE dg_word_pattern(%s) "
-                    "OR ts.buyer_name LIKE dg_word_pattern(%s){labels})")
-        product_word = "(ts.title_en LIKE dg_word_pattern(%s) OR ts.title_original LIKE dg_word_pattern(%s))"
-        slots = []
-        n_before = len(params)
-        expanded = expand(words)
-        for alts, group in zip(expanded.slots, expanded.slot_groups, strict=True):
-            alt_sql = []
-            # The typed words stay words in any order (below); the group's other terms are phrases, as written
-            singles = alts[1:]
-            if group is not None:
-                # A product group: the typed words (all of them, any order) or a term of the group (a phrase) in a title,
-                # or the main code under one of the group's anchors.
-                # The other terms of a group as one regular expression per column ("a word begins with one of them", a
-                # term of several words as that phrase, over the same trigram indexes). In chunks of RX_TERMS: over a longer
-                # alternation pg_trgm keeps fewer trigrams and the index hands back ten times the matches to re-check
-                # (drone: 12,966 candidates for 1,306 matches; 4 terms: exact). Titles only.
-                folded = [re.escape(" ".join(fold_words(" ".join(t)))) for t in singles]
-                for k in range(0, len(folded), RX_TERMS):
-                    rx = " (?:" + "|".join(folded[k:k + RX_TERMS]) + ")"
-                    alt_sql.append("ts.title_en ~ %s OR ts.title_original ~ %s")
-                    params += [rx] * 2
-                if group.anchors:
-                    alt_sql.append(TS_MAIN_HEADS)
-                    params.append(list(group.anchors))
-                alt_sql.append("(" + " AND ".join([product_word] * len(alts[0])) + ")")
-                params += [w for w in alts[0] for _ in range(2)]
-                slots.append("(" + " OR ".join(alt_sql) + ")")
-                continue
-            for alt in alts[:1]:
-                ands = []
-                for w in alt:
-                    codes = codes_for_word(w)
-                    ands.append(per_word.format(labels=f" OR {TS_MAIN_HEADS}" if codes else ""))
-                    params += [w] * 3 + ([list(codes)] if codes else [])
-                together = codes_for_words(tuple(alt)) if len(alt) > 1 else ()
-                if together:
-                    params.append(list(together))
-                alt_sql.append("(" + " AND ".join(ands) + ")" + (f" OR {TS_MAIN_HEADS}" if together else ""))
-            slots.append("(" + " OR ".join(alt_sql) + ")")
-        # (one slot of several words has just read them together)
-        together = codes_for_words(tuple(words)) if len(words) > 1 and len(slots) > 1 else ()
-        if together:
-            params.append(list(together))
-        match = ("((" + " AND ".join(slots) + ")" + (f" OR {TS_MAIN_HEADS}" if together else "")
-                 + " OR ts.native_id ILIKE %s)")
-        match_params = [*params[n_before:], _like(text)]
-        del params[n_before:]
+    built = search_match(q)
+    if built:
+        match, match_params = built
         # WP-120: the matches are read once (`search_ids`) when they are few and quick to find, and each statement of the
         # request then tests an id against them: the text test ran in every statement (the counts, the rows, both parts of
         # `all`: up to seven), and "ammunition" took 9.8 s cold on 25 October 2026. Otherwise the correlated EXISTS, as before.

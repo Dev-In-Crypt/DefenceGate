@@ -30,7 +30,7 @@ TABLES = """award, award_notice, compaction_pending, backfill_day, enrichment_jo
             call, raw_ingest, ingest_run,
             billing_event, billing_subscription, billing_checkout,
             app_recovery_code, app_auth_token, app_user, app_login_token, app_auth_event, app_hit_daily, backup_status, control_check, job_run,
-            suppression, data_request, list_snapshot, award_twin_set,
+            suppression, data_request, list_snapshot, search_match_set, award_twin_set,
             call_eligibility, call_document_text, llm_usage, digest_issue,
             programme_requirement, requirement_issuer, requirement_prerequisite, requirement,
             readiness_programme,

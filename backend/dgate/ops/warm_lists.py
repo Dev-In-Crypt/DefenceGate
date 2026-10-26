@@ -7,7 +7,8 @@ totals in them are exact (`tenders.EXACT_TOTALS`; the live list stops counting a
 deeper page of the same filters repeats the exact total from here). Open lists and their counts are not
 kept: a few thousand rows, read live, so that the counts beside a list are the list's own at the same
 time (WP-52, T13). Also kept here: the sitemap's tender and buyer slugs (T15), and the buyer aggregate, a
-pass over every core notice that the buyer pages and the directory read (T14). The API
+pass over every core notice that the buyer pages and the directory read (T14), and (WP-142) the match sets of the
+frequent search words (`tenders.refresh_search_sets`, table `search_match_set`). The API
 (`listcache.cache_list` with `snapshot=True`) reads a row by key when its memory has no answer. Derived data:
 a snapshot never replaces the live query for a filter that was not computed, and an old one (over
 `SNAPSHOT_HOURS`) is ignored.
@@ -119,7 +120,14 @@ def run(conn, *, write: bool = False) -> dict[str, int]:
         removed = len(conn.execute("DELETE FROM list_snapshot WHERE key <> ALL(%s) RETURNING 1",
                                    (kept,)).fetchall())
         conn.commit()
-    return {"views": len(todo), "written": done, "failed": failed, "removed": removed}
+    # WP-142: the match sets of the frequent search words (a few seconds each), read by every request of those words
+    try:
+        sets = tenders.refresh_search_sets(conn, write=write)
+    except Exception:  # noqa: BLE001 - the older sets stay (or none: the searches run live)
+        conn.rollback()
+        log.exception("search match sets failed")
+        sets, failed = {}, failed + 1
+    return {"views": len(todo), "written": done, "failed": failed, "removed": removed, **sets}
 
 
 # WP-98c: the views the first reader after a deploy must not wait for (the Atom feed's pages, the supplier value orders),
