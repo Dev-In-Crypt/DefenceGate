@@ -1252,7 +1252,7 @@ def refresh_search_sets(conn, *, write: bool = False) -> dict[str, int]:
     """Read and store the match set of every `search_set_words` search (the worker, with `ops/warm_lists`); a stored set of
     a search no longer listed is deleted. Report only unless `write`."""
     keys: list[str] = []
-    written = removed = 0
+    written = removed = empty = 0
     for q in search_set_words():
         built = search_match(q)
         if built is None:
@@ -1262,20 +1262,25 @@ def refresh_search_sets(conn, *, write: bool = False) -> dict[str, int]:
         keys.append(key)
         if not write:
             continue
-        # One statement: the ids and the xmin of the snapshot they were read in (what a request re-tests from)
-        conn.execute(
+        # One statement: the ids and the xmin of the snapshot they were read in (what a request re-tests from).
+        # WP-143: a search that matches nothing is not stored ("stamping": a set of 0 ids); its live query finds nothing fast
+        got = conn.execute(
             f"""INSERT INTO search_match_set (key, q, ids, snapshot_xmin, computed_at)
-                SELECT %s, %s, coalesce(array_agg(ts.id ORDER BY ts.id), '{{}}'), pg_snapshot_xmin(pg_current_snapshot()), now()
-                  FROM opportunity_search ts WHERE {match}
+                SELECT %s, %s, array_agg(ts.id ORDER BY ts.id), pg_snapshot_xmin(pg_current_snapshot()), now()
+                  FROM opportunity_search ts WHERE {match} HAVING count(*) > 0
                 ON CONFLICT (key) DO UPDATE SET q = EXCLUDED.q, ids = EXCLUDED.ids, snapshot_xmin = EXCLUDED.snapshot_xmin,
                                                 computed_at = EXCLUDED.computed_at""",
             [key, q, *params])
+        if got.rowcount == 0:
+            conn.execute("DELETE FROM search_match_set WHERE key = %s", (key,))      # nor kept from an earlier run
+            empty += 1
+        else:
+            written += 1
         conn.commit()
-        written += 1
     if write:
         removed = len(conn.execute("DELETE FROM search_match_set WHERE key <> ALL(%s) RETURNING 1", (keys,)).fetchall())
         conn.commit()
-    return {"search_sets": len(keys), "search_sets_written": written, "search_sets_removed": removed}
+    return {"search_sets": len(keys), "search_sets_written": written, "search_sets_empty": empty, "search_sets_removed": removed}
 
 
 def searched_once(fn):
@@ -2441,6 +2446,9 @@ FIELD_LABELS = {
     "source_url": "Source link",
 }
 
+# WP-143: the label of a value line of a notice whose value is a unit price (`value_kind` unit_price, WP-138)
+UNIT_PRICE_LABEL = "Unit price (not the contract value)"
+
 
 def _utc_text(text: str) -> str | None:
     try:
@@ -2614,7 +2622,8 @@ TIMELINE_SQL = """
            COALESCE((SELECT array_agg(n.kind) FROM opportunity_version_note n
                       WHERE n.opportunity_version_id = v.id), '{{}}') AS kinds,
            (SELECT n.fields FROM opportunity_version_note n
-             WHERE n.opportunity_version_id = v.id AND n.kind = 'remapped_fields') AS remapped_fields
+             WHERE n.opportunity_version_id = v.id AND n.kind = 'remapped_fields') AS remapped_fields,
+           (SELECT o.value_kind FROM opportunity o WHERE o.id = v.opportunity_id) AS row_value_kind
       FROM opportunity_version v
      WHERE {where}
      ORDER BY v.opportunity_id, v.version"""
@@ -2737,6 +2746,13 @@ def timeline(rows: list[dict[str, Any]], *, corrections: bool = False) -> list[d
             if corrections and ours:
                 out.append({**entry, "correction": True, "reason": CORRECTION_REMAPPED, "changes": ours})
         previous = payload
+    if rows and rows[-1].get("row_value_kind") == VALUE_UNIT_PRICE:
+        # WP-143 (r9-data, 178210: "Estimated value EUR 94.27 added"): the figure WP-138 set aside as a unit price (an hourly rate)
+        # is not called the notice's value in its history either; the line says what it is
+        for entry in out:
+            for c in entry["changes"]:
+                if c["field"] == "value_amount":
+                    c["label"] = UNIT_PRICE_LABEL
     for number, entry in enumerate(out, 1):
         entry["sequence"] = number
     return out

@@ -71,6 +71,24 @@ app = FastAPI(
     openapi_url="/openapi.json" if _docs else None,
     lifespan=_lifespan,
 )
+class _NameConnections:
+    """WP-143: the connections a request opens carry its route family as their application name (`db.APP_NAME`)."""
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        token = db.APP_NAME.set(db.route_family(scope.get("path", "")))
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            db.APP_NAME.reset(token)
+
+
+app.add_middleware(_NameConnections)  # innermost of all: the name is set where the route runs
 app.add_middleware(BodyLimit)         # innermost: its 413 still gets the security headers
 app.add_middleware(ETag)              # WP-114: inside the headers, so a 304 carries them too
 app.add_middleware(SecurityHeaders)

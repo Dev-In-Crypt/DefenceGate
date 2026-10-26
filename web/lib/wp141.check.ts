@@ -41,7 +41,8 @@ function oneRow(r: FitResult, only: RegExp, what: string) {
 const page = JSON.parse(readFileSync('lib/data/wp109-calls.json', 'utf8')).calls['114'];
 const call114 = { state: 'read' as const, facts: page.facts as EligibilityFacts, programme: page.programme, topic: page.topicId };
 const r114 = callFit(call114, sme, null);
-oneRow(r114, /^Only an established SEAP may apply to this call\. /, '114 company');
+// WP-143: the reason follows the document, which admits a SEAP being established that has applied
+oneRow(r114, /^Only a SEAP may apply to this call: an established one, or one being established whose application has already been submitted to the Commission\. /, '114 company');
 assert.equal(fitLabel(r114).word, 'Blocked by: an established SEAP', 'the badge as before');
 assert.ok(!verdictLines(r114).some((l) => / \. ?[a-z]|Not allowed\. [a-z]/.test(l.reason)));
 assert.ok(verdictLines(r114).find((l) => l.label === WHO_MAY_APPLY)!.quote, 'the row keeps the document\'s sentence');
@@ -54,7 +55,7 @@ assert.ok(!verdictLines(s114).some((l) => l.key === 'who'), 'nothing is replaced
 
 const ONLY: Record<string, RegExp> = {
   '110': /^Only contracting authorities, international organisations, SEAPs and the EDA may apply/, '111': /^Only contracting authorities/,
-  '112': /^Only contracting authorities/, '114': /^Only an established SEAP may apply/, '193': /^Only a SEAP or a group of Member States may apply/,
+  '112': /^Only contracting authorities/, '114': /^Only a SEAP may apply to this call: an established one, or one being established/, '193': /^Only a SEAP or a group of Member States may apply/,
 };
 let blocked = 0;
 for (const file of ['lib/data/wp93-pairs.json', 'lib/data/wp102-pairs.json']) {

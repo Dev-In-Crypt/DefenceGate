@@ -14,7 +14,9 @@ WORKDIR /app
 COPY --chown=node:node .next/standalone ./
 COPY --chown=node:node .next/static ./.next/static
 COPY --chown=node:node public ./public
+# WP-143: the limit on anonymous renders at once (gate.cjs), which starts server.js
+COPY --chown=node:node gate.cjs ./
 
 USER node
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["node", "gate.cjs"]

@@ -87,11 +87,23 @@ const HTTP_TIMEOUT_MS = 20_000;
  */
 const UNREACHABLE_RETRY_MS = 15_000;
 const UNREACHABLE_PAUSE_MS = 500;
+/**
+ * WP-143 (r13 deploy, 26 October 2026: 121 "busy" answers in 40 s became 105 error pages): the API's "busy" answer (every database
+ * connection taken: 503 with Retry-After 2, api.py `_busy`) is asked once more after that wait, inside the same window. A statement
+ * time-out (503, Retry-After 5) is not: asking again would only double the load.
+ */
+const BUSY_RETRY_MAX_S = 2;
+function busyPauseMs(res: Response): number | null {
+  if (res.status !== 503) return null;
+  const s = Number(res.headers.get('retry-after'));
+  return Number.isFinite(s) && s > 0 && s <= BUSY_RETRY_MAX_S ? s * 1000 : null;
+}
 
 export async function http<T>(path: string, mode: CacheMode = 'revalidate', seconds: number = REVALIDATE_SECONDS): Promise<T | null> {
   const extra = mode === 'no-store' ? await visitorHeaders() : {};
   const until = Date.now() + UNREACHABLE_RETRY_MS;
   let res: Response;
+  let busyRetried = false;
   for (;;) {
     try {
       res = await fetch(`${API_BASE}${path}`, {
@@ -99,12 +111,17 @@ export async function http<T>(path: string, mode: CacheMode = 'revalidate', seco
         signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
         ...(mode === 'no-store' ? { cache: 'no-store' as const } : { next: { revalidate: seconds } }),
       });
-      break;
     } catch (e) {
       // undici's "fetch failed" (TypeError) is a connection that never opened; a timeout is a DOMException and is not retried
       if (!(e instanceof TypeError) || Date.now() + UNREACHABLE_PAUSE_MS > until) throw e;
       await new Promise((r) => setTimeout(r, UNREACHABLE_PAUSE_MS));
+      continue;
     }
+    const pause = busyRetried ? null : busyPauseMs(res);
+    if (pause === null || Date.now() + pause > until) break;
+    busyRetried = true;
+    await res.body?.cancel().catch(() => undefined);
+    await new Promise((r) => setTimeout(r, pause));
   }
   if (res.status === 404) return null;
   if (!res.ok) throw new ApiError(res.status, `GET ${path} failed`);
