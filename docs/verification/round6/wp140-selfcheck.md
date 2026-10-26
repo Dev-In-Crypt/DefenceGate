@@ -11,7 +11,8 @@ leads, the two archive file names and first lines, `accounts.py` comments and `t
 > **TODO (orchestrator), privacy section 7, e-Zamowienia sentence.** The page says the Polish result notices landed until
 > 21 Oct 2026 "were cleaned again in October 2026" (`EZAM_CLEANED` in `web/app/(public)/privacy/page.tsx`, and the same
 > sentence in `docs/legal/versions/privacy-v1.7-2026-10-26.md`). The re-strip (`ops.restrip raw --source pl_ezam --yes`)
-> started on 25 Oct 18:55 UTC (`/root/restrip-raw-ezam-report-oct25.log`). After its result: set the date
+> had a report pass started on 25 Oct 18:55 UTC (`/root/restrip-raw-ezam-report-oct25.log`); per the orchestrator the
+> rewrite has not run yet (26 Oct morning). After its result: set the date
 > (e.g. "on 26 October 2026") in both places, or, if it did not finish clean, take the sentence out of both before deploying.
 > Also update `docs/DATA_PROTECTION.md`, row "Raw store, `pl_ezam/`".
 
@@ -96,12 +97,18 @@ while the API was absent (closed) for up to an hour; the status fetch itself sta
 | page open state: no "Sign-in is not open yet" | `e2e/wp79.spec.ts` "WP-140: once accounts are open ..." (fake account API, runs in `web-gated.yml`) |
 | mail provider named | `e2e/wp63.spec.ts` (asserted "None has been chosen yet"; now asserts the Brevo sentence and its absence) |
 
-Results: see below.
+Results, batched once on the merged tree (wp-wp140 + integration 55092e5, `D:\DEFENCEGATE TESTS\wp140\`): ruff clean;
+unit 4072 passed; integration 1556 passed; tsc clean; web lib checks all ok; `next build` ok; Playwright wp79, wp63, wp45,
+layout, routes, wp123: 113 passed, 23 skipped (the fake/real account groups); wp79 against the fake account API
+(`fake-open.ps1`: fake-accounts.mjs + `next start` with `DG_API_URL`, http, `-g "WP-140"`): 2 passed. An earlier run
+(before the merge) had one integration failure in my new test (a registration call refused 403 because the test set the
+internal secret); the test now checks the switch values through `accounts_problem()` only, the 503 of the route stays
+covered by `test_accounts_stay_closed_until_the_privacy_notice_for_passwords_is_published`.
 
 ## Overlaps
 
-WP-137, WP-138, WP-139 had no commits when I checked. Files of mine another package may also touch:
-`docs/DATA_PROTECTION.md` (WP-138, data), `infra/docker-compose.yml` (one line in `api`). WP-139 (site texts):
+`integration` 55092e5 (WP-137/138/139 merged) was merged into `wp-wp140` with no conflict; the only file both touched is
+`backend/dgate/config.py` (different lines). WP-139 (site texts):
 /methodology and /about carry the same archive figures (221 versions, about 1,000 buyer names) and are not changed here;
 with the re-count above they are now stale ("221 archive versions"): theirs to fix, or a follow-up.
 
