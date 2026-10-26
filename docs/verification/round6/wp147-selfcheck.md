@@ -147,7 +147,10 @@ Rollback: `sh infra/origin-lock.sh --undo --yes` **first**, then DNS records bac
 
 ## Suite
 
-ruff clean; unit and integration suites in `D:\DEFENCEGATE TESTS\wp147` (see the final message for the counts).
+In `D:\DEFENCEGATE TESTS\wp147`: ruff clean; unit 4090 passed (9 new); integration 1562 passed, 1 failed:
+`test_wp110.py::test_the_global_search_answers_every_part_at_once_within_the_budget` (a 2 s timing budget, "slow" on the shared
+machine during the 19-minute run; no backend code is changed here), which passed on its own re-run (test_wp110.py 5 passed).
+`caddy validate` of the Caddyfile with `DGATE_DOMAIN=defencegatehub.com` and caddy:2.11.4: valid.
 
 ## Open items
 
