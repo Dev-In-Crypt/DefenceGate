@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from 'react';
 import { CircleAlert, CircleCheck, CircleHelp, CircleX } from 'lucide-react';
 import { applySummary } from '@/lib/funding-path';
-import { answersFit, answersOf, asksUaPartner, fitLabel, shownFit, type Answers, type FitResult } from '@/lib/fit';
+import { answersFit, answersOf, asksUaPartner, fitLabel, isLine, shownFit, type Answers, type FitResult } from '@/lib/fit';
 import type { EligibilityFacts } from '@/lib/eligibility-check';
 import { useFit } from '@/lib/fit-hooks';
 import { fitFor, isLoaded, lookupFailed } from '@/lib/fit-store';
@@ -87,7 +87,7 @@ function ProfileVerdict({ id }: { id: string }) {
         <p className="m-0 text-body">Rules not read: check the call document. Nothing we hold says who may apply to this call.</p>
       ) : (
         <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-body">
-          {r.blockedBy.filter((b) => !lines.some((l) => l.label === b)).map((b) => <li key={b} data-profile-line="programme">{b}.</li>)}
+          {r.blockedBy.filter((b) => !isLine(b, lines)).map((b) => <li key={b} data-profile-line="programme">{b}.</li>)}
           {lines.map((l) => <li key={l.key} data-profile-line={l.key}><strong>{l.label}:</strong> {l.reason}</li>)}
           {r.conditions.filter((c) => !r.blockedBy.includes(c)).map((c) => <li key={c} data-profile-line="condition">{c}</li>)}
         </ul>

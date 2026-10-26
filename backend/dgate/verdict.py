@@ -656,10 +656,15 @@ def action_of_call(chip: str, topic: str) -> str | None:
 
 _APPLICANTS = {
     "common_procurement": {"title": "Who may apply: contracting authorities, international organisations, SEAPs and the EDA",
+                           "only": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call.",
                            "plain": ["international_organisation", "seap", "eda"], "maybe": ["contracting_authority"]},
-    "seap_support": {"title": "Who may apply: an established SEAP", "plain": ["seap"], "maybe": []},
-    "edpci_preparation": {"title": "Who may apply: a SEAP or a group of Member States", "plain": ["seap"], "maybe": ["contracting_authority"]},
+    "seap_support": {"title": "Who may apply: an established SEAP", "only": "Only an established SEAP may apply to this call.",
+                     "plain": ["seap"], "maybe": []},
+    "edpci_preparation": {"title": "Who may apply: a SEAP or a group of Member States",
+                          "only": "Only a SEAP or a group of Member States may apply to this call.", "plain": ["seap"], "maybe": ["contracting_authority"]},
 }
+# WP-141: lib/fit.ts WHO_MAY_APPLY
+WHO_MAY_APPLY = "Who may apply"
 
 
 def applicant_fit(chip: str, topic: str, profile: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -746,7 +751,23 @@ def call_fit(call: dict[str, Any] | None, profile: dict[str, Any] | None, assess
     ctx = {"programme": call["programme"], "topic": call["topic"]} if call else None
     doc = fit_of(call["facts"], profile, ctx) if call and call["state"] == "read" else {"fit": "unknown", "result": None, "conditions": [], "blockedBy": []}
     with_rules = with_programme(doc, programme_fit(assessment, programmes_of_call(call["programme"], call["topic"]) if call else []))
-    return with_programme(with_rules, applicant_fit(call["programme"], call["topic"], profile)) if call else with_rules
+    if not call:
+        return with_rules
+    applicant = applicant_fit(call["programme"], call["topic"], profile)
+    out = with_programme(with_rules, applicant)
+    if not applicant or applicant["fit"] != "no":
+        return out
+    # WP-141 (SEAP 114 with a saved profile: "Blocked by: an established SEAP" over a row "Who may apply: Check"): the action's rule on who
+    # may apply answers the question the document's row asked, so that row says the same, in a sentence
+    lines = list((out.get("result") or {}).get("lines") or [])
+    at = next((i for i, x in enumerate(lines) if x["key"] == "entity"), None)
+    only = _APPLICANTS[action_of_call(call["programme"], call["topic"]) or ""]["only"]
+    who = _line("who", WHO_MAY_APPLY, "no", f"{only} Your profile names another kind of organisation.", lines[at]["quote"] if at is not None else None)
+    if at is not None:
+        lines[at] = who
+    else:
+        lines.insert(0, who)
+    return {**out, "result": {"verdict": "no", "lines": lines}}
 
 
 def shown_fit(r: dict[str, Any]) -> str:
