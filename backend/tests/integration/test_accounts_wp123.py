@@ -40,10 +40,26 @@ def test_accounts_stay_closed_until_the_privacy_notice_for_passwords_is_publishe
     assert _status(client) is True
 
 
-def test_the_shipped_versions_keep_accounts_closed():
-    """The constants as committed: the published notice (1.6) predates password accounts, so
-    no relay can open them until the owner publishes 1.7 (docs/legal/drafts/)."""
-    assert accounts._version(accounts.PRIVACY_VERSION) < accounts._version(accounts.PASSWORD_PRIVACY_VERSION)
+def test_the_shipped_settings_keep_accounts_closed(client, sent, monkeypatch):
+    """WP-140 published 1.7, so the notice no longer closes accounts: in production the owner's
+    switch does (DGATE_ACCOUNTS_OPEN, default closed in infra/docker-compose.yml), with a relay
+    that passed its check and the API's key in place. Was: the committed constants kept 1.6 < 1.7."""
+    assert accounts._version(accounts.PRIVACY_VERSION) >= accounts._version(accounts.PASSWORD_PRIVACY_VERSION)
+    monkeypatch.setenv("DGATE_ENV", "production")
+    monkeypatch.setenv("DGATE_INTERNAL_SECRET", "site-and-api-share-this")
+    monkeypatch.setenv("DGATE_ACCOUNT_KEY", "only-the-api-holds-this")
+    monkeypatch.delenv("DGATE_ACCOUNTS_OPEN", raising=False)
+    config.reset_cache()
+    assert accounts.accounts_problem() == "DGATE_ACCOUNTS_OPEN"
+    # the route refuses through the same accounts_problem() (`_open`); with the internal secret set the test client
+    # would first be refused for lacking X-DG-Internal, so the 503 itself is asserted in the test above
+    for value in ("0", "true", ""):
+        monkeypatch.setenv("DGATE_ACCOUNTS_OPEN", value)
+        config.reset_cache()
+        assert accounts.accounts_problem() == "DGATE_ACCOUNTS_OPEN", value
+    monkeypatch.setenv("DGATE_ACCOUNTS_OPEN", "1")
+    config.reset_cache()
+    assert accounts.accounts_problem() is None
 
 
 def test_a_relay_that_fails_its_health_check_keeps_accounts_closed(client, sent, monkeypatch):
@@ -58,6 +74,7 @@ def test_in_production_accounts_need_the_apis_own_key(client, sent, monkeypatch)
     monkeypatch.setenv("DGATE_ENV", "production")
     monkeypatch.setenv("DGATE_INTERNAL_SECRET", "site-and-api-share-this")
     config.reset_cache()
+    monkeypatch.setenv("DGATE_ACCOUNTS_OPEN", "1")        # WP-140: the switch alone does not open them
     assert accounts.accounts_problem() == "DGATE_ACCOUNT_KEY"
     monkeypatch.setenv("DGATE_ACCOUNT_KEY", "only-the-api-holds-this")
     config.reset_cache()

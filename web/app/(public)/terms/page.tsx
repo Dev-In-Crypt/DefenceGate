@@ -22,7 +22,7 @@ export default function TermsPage() {
       toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Terms of use', href: '/terms' }]}
       title="Terms of use"
-      lead="Version 2.1, published 24 October 2026. The numbered terms below are the binding text. They replace version 2.0 of 14 October 2026 (term 12 now allows quoting in publications, the press and research); earlier versions are kept and available on request."
+      lead="Version 2.2, published 26 October 2026. The numbered terms below are the binding text. They replace version 2.1 of 24 October 2026 (term 14 now describes accounts with an e-mail address and a password, and term 20 the contact details still held in our private archive); earlier versions are kept and available on request."
     >
       <ClauseGroup>
       <Clause n={1} title="Who provides the service and what applies">
@@ -106,7 +106,8 @@ export default function TermsPage() {
       </Clause>
 
       <Clause n={14} title="Accounts">
-        <p className={P}>Where accounts are offered: give accurate information, keep your credentials secret, and tell us promptly if you suspect misuse. You are responsible for activity under your account. By signing in or creating an account you confirm that you accept these terms and the <Link href="/privacy" className="font-semibold">privacy notice</Link>. You may close your account at any time. We may refuse or suspend an account for breach of these terms or misuse.</p>
+        <p className={P}>Where accounts are offered: you create an account with your e-mail address and a password and confirm the address through a link we send to it. Give accurate information, keep your password secret, do not use it for other services, and tell us promptly if you suspect misuse; two-step sign-in is available and we recommend it. You are responsible for activity under your account. By creating an account you confirm that you accept these terms and the <Link href="/privacy" className="font-semibold">privacy notice</Link>. You may download the data of your account and close it at any time in Settings; closing it deletes it. We may refuse or suspend an account for breach of these terms or misuse.</p>
+        <p className={P}>Choosing a plan on the pricing page before payment is open is not an order: no fee is due and no paid plan or paid contract arises until you complete a checkout that states the price, the billing period and the terms of the paid plan. Until then every account is on the free plan.</p>
       </Clause>
 
       <Clause n={15} title="Alerts and saved searches">
@@ -147,7 +148,7 @@ export default function TermsPage() {
       </Clause>
 
       <Clause n={20} title="Personal data and people named in notices">
-        <p className={P}>Public notices sometimes name a contact person. We do not collect the contact fields a source publishes and we remove e-mail addresses from free text; a name or number typed into a description by the publisher is not removed. If you are named in a record and want it removed or corrected, use term 19. How we process personal data, on what basis and what rights you have is described in the <Link href="/privacy" className="font-semibold">privacy notice</Link>. Nothing in these terms limits those rights, and a person named in a notice is not bound by these terms.</p>
+        <p className={P}>Public notices sometimes name a contact person. Our collection drops the contact fields a source publishes and removes e-mail addresses from free text; a name or number typed into a description by the publisher is not removed, older records in our private archive still contain some contact details, and some buyer names contain a telephone, fax or e-mail block as the source wrote it. None of it is shown on the site (<Link href="/privacy" className="font-semibold">privacy notice</Link>, section 7). If you are named in a record and want it removed or corrected, use term 19. How we process personal data, on what basis and what rights you have is described in the <Link href="/privacy" className="font-semibold">privacy notice</Link>. Nothing in these terms limits those rights, and a person named in a notice is not bound by these terms.</p>
       </Clause>
 
       <Clause n={21} title="Suspension and end">

@@ -1,5 +1,10 @@
 # Privacy notice, version 1.7: DRAFT for the owner's approval (WP-123, 25 October 2026)
 
+**WP-140: published 26 October 2026** on the owner's approval of 25 October (Brevo, security log 90 days, OpenAI item
+without a transfer-basis sentence), with the section 7 figures re-counted on 25 October. The text in force is
+`docs/legal/versions/privacy-v1.7-2026-10-26.md`. Only the **WP-124 payment additions** at the end of this file remain a
+draft: they wait for Creem. The rest of this file is kept as the record of why each sentence changed.
+
 **Not published.** The page `web/app/(public)/privacy/page.tsx` keeps version 1.6 (published 24 October 2026) until the
 owner approves this text. Accounts with a password stay closed until it is published: the API compares
 `PRIVACY_VERSION` (now "1.6") with `PASSWORD_PRIVACY_VERSION` ("1.7") in `backend/dgate/accounts.py`.

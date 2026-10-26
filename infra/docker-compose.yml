@@ -175,6 +175,9 @@ services:
       # production. Generate once (`openssl rand -hex 32`); changing it later locks every account with
       # two-step sign-in out (its key and codes no longer match) until its TOTP columns are cleared.
       DGATE_ACCOUNT_KEY: ${DGATE_ACCOUNT_KEY:-}
+      # WP-140: the owner's switch. Sign-in stays closed until this is 1, even with the relay, the
+      # published privacy notice 1.7 and the key in place.
+      DGATE_ACCOUNTS_OPEN: ${DGATE_ACCOUNTS_OPEN:-0}
       DGATE_ENV: production
       # Only the key of the sign-in throttle counters when DGATE_INTERNAL_SECRET is unset.
       DGATE_APP_PASSWORD: ${DGATE_APP_PASSWORD}

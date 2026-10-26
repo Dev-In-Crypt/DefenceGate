@@ -26,12 +26,23 @@ test.describe('accounts closed (no API)', () => {
     });
   }
 
-  // WP-123 moved this test: the 1.7 text is a draft for the owner (docs/legal/drafts/privacy-v1.7-draft.md), not published, and
-  // accounts stay closed until it is (backend accounts_problem). Was: the page lists __Host-dg_mfa and Argon2id and says 1.7.
-  test('the privacy notice keeps its published version until the owner approves the draft for password accounts', async ({ page }) => {
-    await visit(page, '/privacy', { title: /privacy/i, h1: /privacy/i, text: ['Version 1.6', '__Host-dg_session'] });
-    await expect(page.locator('main')).not.toContainText('Version 1.7');
-    await expect(page.locator('main')).not.toContainText('Argon2id');
+  // WP-140: the owner approved 1.7 on 25 October 2026 and it is published (WP-123 had held this test at 1.6 while it was a draft).
+  // While accounts are closed section 5 still opens with "Sign-in is not open yet"; the payment additions (WP-124) are not in it.
+  test('the privacy notice 1.7 describes password accounts and, while accounts are closed, says sign-in is not open', async ({ page }) => {
+    await visit(page, '/privacy', {
+      title: /privacy/i, h1: /privacy/i,
+      text: ['Version 1.7, published 26 October 2026', '__Host-dg_mfa', '__Host-dg_session', 'Argon2id', 'Brevo (Sendinblue SAS, France)', 'at most 90 days'],
+    });
+    await expect(page.locator('[data-signin-closed]')).toHaveText(/^Sign-in is not open yet\./);
+    await expect(page.locator('main')).not.toContainText('__Host-dg_bind');
+    await expect(page.locator('main')).not.toContainText('Version 1.6');
+    await expect(page.locator('main')).not.toContainText('Creem');
+  });
+
+  test('the terms 2.2 describe accounts with a password and have no paid-plan term yet', async ({ page }) => {
+    await visit(page, '/terms', { title: /terms/i, h1: /terms/i, text: ['Version 2.2, published 26 October 2026', 'keep your password secret', 'is not an order'] });
+    await expect(page.locator('main')).not.toContainText('Paid plans');
+    await expect(page.locator('main')).not.toContainText('By signing in or creating an account');
   });
 });
 
@@ -39,6 +50,12 @@ test.describe('against the fake account API', () => {
   test.skip(!process.env.E2E_FAKE_ACCOUNTS, 'needs E2E_FAKE_ACCOUNTS=1 and a site started with DG_API_URL=http://127.0.0.1:4011');
   // The `__Host-` cookies need https: the run goes through e2e/support/https-proxy.mjs with a throwaway certificate.
   test.use({ ignoreHTTPSErrors: true });
+
+  test('WP-140: once accounts are open the privacy notice no longer says sign-in is not open', async ({ page }) => {
+    await visit(page, '/privacy', { title: /privacy/i, h1: /privacy/i, text: ['Version 1.7', 'You create an account with your e-mail address and a password'] });
+    await expect(page.locator('[data-signin-closed]')).toHaveCount(0);
+    await expect(page.locator('main')).not.toContainText('Sign-in is not open yet');
+  });
 
   test('registration: a short password is refused with the reason and the address kept; a good one says "check your mail"', async ({ page }) => {
     await page.goto('/register');
