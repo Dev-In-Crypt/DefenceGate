@@ -9180,9 +9180,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: contracting authorities; international organisations; Structures for European Armament Programme (SEAPs); European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -10254,9 +10254,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: contracting authorities; international organisations; Structures for European Armament Programme (SEAPs); European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -11331,9 +11331,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: contracting authorities; international organisations; Structures for European Armament Programme (SEAPs); European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -12413,9 +12413,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: contracting authorities; international organisations; Structures for European Armament Programme (SEAPs); European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -13489,9 +13489,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: contracting authorities; international organisations; Structures for European Armament Programme (SEAPs); European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -14564,9 +14564,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: contracting authorities; international organisations; Structures for European Armament Programme (SEAPs); European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -15641,9 +15641,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: contracting authorities; international organisations; Structures for European Armament Programme (SEAPs); European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -16720,9 +16720,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: contracting authorities; international organisations; Structures for European Armament Programme (SEAPs); European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -17807,9 +17807,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: contracting authorities; international organisations; Structures for European Armament Programme (SEAPs); European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -18883,9 +18883,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: contracting authorities; international organisations; Structures for European Armament Programme (SEAPs); European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",

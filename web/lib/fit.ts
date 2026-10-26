@@ -169,14 +169,18 @@ export function actionOfCall(chip: string, topic: string): 'common_procurement' 
  * with the rules EDIP-CPA-APPLICANT, EDIP-SEAP-APPLICANT and EDIP-PREP-APPLICANT; this mirror serves the badges of a list, where one
  * request per call would be too many.
  */
-const APPLICANTS: Record<string, { title: string; plain: ApplicantKind[]; maybe: ApplicantKind[] }> = {
+const APPLICANTS: Record<string, { title: string; only: string; plain: ApplicantKind[]; maybe: ApplicantKind[] }> = {
   common_procurement: {
     title: 'Who may apply: contracting authorities, international organisations, SEAPs and the EDA',
+    only: 'Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call.',
     plain: ['international_organisation', 'seap', 'eda'], maybe: ['contracting_authority'],
   },
-  seap_support: { title: 'Who may apply: an established SEAP', plain: ['seap'], maybe: [] },
-  edpci_preparation: { title: 'Who may apply: a SEAP or a group of Member States', plain: ['seap'], maybe: ['contracting_authority'] },
+  seap_support: { title: 'Who may apply: an established SEAP', only: 'Only an established SEAP may apply to this call.', plain: ['seap'], maybe: [] },
+  edpci_preparation: { title: 'Who may apply: a SEAP or a group of Member States', only: 'Only a SEAP or a group of Member States may apply to this call.', plain: ['seap'], maybe: ['contracting_authority'] },
 };
+
+/** WP-141: the label of the line that says who may apply, the document's (`check`) and the action's rule that replaces it. */
+export const WHO_MAY_APPLY = 'Who may apply';
 
 /** What the kind of applicant says about a call of one of those actions. Null where every kind may apply. */
 export function applicantFit(chip: string, topic: string, profile: Profile | null): ProgrammeFit | null {
@@ -293,7 +297,18 @@ export function callFit(call: CallFacts | null, profile: Profile | null, assessm
   const ctx: CallContext | undefined = call ? { programme: call.programme, topic: call.topic } : undefined;
   const doc: FitResult = call && call.state === 'read' ? fitOf(call.facts, profile, ctx) : { fit: 'unknown', result: null, conditions: [], blockedBy: [] };
   const withRules = withProgramme(doc, programmeFit(assessment, call ? programmesOfCall(call.programme, call.topic) : []));
-  return call ? withProgramme(withRules, applicantFit(call.programme, call.topic, profile)) : withRules;
+  if (!call) return withRules;
+  const applicant = applicantFit(call.programme, call.topic, profile);
+  const out = withProgramme(withRules, applicant);
+  if (applicant?.fit !== 'no') return out;
+  // WP-141 (SEAP 114 with a saved profile: "Blocked by: an established SEAP" over a row "Who may apply: Check"): the action's rule on who may
+  // apply answers the question the document's row asked, so that row says the same, in a sentence (as `answersFit` since WP-121)
+  const lines = [...(out.result?.lines ?? [])];
+  const at = lines.findIndex((l) => l.key === 'entity');
+  const who: Line = { key: 'who', label: WHO_MAY_APPLY, verdict: 'no', reason: `${APPLICANTS[actionOfCall(call.programme, call.topic)!].only} Your profile names another kind of organisation.` };
+  if (at >= 0) lines.splice(at, 1, { ...who, quote: lines[at].quote });
+  else lines.unshift(who);
+  return { ...out, result: { verdict: 'no', lines } };
 }
 
 // ---------------------------------------------------------------- what the badge says (UX walk-through U4)
@@ -348,10 +363,22 @@ export function fitLabel(r: FitResult): { word: string; detail: string } {
  * rules (a rule that blocks, `blockedBy`) or that every applicant is asked (`conditions`), so a box that lists lines never says "none is a
  * no" under a verdict that is a no.
  */
+/**
+ * WP-141: a blocker that a line of the verdict already says: the line of that name, or the line that says no to the rule the blocker names
+ * ("Who may apply: an established SEAP" and the line "Who may apply"). Such a blocker is not listed a second time.
+ */
+export function isLine(b: string, lines: Line[]): boolean {
+  return lines.some((l) => l.label === b || (l.verdict === 'no' && b.startsWith(`${l.label}: `)));
+}
+
 export function verdictLines(r: FitResult): Line[] {
   const lines = r.result?.lines ?? [];
-  const rule = (b: string) => (b.includes(': ') ? b.slice(b.lastIndexOf(': ') + 2) : b);
-  const blocked = r.blockedBy.filter((b) => !lines.some((l) => l.label === b))
+  // the rule without the programme's name; WP-141: with its subject where the last part alone is a fragment ("Legal entity: a legal person ...")
+  const rule = (b: string) => {
+    const parts = b.split(': ');
+    return parts.length > 1 && /^[a-z]/.test(parts[parts.length - 1]) ? parts.slice(-2).join(': ') : parts[parts.length - 1];
+  };
+  const blocked = r.blockedBy.filter((b) => !isLine(b, lines))
     .map((b, i): Line => ({ key: `programme-${i}`, label: 'Rule of the programme or the action', verdict: 'no', reason: `${rule(b)}.` }));
   const asked = r.conditions.filter((c) => !r.blockedBy.includes(c)).map((c, i): Line => ({ key: `condition-${i}`, label: 'Condition', verdict: 'check', reason: c }));
   return [...lines, ...blocked, ...asked];

@@ -6738,9 +6738,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Contracting authorities; International organisations; Structures for European Armament Programme (SEAPs); European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -6775,9 +6775,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: contracting authorities; international organisations; SEAPs; European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -6842,9 +6842,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Established SEAP; SEAP in the process of being established, with an application for establishment already submitted to the Commission. Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only an established SEAP may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -7243,6 +7243,11 @@
    ],
    "lines": [
     {
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only a SEAP or a group of Member States may apply to this call. Your profile names another kind of organisation."
+    },
+    {
      "key": "country",
      "verdict": "check",
      "reason": "An EU Member State is eligible under this call. A condition applies: Applicants must be a SEAP or a group connected to an EDPCI proposal submitted to the February 2026 call for expression of interest that was not identified as an EDPCI in Decision COM(2026)358."
@@ -7441,9 +7446,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Contracting authorities; International organisations; Structures for European Armament Programme (SEAPs); European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -7478,9 +7483,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: contracting authorities; international organisations; SEAPs; European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -7545,9 +7550,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Established SEAP; SEAP in the process of being established, with an application for establishment already submitted to the Commission. Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only an established SEAP may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -7946,6 +7951,11 @@
    ],
    "lines": [
     {
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only a SEAP or a group of Member States may apply to this call. Your profile names another kind of organisation."
+    },
+    {
      "key": "country",
      "verdict": "check",
      "reason": "An EU Member State is eligible under this call. A condition applies: Applicants must be a SEAP or a group connected to an EDPCI proposal submitted to the February 2026 call for expression of interest that was not identified as an EDPCI in Decision COM(2026)358."
@@ -8144,9 +8154,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Contracting authorities; International organisations; Structures for European Armament Programme (SEAPs); European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -8181,9 +8191,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: contracting authorities; international organisations; SEAPs; European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -8248,9 +8258,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Established SEAP; SEAP in the process of being established, with an application for establishment already submitted to the Commission. Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only an established SEAP may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -8649,6 +8659,11 @@
    ],
    "lines": [
     {
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only a SEAP or a group of Member States may apply to this call. Your profile names another kind of organisation."
+    },
+    {
      "key": "country",
      "verdict": "check",
      "reason": "An EU Member State is eligible under this call. A condition applies: Applicants must be a SEAP or a group connected to an EDPCI proposal submitted to the February 2026 call for expression of interest that was not identified as an EDPCI in Decision COM(2026)358."
@@ -8847,9 +8862,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Contracting authorities; International organisations; Structures for European Armament Programme (SEAPs); European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -8884,9 +8899,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: contracting authorities; international organisations; SEAPs; European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -8951,9 +8966,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Established SEAP; SEAP in the process of being established, with an application for establishment already submitted to the Commission. Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only an established SEAP may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -9352,6 +9367,11 @@
    ],
    "lines": [
     {
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only a SEAP or a group of Member States may apply to this call. Your profile names another kind of organisation."
+    },
+    {
      "key": "country",
      "verdict": "check",
      "reason": "An EU Member State is eligible under this call. A condition applies: Applicants must be a SEAP or a group connected to an EDPCI proposal submitted to the February 2026 call for expression of interest that was not identified as an EDPCI in Decision COM(2026)358."
@@ -9550,9 +9570,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Contracting authorities; International organisations; Structures for European Armament Programme (SEAPs); European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -9587,9 +9607,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: contracting authorities; international organisations; SEAPs; European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -9654,9 +9674,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Established SEAP; SEAP in the process of being established, with an application for establishment already submitted to the Commission. Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only an established SEAP may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -10055,6 +10075,11 @@
    ],
    "lines": [
     {
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only a SEAP or a group of Member States may apply to this call. Your profile names another kind of organisation."
+    },
+    {
      "key": "country",
      "verdict": "check",
      "reason": "An EU Member State is eligible under this call. A condition applies: Applicants must be a SEAP or a group connected to an EDPCI proposal submitted to the February 2026 call for expression of interest that was not identified as an EDPCI in Decision COM(2026)358."
@@ -10254,9 +10279,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Contracting authorities; International organisations; Structures for European Armament Programme (SEAPs); European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -10292,9 +10317,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: contracting authorities; international organisations; SEAPs; European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -10360,9 +10385,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Established SEAP; SEAP in the process of being established, with an application for establishment already submitted to the Commission. Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only an established SEAP may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -10764,6 +10789,11 @@
    ],
    "lines": [
     {
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only a SEAP or a group of Member States may apply to this call. Your profile names another kind of organisation."
+    },
+    {
      "key": "country",
      "verdict": "no",
      "reason": "Your country is not associated to the EDIP Programme, and the call is open only to the Member States and the associated countries it names."
@@ -10962,9 +10992,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Contracting authorities; International organisations; Structures for European Armament Programme (SEAPs); European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -10999,9 +11029,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: contracting authorities; international organisations; SEAPs; European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -11066,9 +11096,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Established SEAP; SEAP in the process of being established, with an application for establishment already submitted to the Commission. Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only an established SEAP may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -11467,6 +11497,11 @@
    ],
    "lines": [
     {
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only a SEAP or a group of Member States may apply to this call. Your profile names another kind of organisation."
+    },
+    {
      "key": "country",
      "verdict": "check",
      "reason": "An EU Member State is eligible under this call. A condition applies: Applicants must be a SEAP or a group connected to an EDPCI proposal submitted to the February 2026 call for expression of interest that was not identified as an EDPCI in Decision COM(2026)358."
@@ -11665,9 +11700,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Contracting authorities; International organisations; Structures for European Armament Programme (SEAPs); European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -11702,9 +11737,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: contracting authorities; international organisations; SEAPs; European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -11770,9 +11805,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Established SEAP; SEAP in the process of being established, with an application for establishment already submitted to the Commission. Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only an established SEAP may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -12172,6 +12207,11 @@
    ],
    "lines": [
     {
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only a SEAP or a group of Member States may apply to this call. Your profile names another kind of organisation."
+    },
+    {
      "key": "country",
      "verdict": "check",
      "reason": "Your country is associated to the EDIP Programme, and the call is open to the associated countries. A condition applies: Applicants must be a SEAP or a group connected to an EDPCI proposal submitted to the February 2026 call for expression of interest that was not identified as an EDPCI in Decision COM(2026)358."
@@ -12370,9 +12410,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Contracting authorities; International organisations; Structures for European Armament Programme (SEAPs); European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -12407,9 +12447,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: contracting authorities; international organisations; SEAPs; European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -12474,9 +12514,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Established SEAP; SEAP in the process of being established, with an application for establishment already submitted to the Commission. Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only an established SEAP may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -12875,6 +12915,11 @@
    ],
    "lines": [
     {
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only a SEAP or a group of Member States may apply to this call. Your profile names another kind of organisation."
+    },
+    {
      "key": "country",
      "verdict": "check",
      "reason": "An EU Member State is eligible under this call. A condition applies: Applicants must be a SEAP or a group connected to an EDPCI proposal submitted to the February 2026 call for expression of interest that was not identified as an EDPCI in Decision COM(2026)358."
@@ -13073,9 +13118,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Contracting authorities; International organisations; Structures for European Armament Programme (SEAPs); European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -13110,9 +13155,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: contracting authorities; international organisations; SEAPs; European Defence Agency (EDA). Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -13177,9 +13222,9 @@
    ],
    "lines": [
     {
-     "key": "entity",
-     "verdict": "check",
-     "reason": "The call names who may apply: Established SEAP; SEAP in the process of being established, with an application for establishment already submitted to the Commission. Nothing in that list says a company like yours may. Check the document before you go on."
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only an established SEAP may apply to this call. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -13577,6 +13622,11 @@
     "The document is unclear about a consortium: it says no consortium is required and also asks for at least 4 countries. Read it."
    ],
    "lines": [
+    {
+     "key": "who",
+     "verdict": "no",
+     "reason": "Only a SEAP or a group of Member States may apply to this call. Your profile names another kind of organisation."
+    },
     {
      "key": "country",
      "verdict": "check",

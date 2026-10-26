@@ -41,11 +41,14 @@ test('the "Check your company" box gives the saved profile\'s one verdict, with 
   await expect(page.locator('[data-apply-summary] [data-profile-verdict]')).toHaveAttribute('data-profile-verdict', 'no');
   const results = page.locator('section[aria-labelledby="can-you-apply-"] [aria-live="polite"]').first();
   await expect(results).toContainText('The document appears to exclude you');
-  await expect(results).toContainText('Rule of the programme or the action: Not allowed.');
+  // WP-141: the rule of the action is the row "Who may apply", in a sentence (it read "Rule of the programme or the action: Not allowed. contracting ...")
+  await expect(results).toContainText('Who may apply: Not allowed. Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call.');
+  await expect(results).not.toContainText(/Not allowed\. [a-z]/);
   await expect(results).not.toContainText('none is a no');
   // another case: the visitor changes an answer, and the document alone speaks again
   await page.getByRole('form', { name: 'Check your company against this call' }).getByLabel('What kind of organisation?').selectOption('large');
   await expect(results).not.toContainText('Rule of the programme or the action');
+  await expect(results).not.toContainText('Only contracting authorities');
 });
 
 test('a failed look-up of the call\'s rules is not "Rules not read"', async ({ page }) => {
