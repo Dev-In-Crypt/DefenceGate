@@ -116,10 +116,11 @@ SEARCH_RESULTS = 100           # how many newest matches are read to count the n
 # an account that accepted an older one. Keep in step with web/app/(public)/terms and privacy,
 # and keep a dated copy of the text in docs/legal/versions/.
 TERMS_VERSION = "2.2"          # published 26 October 2026 (WP-140)
-PRIVACY_VERSION = "1.7"        # published 26 October 2026 (WP-140)
+PRIVACY_VERSION = "1.8"        # published 26 October 2026 (WP-148: Cloudflare as processor; 1.7 by WP-140)
 # WP-123: the first privacy notice that describes accounts with a password (published as 1.7,
 # docs/legal/versions/privacy-v1.7-2026-10-26.md). Accounts stay closed while the published one is
 # older, whatever the mail relay says: nobody is asked for a password the notice says we do not use.
+# Stays 1.7 under privacy 1.8 (WP-148): it is a lower bound (accounts_problem compares with <), and 1.8 keeps the password text.
 PASSWORD_PRIVACY_VERSION = "1.7"
 
 # What a person may pick on the pricing page and bring to /signup (WP-122 buttons). Remembered on the

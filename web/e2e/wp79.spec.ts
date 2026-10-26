@@ -28,14 +28,16 @@ test.describe('accounts closed (no API)', () => {
 
   // WP-140: the owner approved 1.7 on 25 October 2026 and it is published (WP-123 had held this test at 1.6 while it was a draft).
   // While accounts are closed section 5 still opens with "Sign-in is not open yet"; the payment additions (WP-124) are not in it.
-  test('the privacy notice 1.7 describes password accounts and, while accounts are closed, says sign-in is not open', async ({ page }) => {
+  // WP-148: 1.8 (26 October 2026) adds Cloudflare as processor; the password text is unchanged.
+  test('the privacy notice 1.8 describes password accounts and, while accounts are closed, says sign-in is not open', async ({ page }) => {
     await visit(page, '/privacy', {
       title: /privacy/i, h1: /privacy/i,
-      text: ['Version 1.7, published 26 October 2026', '__Host-dg_mfa', '__Host-dg_session', 'Argon2id', 'Brevo (Sendinblue SAS, France)', 'at most 90 days'],
+      text: ['Version 1.8, published 26 October 2026', '__Host-dg_mfa', '__Host-dg_session', 'Argon2id', 'Brevo (Sendinblue SAS, France)', 'at most 90 days'],
     });
     await expect(page.locator('[data-signin-closed]')).toHaveText(/^Sign-in is not open yet\./);
     await expect(page.locator('main')).not.toContainText('__Host-dg_bind');
     await expect(page.locator('main')).not.toContainText('Version 1.6');
+    await expect(page.locator('main')).not.toContainText('Version 1.7');
     await expect(page.locator('main')).not.toContainText('Creem');
   });
 
@@ -52,7 +54,7 @@ test.describe('against the fake account API', () => {
   test.use({ ignoreHTTPSErrors: true });
 
   test('WP-140: once accounts are open the privacy notice no longer says sign-in is not open', async ({ page }) => {
-    await visit(page, '/privacy', { title: /privacy/i, h1: /privacy/i, text: ['Version 1.7', 'You create an account with your e-mail address and a password'] });
+    await visit(page, '/privacy', { title: /privacy/i, h1: /privacy/i, text: ['Version 1.8', 'You create an account with your e-mail address and a password'] });
     await expect(page.locator('[data-signin-closed]')).toHaveCount(0);
     await expect(page.locator('main')).not.toContainText('Sign-in is not open yet');
   });
