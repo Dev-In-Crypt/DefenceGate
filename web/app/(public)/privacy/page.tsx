@@ -19,7 +19,7 @@ export const metadata: Metadata = buildMetadata({
 
 const P = 'm-0';
 // WP-140, section 7: the pl_ezam raw re-strip approved on 25 October 2026. TODO(orchestrator): once its result is
-// confirmed, set the date (for example 'on 26 October 2026') here and in docs/legal/versions/privacy-v1.7-2026-10-26.md;
+// confirmed, set the date (for example 'on 26 October 2026') here and in docs/legal/versions/privacy-v1.7-2026-10-26.md and privacy-v1.8-2026-10-26.md;
 // if it did not complete, take the sentence out of both before deploying.
 const EZAM_CLEANED = 'on 22 and 26 October 2026';
 
@@ -32,14 +32,15 @@ export default async function PrivacyPage() {
       toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Privacy notice', href: '/privacy' }]}
       title="Privacy notice"
-      lead="Version 1.7, published 26 October 2026 (accounts with an e-mail address and a password). It says what happens today and what will apply once sign-in opens. It is updated before anything that changes it goes live."
+      lead="Version 1.8, published 26 October 2026 (Cloudflare as processor for network security and content delivery). It says what happens today and what will apply once sign-in opens. It is updated before anything that changes it goes live."
     >
       <Callout title="In short">
         <ClauseList items={[
-          'Browsing needs no account and sets no cookie.',
+          'Browsing needs no account. We set no cookie while you browse; Cloudflare, which protects the site, may set two technically necessary cookies (section 4).',
           'No advertising, no third-party trackers, no analytics script and no analytics cookie.',
           'Visits are counted by our own server, by page, by the kind of site you came from and by phone or computer, with no identifier, no address and no user agent stored.',
           'The hosting server keeps ordinary access logs for at most 14 days.',
+          'Requests to the site are processed by Cloudflare, our provider of network security and content delivery (section 2).',
           'An account, when accounts open, uses your e-mail address and a password, which we keep only as a one-way hash. Two-step sign-in with an authenticator app is optional. Our mail has no tracking pixel and no link tracking.',
           'The notices we show are public. Our collection drops the contact fields a source publishes and removes e-mail addresses from free text. Older records in our private archive still contain some, and some buyer names contain a telephone, fax or e-mail block as the source wrote it; none of it is shown (section 7).',
         ]} />
@@ -51,8 +52,9 @@ export default async function PrivacyPage() {
       </Clause>
 
       <Clause n={2} title="When you visit the site">
-        <p className={P}>When your browser loads a page, the server and the reverse proxy in front of it record the technical details of the request: your IP address, the time, the address requested, the response code, the size, your browser’s headers (including user agent and referrer) and the full address requested, including any search words in it.</p>
+        <p className={P}>When your browser loads a page, the request first reaches Cloudflare, which passes it on to our server. Our server and the reverse proxy on it record the technical details of the request: your IP address, the time, the address requested, the response code, the size, your browser’s headers (including user agent and referrer) and the full address requested, including any search words in it.</p>
         <p className={P}><strong>Purpose:</strong> deliver the site, keep it secure and find abuse. <strong>Legal basis:</strong> our legitimate interest in a secure and working service (Art. 6(1)(f) GDPR). <strong>Retention:</strong> request log lines are deleted after 14 days at the latest: a clean-up job runs every hour and removes older lines and files.</p>
+        <p className={P}>Cloudflare, Inc. acts as our processor (Art. 28 GDPR) for network security and content delivery. It processes the request data described above (IP address, time, requested address, request headers) and our response in order to deliver the site and to detect and mitigate automated traffic (bot management and rate limiting; a browser check may be shown before a page). Legal basis: Art. 6(1)(f) GDPR, our legitimate interest in the security and availability of the service. Retention on Cloudflare’s side follows its own policy.</p>
         <p className={P}>Providing this data is technically necessary to receive the site.</p>
       </Clause>
 
@@ -62,7 +64,7 @@ export default async function PrivacyPage() {
       </Clause>
 
       <Clause n={4} title="Cookies and local storage">
-        <p className={P}>While you browse, the site sets no cookies. These are the only items it ever stores in your browser:</p>
+        <p className={P}>While you browse, we set no cookies. Cloudflare, which protects the site (section 2), may set two: <span className="font-mono">__cf_bm</span>, to tell a browser from an automated client (expires after 30 minutes), and <span className="font-mono">cf_clearance</span>, only after you have passed its browser check, so that you are not asked again (expires after 30 minutes). Both are strictly necessary for the security of the site and are not used for advertising or to follow you across sites. These are the only items the site itself stores in your browser:</p>
         <ClauseList items={[
           <><span className="font-mono">dg-theme</span> (local storage, your device only): your light or dark choice. Kept until you clear your browser data.</>,
           <><span className="font-mono">dg.profile.v1</span> (local storage, your device only): only if you use the readiness check or the supplier profile, the answers you give there (for example a company name, its country, its staff count, product codes and certificates). They are kept in your browser; we do not keep them. To compute a result, a page that shows one for your saved answers (the results, the report, the funding list and a call page) sends our server the answers the rules read: the country where your company is established, its kind and legal form, the staff count of your organisation and, for a group, of the whole group, where it is managed and who owns or controls it, where its components come from, your consortium partners and SAFE role, classified work, the export regime and export plans, your answers to the supplier page’s questions for your country and which certificates and registrations you hold. If you chose product codes (CPV) on the supplier page, a second request sends those codes, the seven countries of the demand map and your own country when it is one of them. The company name is never sent, nor the processes, region, NACE code, investor country or topics you may enter. The server uses the answers for that result only and neither stores nor logs them. If you choose to put organisations from your country first in a call’s partner suggestions, your country’s two-letter code is sent in the address of that request, which the access log keeps (section 2). You can delete the answers with &ldquo;Clear my answers&rdquo; in the readiness check, or by clearing your browser data.</>,
@@ -70,7 +72,7 @@ export default async function PrivacyPage() {
           <><span className="font-mono">__Host-dg_mfa</span> (cookie, first party): only while you sign in to an account with two-step sign-in on, between your password and your code. Holds a single-use ticket. Expires after 5 minutes.</>,
           <><span className="font-mono">__Host-dg_session</span> (cookie, first party): only when you are signed in. Keeps you signed in. Expires after 30 days at most, or after 7 days without use.</>,
         ]} />
-        <p className={P}>The two cookies are strictly necessary to provide the sign-in you asked for, so no consent banner is shown. They are never used for tracking.</p>
+        <p className={P}>Our two cookies are strictly necessary to provide the sign-in you asked for, and Cloudflare’s two to keep the site secure, so no consent banner is shown. None of them is used for tracking.</p>
       </Clause>
 
       <Clause n={5} title="Accounts and alerts">
@@ -117,7 +119,7 @@ export default async function PrivacyPage() {
         <ClauseList items={[
           'Every visitor to the site: public notice data is public by design (section 7).',
           'The hosting provider, Hetzner Online GmbH, as a processor: it operates the server we use, located in Finland, and the storage we use for backups, located in the European Union.',
-          'Cloudflare, Inc. (USA), as the provider of the domain name service only: it answers requests for the domain’s address and can see the address of the resolver that asks. Traffic to the site does not pass through Cloudflare.',
+          'Cloudflare, Inc., as a processor: domain name service, network security and content delivery for all requests to the site (section 2). Where data is processed outside the EEA, the transfer is based on the EU-US Data Privacy Framework (Art. 45 GDPR).',
           'Brevo (Sendinblue SAS, France), as the processor that sends our mail (section 5).',
           'OpenAI (United States), as a processor: it receives the text of public funding call documents, to read who may apply, and of the European Defence Fund’s published project fact sheets, which name the organisations in each project’s consortium, to read that list. It processes them in the United States; we ask it not to store the requests. We send it nothing about visitors or account holders.',
         ]} />

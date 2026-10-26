@@ -25,7 +25,7 @@ const RUNS_IN_THE_EU: Row[] = [
   {
     what: 'Server: the website, the API, the database and the collection jobs',
     who: 'Hetzner Online GmbH', where: 'Helsinki, Finland (the server’s address is registered to Hetzner in Helsinki)', eu: 'Yes',
-    note: 'One virtual server. There is no content delivery network or proxy in front of it: visitors connect to it directly.',
+    note: 'One virtual server. Visitors reach it through Cloudflare’s proxy (below).',
   },
   {
     what: 'Archive of source payloads, and database backups',
@@ -42,9 +42,9 @@ const RUNS_IN_THE_EU: Row[] = [
 
 const OUTSIDE_THE_EU: Row[] = [
   {
-    what: 'Domain registration and name service (DNS)',
+    what: 'Domain registration, name service (DNS) and the proxy in front of the server',
     who: 'Cloudflare, Inc.', where: 'United States company; DNS answers come from its worldwide network', eu: 'No',
-    note: 'Cloudflare is the registrar and answers the question “what is the server’s address?”. It can see the address of the resolver that asks. It is not a proxy: pages and API calls do not pass through it.',
+    note: 'Registrar, name service, and processor for network security and content delivery: all requests to the site pass through it (privacy notice, sections 2 and 4).',
   },
   {
     what: 'Certificate for https',
