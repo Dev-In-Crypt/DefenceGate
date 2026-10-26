@@ -1364,6 +1364,8 @@ Rate limit: 15 tokens (the five list searches as separate requests cost 22).
   stays `null` (whether they may take part without funding is another question). On 26 October 2026 no EDIP call document says it.
 - Every call in `/v1/funding` and `/v1/funding/{slug}` has `ukraineNoFunding: boolean` (true for that reason). `uaNoFunding`
   (query, optional, only `true`) keeps those calls only; `cascadeTotal` and `ukraineTotal` count with it applied.
+- WP-145b: the list has `uaNoFundingTotal`, those calls among the ones that match every filter but this one (`cascade` and `ukraine`
+  applied). The site offers the filter only when it is above 0, or when the URL already chose it.
 - `GET /v1/fit/facts`: an item of such a call has `ukraineNoFunding: string`, the sentence (absent otherwise); the verdict (`verdict.call_fit`,
   `lib/fit.ts callFit`) adds the line `ukraine_funding` "No funding for Ukrainian entities" (no) for an applicant established in
   Ukraine, with the sentence as its quote.

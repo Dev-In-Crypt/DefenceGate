@@ -287,6 +287,8 @@ export interface Paginated<T> {
   cascadeTotal?: number | null;
   /** `/v1/funding`: calls open to Ukrainian participants among those that match every filter but this one. Absent on older API builds. */
   ukraineTotal?: number | null;
+  /** `/v1/funding` (WP-145b): calls whose document says Ukrainian entities cannot receive funding, among those that match every filter but this one. Absent on older API builds. */
+  uaNoFundingTotal?: number | null;
   /** `/v1/tenders` and `/v1/funding`: `updatedAt` is when the newest successful or partial collection run of the list's sources finished (UTC), null before any. Absent on older API builds. */
   /** `updatedBy` (WP-87): the source whose run that was, named on the page. */
   meta?: { updatedAt?: string | null; updatedBy?: string | null } | null;

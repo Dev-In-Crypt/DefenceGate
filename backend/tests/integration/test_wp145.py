@@ -89,3 +89,22 @@ def test_a_document_that_refuses_funding_to_ukrainian_entities_marks_its_edip_ca
     line = next(x for x in v["lines"] if x["key"] == "ukraine_funding")
     assert line["verdict"] == "no" and line["reason"].startswith("The call document says Ukrainian entities cannot receive funding")
     assert not any(x["key"] == "ukraine_funding" for x in readiness_api.call_verdict(conn, silent, answers, {"assessments": [], "roadmap": []})["lines"])
+
+
+def test_the_list_counts_the_labelled_calls_so_the_filter_bar_offers_the_choice_only_then(client, conn):
+    """WP-145b: `uaNoFundingTotal`, the labelled calls among those that match every filter but this one (the site shows the choice
+    only above 0; web/lib/mock/calls.ts is its twin). 0 with no labelled call, as production on 26 October 2026."""
+    put(conn, "silent", programme="EDF", topic="EDF-EDIP-P-2027-LS-IRA-KEC")
+    none = client.get("/v1/funding", params={"status": "all"}).json()
+    assert none["total"] == 1 and none["uaNoFundingTotal"] == 0
+    typed = client.get("/v1/funding", params={"status": "all", "uaNoFunding": "true"}).json()
+    assert typed["total"] == 0 and typed["items"] == [] and typed["uaNoFundingTotal"] == 0, "typed in with none: an honest empty list"
+    said = put(conn, "said", programme="EDF", topic="EDF-EDIP-P-2027-LS-IRA-PE", days=-3)
+    conn.execute("UPDATE call SET open_to_ukraine_reason = %s, open_to_ukraine_evidence = %s WHERE id = %s", (ukraine.NO_FUNDING, SAID, said))
+    conn.commit()
+    assert client.get("/v1/funding", params={"status": "all"}).json()["uaNoFundingTotal"] == 1
+    only = client.get("/v1/funding", params={"status": "all", "uaNoFunding": "true"}).json()
+    assert only["total"] == 1 and only["uaNoFundingTotal"] == 1, "counted before its own filter"
+    # it follows the other filters: the labelled call is closed, and it is not marked open to Ukraine
+    assert client.get("/v1/funding", params={"status": "open"}).json()["uaNoFundingTotal"] == 0
+    assert client.get("/v1/funding", params={"status": "all", "ukraine": "true"}).json()["uaNoFundingTotal"] == 0
