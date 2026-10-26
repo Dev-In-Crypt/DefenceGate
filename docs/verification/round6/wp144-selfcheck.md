@@ -137,7 +137,15 @@ the 3,464 with a page now.
   without script (GET form); dark theme. `e2e/wp144-api.spec.ts` (fake API, desktop and mobile): the outside-scope page's note,
   its listed notice, noindex, its lists asked with `scope=all`; the notice page links its buyer line to it.
 
-Results: see the final section.
+**Results (test copy, 26 October 2026; logs in `D:\DEFENCEGATE TESTS\wp144\`).** ruff clean; unit suite green; integration
+1,565 passed, 5 failed (`test_network_api` and `test_tender_export`: "server closed the connection" from the test Postgres, which
+was in recovery after the laptop's restart; two `test_search` group time boxes and one `test_wp98` order on the loaded machine);
+those 5 and `test_wp144.py` run again on their own: 12 passed. tsc clean; lib checks 83 ok, 0 failed. Production build 0. e2e
+batch (wp144, wp144-api, wp143-api, wp100, wp105, wp111, wp121, wp47, wp87, wp88, wp90, wp96, wp120, wp58, layout, routes; every
+project): 297 passed, 22 skipped, 1 failed (wp144-api on fake-api-mobile-375: its check of the fake API's request log read the
+other test's notice-page request; the check now looks at the earlier list's request), then wp144 + wp144-api + wp143-api on the
+same build: 21 passed, 1 skipped (the keyboard test on the phone). Before the fix of the unit form, e2e/wp90 caught the CPV form
+submitting an empty `unit=`; the unit choice then got its own form.
 
 ## Files
 
