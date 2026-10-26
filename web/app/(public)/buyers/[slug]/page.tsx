@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
-import { getBuyer, getBuyerProfile, getBuyerSuppliers, getTenders, isBuyerSlug, REMOVED, UNAVAILABLE, whenRemoved } from '@/lib/api';
-import { RemovedOnRequest } from '@/components/dg/removed';
+import { getBuyer, getBuyerProfile, getBuyerSuppliers, getTenders, isBuyerSlug, PERSON, REMOVED, UNAVAILABLE, whenRemovedOrPerson } from '@/lib/api';
+import { NotShownPerson, RemovedOnRequest } from '@/components/dg/removed';
 import { displayName, shownVariants } from '@/lib/display-name';
 import { formatDateUtc, formatNumber, plural, variantsLine } from '@/lib/format';
 import { MAX_PAGE, TENDER_PAGE_SIZE, lastPage, parseTenderFilters, toTenderQuery, type SearchParams } from '@/lib/filters';
@@ -46,8 +46,9 @@ function pageOf(sp: SearchParams): number {
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const [{ slug }, sp] = await Promise.all([params, searchParams]);
-  const buyer = await getBuyer(slug).catch(whenRemoved);
+  const buyer = await getBuyer(slug).catch(whenRemovedOrPerson);
   if (buyer === REMOVED) return { title: 'Removed on request', robots: { index: false } };
+  if (buyer === PERSON) return { title: 'Name not shown', robots: { index: false } };
   if (!buyer) return { title: 'Buyer not found', robots: { index: false } };
   const name = displayName(buyer.name, 'title');
   return buildMetadata({
@@ -61,8 +62,9 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 export default async function BuyerDetailPage({ params, searchParams }: Props) {
   const [{ slug }, sp] = await Promise.all([params, searchParams]);
   if (!isBuyerSlug(slug)) notFound();
-  const buyer = await getBuyer(slug).catch(whenRemoved);
+  const buyer = await getBuyer(slug).catch(whenRemovedOrPerson);
   if (buyer === REMOVED) return <RemovedOnRequest what="buyer" />;
+  if (buyer === PERSON) return <NotShownPerson />;
   if (!buyer) notFound();
   if (buyer.slug !== slug && isBuyerSlug(buyer.slug)) permanentRedirect(`/buyers/${buyer.slug}`);
 

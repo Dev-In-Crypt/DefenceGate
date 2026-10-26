@@ -78,7 +78,7 @@ from .funding import (
 from .listcache import LIST_STALE_SECONDS, cache_list
 from .normalise import VALUE_UNIT_PRICE, http_url, redact_emails
 from .search_terms import buyer_names, expand, fold_words
-from .suppress import WITHHELD_NAME, removed
+from .suppress import PERSON_NAME, WITHHELD_NAME, not_shown_person, person_withheld, removed
 
 router = APIRouter()
 
@@ -717,7 +717,8 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
               amended: bool | None = None,
               buyer_page: bool = True,
               last_change_kind: str | None = None,
-              buyer_head: int | None = None) -> dict[str, Any]:
+              buyer_head: int | None = None,
+              buyer_person: bool = False) -> dict[str, Any]:
     api = _api()
     title_en = redact_emails(r.get("title_en"))
     original = redact_emails(r["title_original"])
@@ -750,7 +751,9 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
     if r.get("buyer_withheld"):
         # An organisation suppressed on request: the notice stays, its buyer is nobody
         # the site can name, link or aggregate.
-        org_id, org_name, buyer_name = None, WITHHELD_NAME, WITHHELD_NAME
+        # WP-143: one withheld as a natural person (nobody asked) is said so, not "on request"
+        shown = PERSON_NAME if buyer_person else WITHHELD_NAME
+        org_id, org_name, buyer_name = None, shown, shown
     n_versions = versions.get(r["id"], 1) or 1
     cpv = r.get("cpv_codes") or []
     qualified, military = _qualified_by(r, cpv)
@@ -913,6 +916,7 @@ def _present(conn, rows: list[dict[str, Any]], *, checked: bool = False) -> list
     extras = _twin_extras(conn, rows)
     runs = _source_runs(conn) if checked else {}
     paged = buyers_with_page(conn, rows)
+    persons = person_withheld(conn, [r.get("buyer_org_id") for r in rows if r.get("buyer_withheld")])
     out = []
     for r in rows:
         seen = info.get(r["id"], (0, None, 0, 0))
@@ -925,7 +929,7 @@ def _present(conn, rows: list[dict[str, Any]], *, checked: bool = False) -> list
             checked=runs.get(r["source_code"]), amended=amended,
             buyer_page=r.get("buyer_org_id") in paged,
             last_change_kind="amendment" if amended else "first_seen",
-            buyer_head=heads.get(r.get("buyer_org_id"))))
+            buyer_head=heads.get(r.get("buyer_org_id")), buyer_person=r.get("buyer_org_id") in persons))
         out[-1]["correctionCount"] = seen[3]
     return out
 
@@ -3114,9 +3118,10 @@ def get_buyer(slug: str, conn=Depends(get_conn)):
         f"SELECT org.id, org.canonical_name, org.country, {family_defence('org')} AS is_defence_buyer "
         "FROM organisation org WHERE org.id = %s", (head,)).fetchone() if at is not None else None
     if not row:
-        if conn.execute("SELECT 1 FROM organisation WHERE id = %s AND suppressed",
-                        (org_id,)).fetchone():
-            raise removed()
+        gone = conn.execute("SELECT individual_reason FROM organisation WHERE id = %s AND suppressed", (org_id,)).fetchone()
+        if gone:
+            # WP-143: a buyer withheld as a natural person was not removed on request: the owner's words, still 410
+            raise not_shown_person() if gone["individual_reason"] else removed()
         raise HTTPException(404, "no such buyer")
     row = {**row, "n": counts[at], "open_n": open_n[at], "last_published": last_published[at],
            "variants": variants[at]}

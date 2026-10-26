@@ -37,6 +37,37 @@ def test_missing_digest_weeks_are_stored_again_within_the_hour(conn, monkeypatch
     assert len(W.missing_weeks(conn)) == max(0, len(weeks) - 8)
 
 
+def test_a_buyer_withheld_as_a_person_is_said_so_and_one_removed_on_request_keeps_its_words(conn):
+    from datetime import datetime, timezone
+
+    from fastapi.testclient import TestClient
+
+    from dgate import api, stats
+    from dgate.ops import person_rows
+    from dgate.suppress import PERSON_NAME, WITHHELD_NAME
+    from tests.integration.test_wp138 import put
+
+    person = put(conn, "495013-2020", buyer="John Example", country="GB", cpv="35320000")
+    asked = put(conn, "495015-2020", buyer="Asked Removal Ltd", country="GB", cpv="35320000")
+    org_of = lambda oid: conn.execute("SELECT buyer_org_id FROM opportunity WHERE id = %s", (oid,)).fetchone()["buyer_org_id"]  # noqa: E731
+    person_org, asked_org = org_of(person), org_of(asked)
+    person_rows.mark(conn, [person_org], write=True)
+    suppress.add(conn, kind="organisation", source=None, native_id=None, organisation=asked_org, reason="request",
+                 requested_at=datetime.now(timezone.utc), decided_by="owner")
+    conn.commit()
+    stats.reset_cache()
+    with TestClient(api.app) as c:
+        got = c.get(f"/v1/tenders/{person}").json()
+        assert got["buyerName"] == PERSON_NAME and got["buyerId"] is None and "John Example" not in str(got)
+        listed = {t["id"]: t["buyerName"] for t in c.get("/v1/tenders", params={"status": "all", "scope": "all"}).json()["items"]}
+        assert listed[str(person)] == PERSON_NAME and listed[str(asked)] == WITHHELD_NAME
+        page = c.get(f"/v1/buyers/{person_org}")
+        assert page.status_code == 410 and page.json()["detail"] == PERSON_NAME
+        removed = c.get(f"/v1/buyers/{asked_org}")
+        assert removed.status_code == 410 and removed.json()["detail"] == "removed on request"
+        assert "on request" not in str(c.get(f"/v1/opportunities/{person}").json())
+
+
 def test_the_first_page_of_a_frequent_search_word_is_kept_with_the_warm_lists():
     todo = warm_lists.views([])
     for q in tenders.search_set_words():

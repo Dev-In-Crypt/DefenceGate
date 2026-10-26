@@ -53,7 +53,7 @@ export const isBuyerSlug = isCallSlug;
 export const isSupplierSlug = isCallSlug;
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  constructor(public status: number, message: string, public detail?: string) { super(message); }
 }
 
 /**
@@ -124,6 +124,11 @@ export async function http<T>(path: string, mode: CacheMode = 'revalidate', seco
     await new Promise((r) => setTimeout(r, pause));
   }
   if (res.status === 404) return null;
+  if (res.status === 410) {
+    // WP-143: the API says why a 410 (removed on request, or a buyer withheld as a natural person); the page words follow it
+    const detail = await res.json().then((b: { detail?: unknown }) => (typeof b?.detail === 'string' ? b.detail : undefined), () => undefined);
+    throw new ApiError(410, `GET ${path} failed`, detail);
+  }
   if (!res.ok) throw new ApiError(res.status, `GET ${path} failed`);
   return (await res.json()) as T;
 }
@@ -134,6 +139,17 @@ export const REMOVED = 'removed' as const;
 export function whenRemoved(e: unknown): typeof REMOVED {
   if (e instanceof ApiError && e.status === 410) return REMOVED;
   throw e;
+}
+/**
+ * WP-143 (owner, 26 October 2026): the words for a buyer withheld because it is a natural person (nobody asked), as the API
+ * sends them (backend suppress.PERSON_NAME): its page, and its name wherever a notice names its buyer.
+ */
+export const PERSON_NOT_SHOWN = 'Name not shown: it identifies a private person.';
+export const PERSON = 'person' as const;
+/** `.catch(whenRemovedOrPerson)` on the buyer fetch: `PERSON` for a buyer withheld as a natural person, else as `whenRemoved`. */
+export function whenRemovedOrPerson(e: unknown): typeof REMOVED | typeof PERSON {
+  if (e instanceof ApiError && e.status === 410 && e.detail === PERSON_NOT_SHOWN) return PERSON;
+  return whenRemoved(e);
 }
 export async function httpOrThrow<T>(path: string, mode: CacheMode = 'revalidate', seconds: number = REVALIDATE_SECONDS): Promise<T> {
   const r = await http<T>(path, mode, seconds);

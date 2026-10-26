@@ -12,14 +12,17 @@ No new ops module (item 1 uses the existing `ops.build_digest`).
 `WITH annotated AS MATERIALIZED` (changes.build_events) cancelled at 5 s, in pairs every 4 minutes from 12:36 to 13:32 UTC.
 
 **Cause.** Not WP-142's route change (it only moved `generatedAt`). `digest_issue` was **empty** on production (0 rows): the daily
-digest job stored the weeks at 11:00 (success, 20 s), and at 11:44 an organisation entry was added to `suppression`, whose
-`drop_derived` deletes every stored issue. Nothing stored them again before the next daily run (11:00 the next day), so every
+digest job stored the weeks at 11:00 (success, 20 s), and at 11:44 an organisation entry was added to `suppression` (entry 1,
+reason natural_person, decided by `ops.person_rows`: WP-138's person rows), whose `drop_derived` deletes every stored issue.
+`ops.suppress` rebuilds the digest after an entry; `ops.person_rows` did not. Nothing stored them again before the next daily run
+(11:00 the next day; still 0 rows at 16:00 UTC), so every
 request built each of its weeks on the spot (`weekly_digest.build_all`): the feed asks for 4 weeks at once, and a week's build
 takes longer than the API's 5 s on production. The feed warmer of the web (`lib/feed-warm.ts`, `/digest.atom` every 4 minutes)
 repeated it all afternoon (the pairs in the log). It worked in the morning because the weeks were stored then. The web's last
 good copy did not help: the 12:32 deploy started a new build, whose copy store was empty.
 
-**Change.** `weekly_digest.missing_weeks`; worker job `digest_gaps` every hour at :05: when a week is missing it stores the
+**Change.** `ops.person_rows --yes` now rebuilds the digest after it adds or lifts an entry, as `ops.suppress` does. And, for any
+other way the weeks go missing: `weekly_digest.missing_weeks`; worker job `digest_gaps` every hour at :05: when a week is missing it stores the
 missing weeks (`refresh(recompute_last=0)`, eight a run, as the daily job); when none is missing it is one small query and writes
 no job_run row. So a suppression entry costs at most an hour of on-the-spot builds instead of a day. WP-142's ETag rule is
 untouched (the route is unchanged).
@@ -226,17 +229,38 @@ package): a bare generic name (`org_repair.ambiguous_name`) never resolves to a 
 re-attached by the town their title or description names (or kept on one generic row marked "unit not identified"); the pl_atlas
 / pl_ezam same-notice-number rule proves one notice, never one body.
 
+## 13. A buyer withheld as a natural person (owner, 26 October 2026)
+
+**Before.** 159048 (WP-138 `ops.person_rows`: suppression reason natural_person, nobody asked): its notices name the buyer "Name
+withheld on request"; `/v1/buyers/159048` 410 "removed on request"; the page "Removed on request".
+
+**Change.** The words "Name not shown: it identifies a private person." (`suppress.PERSON_NAME`, `lib/api.ts PERSON_NOT_SHOWN`)
+for a withheld buyer whose organisation row is a natural person (`organisation.individual_reason`, which person_rows sets; read
+there because the API role may not read `suppression`): the tender's buyer line and every list built from it (`tenders.to_tender`:
+lists, detail, changes, digest, CSV, feeds), `/v1/opportunities` and its version snapshots, the supplier pages' award rows
+(`suppliers._award_rows`, `withheld_buyer_name`). The buyer page and its profile endpoint: **410 kept** (the page is gone and not
+indexed), with the owner's words as its detail; the site's buyer page reads the detail (`whenRemovedOrPerson`) and shows "Name
+not shown" with that sentence, noindex, naming nobody. **A real request** (`ops.suppress add`, which never sets
+`individual_reason`) keeps "Name withheld on request" / "removed on request": that path exists and is unchanged. Not changed:
+the network pages, where a directory individual was already "Name not shown" (`INDIVIDUAL_NAME`), and stored digest weeks built
+before the change keep the old words until rebuilt (the notice of 159048, TED 495013-2020, is in none).
+
+**Test.** `tests/integration/test_wp143.py::test_a_buyer_withheld_as_a_person_is_said_so_and_one_removed_on_request_keeps_its_words`
+(tender, list, buyer 410 detail, /v1/opportunities; the request case beside it); `e2e/wp143-api.spec.ts` (the buyer page of each
+case against the fake API); `lib/wp143.check.ts` (the same sentence in API and site, shown unchanged by `displayName`).
+
 ## Runs
 
 In `D:\DEFENCEGATE TESTS\wp143\` on the final tree (production SQL and EXPLAIN files in `prod\`, lab in `lab\`):
 
 - ruff: clean. Unit: **4081 passed** (`unit.log`).
-- Integration: 1557 passed, 5 failed in a 20-minute run while Docker Desktop was recovering from its restart (3 "server closed the
-  connection", 2 search time boxes on a loaded machine); those 5 files with test_wp142/test_wp143 again: **24 passed**. So the whole
-  suite is green; an uninterrupted single run was not possible on the shared machine that afternoon.
+- Integration (fresh Postgres, item 13 included): **1563 passed** in one run; after the last change (person_rows rebuilds the
+  digest) test_wp138, test_wp143 and test_suppression again: 19 passed.
 - tsc: clean. Lib checks (`node scripts/run-checks.mjs`): **all green** (wp93 after its expected lines were recomputed; wp141; wp143).
 - Build: ok. Playwright (lock held): wp143, wp143-api, wp141, wp102, wp63, digest, wp142, wp36, wp131, wp127-api, wp52b-api,
-  wp132-api: **95 passed**, 7 skipped (the mobile skips those specs declare).
+  wp132-api: **95 passed**, 7 skipped (the mobile skips those specs declare); after item 13: wp143, wp143-api, wp121, wp133, wp111,
+  routes, wp63, wp141, wp127-api: 113 passed and the busy test failed 2/2 because a fixed notice id was already in the build's fetch
+  cache from the first run (the test, not the code: ids are random now); wp143-api `--repeat-each=3`: **18 passed**.
 - `caddy validate` (caddy:2) of `infra/caddy/Caddyfile`: valid.
 - `node gate.cjs` with a stub `server.js` (limit 1, no queue): two outside requests at once -> 200 and 503; loopback -> 200.
 

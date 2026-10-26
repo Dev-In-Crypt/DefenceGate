@@ -147,6 +147,9 @@ function route(url) {
     busyOnce.add(p);
     return [503, { detail: 'the service is busy; retry shortly' }, 0, { 'retry-after': '2' }];
   }
+  // WP-143 item 13: a buyer withheld as a natural person (410 with the owner's words); 779002 one removed on request
+  if (/^\/v1\/buyers\/779001(-[a-z0-9-]*)?$/.test(p)) return [410, { detail: 'Name not shown: it identifies a private person.' }];
+  if (/^\/v1\/buyers\/779002(-[a-z0-9-]*)?$/.test(p)) return [410, { detail: 'removed on request' }];
   if (/^\/v1\/tenders\/778\d{3}(-[a-z0-9-]*)?$/.test(p)) return [503, { detail: 'the query took too long; narrow the request' }, 0, { 'retry-after': '5' }];
   if (/^\/v1\/tenders\/\d+/.test(p) && !p.endsWith('/versions')) {
     const n = Number(/^\/v1\/tenders\/(\d+)/.exec(p)[1]);

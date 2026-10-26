@@ -5,7 +5,9 @@
  */
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { displayName } from './display-name';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { createGate } = require(join(process.cwd(), 'gate.cjs')) as {
@@ -60,5 +62,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   open.get('/c')!.end();
   assert.deepEqual(gate.state(), { running: 0, waiting: 0 });
   assert.ok(!started.includes('/f'));
+  // item 13: the owner's words for a buyer withheld as a natural person: the same in the API and the site, and shown unchanged
+  const PERSON = 'Name not shown: it identifies a private person.';
+  for (const f of ['lib/api.ts', '../backend/dgate/suppress.py']) assert.ok(readFileSync(f, 'utf8').includes(PERSON), f);
+  assert.equal(displayName(PERSON, 'title'), PERSON);
+  assert.equal(displayName(PERSON), PERSON);
   console.log('wp143 ok');
 })().catch((e) => { console.error(e); process.exit(1); });

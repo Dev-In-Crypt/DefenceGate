@@ -8,7 +8,8 @@ import { expect, test } from '@playwright/test';
  */
 
 test('a busy answer of the API costs the visitor two seconds, not an error page', { tag: '@fake-api' }, async ({ page }, info) => {
-  const n = 777_000 + info.parallelIndex * 10 + info.repeatEachIndex + (info.project.name.includes('mobile') ? 500 : 0);
+  // a notice no earlier run has read: the site keeps a notice's answer in its fetch cache (.next/cache) across runs of one build
+  const n = 777_000 + (info.project.name.includes('mobile') ? 500 : 0) + Math.floor(Math.random() * 500);
   const t0 = Date.now();
   const res = await page.goto(`/tenders/${n}-notice-${n}`);
   const took = Date.now() - t0;
@@ -27,6 +28,16 @@ test('a statement time-out is not asked again', { tag: '@fake-api' }, async ({ p
   const took = Date.now() - t0;
   expect(res.status()).not.toBe(200);
   expect(took, `waited ${took} ms: a time-out must not wait for a retry`).toBeLessThan(1900);
+});
+
+test('a buyer withheld as a private person says so, and one removed on request keeps its words', { tag: '@fake-api' }, async ({ page }) => {
+  await page.goto('/buyers/779001-x');
+  const main = page.locator('main');
+  await expect(main).toContainText('Name not shown: it identifies a private person.');
+  await expect(main).not.toContainText('on request');
+  expect(await page.locator('meta[name="robots"]').getAttribute('content')).toContain('noindex');
+  await page.goto('/buyers/779002-x');
+  await expect(page.locator('main')).toContainText('removed from DefenceGate on request');
 });
 
 /** The fake API is on the site's port + 910 (playwright.config.ts: site E2E_PORT + 100, API E2E_PORT + 1010). */
