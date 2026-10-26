@@ -21,7 +21,7 @@ const P = 'm-0';
 // WP-140, section 7: the pl_ezam raw re-strip approved on 25 October 2026. TODO(orchestrator): once its result is
 // confirmed, set the date (for example 'on 26 October 2026') here and in docs/legal/versions/privacy-v1.7-2026-10-26.md;
 // if it did not complete, take the sentence out of both before deploying.
-const EZAM_CLEANED = 'in October 2026';
+const EZAM_CLEANED = 'on 22 and 26 October 2026';
 
 export default async function PrivacyPage() {
   // WP-140: "Sign-in is not open yet" stays in section 5 until the API says accounts are open (in production only once
