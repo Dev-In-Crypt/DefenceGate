@@ -340,12 +340,20 @@ def refresh_week(conn, week: str, *, now: datetime | None = None) -> int:
     return len(issues)
 
 
+def missing_weeks(conn, now: datetime | None = None) -> list[str]:
+    """The issues there can be that are not stored, newest first. WP-143: an organisation entry in `suppression` drops every
+    stored issue (`ops.suppress.drop_derived`); on 26 October 2026 nothing stored them again until the next daily run, and every
+    request built its weeks on the spot, past the API's 5 s limit: /digest.atom answered 502 from 12:56 UTC."""
+    held = {r["week"] for r in conn.execute("SELECT DISTINCT week FROM digest_issue").fetchall()}
+    return [w for w in all_weeks(now or datetime.now(timezone.utc)) if w not in held]
+
+
 def refresh(conn, *, now: datetime | None = None, max_builds: int = 8, recompute_last: int = 2) -> dict[str, int]:
     """Store the issues: every missing week (newest first, at most `max_builds` per run) and the
     last `recompute_last` weeks again, each for every country that has something in it."""
     now = now or datetime.now(timezone.utc)
     weeks = all_weeks(now)
-    held = {r["week"] for r in conn.execute("SELECT DISTINCT week FROM digest_issue").fetchall()}
+    held = set(weeks) - set(missing_weeks(conn, now))
     todo = [w for i, w in enumerate(weeks) if w not in held or i < recompute_last][:max_builds]
     rows = sum(refresh_week(conn, week, now=now) for week in todo)
     return {"weeks": len(weeks), "built": len(todo), "rows": rows, "missing": len([w for w in weeks if w not in held])}

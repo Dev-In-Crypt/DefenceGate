@@ -38,7 +38,7 @@ export default async function AlertsPage() {
       title="Alerts and saved searches"
       lead={open
         ? 'Stop re-checking portals. Sign in with your e-mail to save searches, follow buyers and get alerts.'
-        : 'Saved searches and e-mail alerts are built, but sign-in is not open yet: it opens once we have chosen a provider to send the e-mails. What works today needs no account, and it is listed first.'}
+        : 'Saved searches and e-mail alerts are built, but sign-in is not open yet: it opens soon. What works today needs no account, and it is listed first.'}
     >
       {open && <Button href="/signin" iconRight={ArrowRight} className="self-start">Sign in with e-mail</Button>}
 

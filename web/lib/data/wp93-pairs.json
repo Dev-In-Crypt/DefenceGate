@@ -6844,7 +6844,7 @@
     {
      "key": "who",
      "verdict": "no",
-     "reason": "Only an established SEAP may apply to this call. Your profile names another kind of organisation."
+     "reason": "Only a SEAP may apply to this call: an established one, or one being established whose application has already been submitted to the Commission. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -7552,7 +7552,7 @@
     {
      "key": "who",
      "verdict": "no",
-     "reason": "Only an established SEAP may apply to this call. Your profile names another kind of organisation."
+     "reason": "Only a SEAP may apply to this call: an established one, or one being established whose application has already been submitted to the Commission. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -8260,7 +8260,7 @@
     {
      "key": "who",
      "verdict": "no",
-     "reason": "Only an established SEAP may apply to this call. Your profile names another kind of organisation."
+     "reason": "Only a SEAP may apply to this call: an established one, or one being established whose application has already been submitted to the Commission. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -8968,7 +8968,7 @@
     {
      "key": "who",
      "verdict": "no",
-     "reason": "Only an established SEAP may apply to this call. Your profile names another kind of organisation."
+     "reason": "Only a SEAP may apply to this call: an established one, or one being established whose application has already been submitted to the Commission. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -9676,7 +9676,7 @@
     {
      "key": "who",
      "verdict": "no",
-     "reason": "Only an established SEAP may apply to this call. Your profile names another kind of organisation."
+     "reason": "Only a SEAP may apply to this call: an established one, or one being established whose application has already been submitted to the Commission. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -10387,7 +10387,7 @@
     {
      "key": "who",
      "verdict": "no",
-     "reason": "Only an established SEAP may apply to this call. Your profile names another kind of organisation."
+     "reason": "Only a SEAP may apply to this call: an established one, or one being established whose application has already been submitted to the Commission. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -11098,7 +11098,7 @@
     {
      "key": "who",
      "verdict": "no",
-     "reason": "Only an established SEAP may apply to this call. Your profile names another kind of organisation."
+     "reason": "Only a SEAP may apply to this call: an established one, or one being established whose application has already been submitted to the Commission. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -11807,7 +11807,7 @@
     {
      "key": "who",
      "verdict": "no",
-     "reason": "Only an established SEAP may apply to this call. Your profile names another kind of organisation."
+     "reason": "Only a SEAP may apply to this call: an established one, or one being established whose application has already been submitted to the Commission. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -12516,7 +12516,7 @@
     {
      "key": "who",
      "verdict": "no",
-     "reason": "Only an established SEAP may apply to this call. Your profile names another kind of organisation."
+     "reason": "Only a SEAP may apply to this call: an established one, or one being established whose application has already been submitted to the Commission. Your profile names another kind of organisation."
     },
     {
      "key": "country",
@@ -13224,7 +13224,7 @@
     {
      "key": "who",
      "verdict": "no",
-     "reason": "Only an established SEAP may apply to this call. Your profile names another kind of organisation."
+     "reason": "Only a SEAP may apply to this call: an established one, or one being established whose application has already been submitted to the Commission. Your profile names another kind of organisation."
     },
     {
      "key": "country",

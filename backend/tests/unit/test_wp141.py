@@ -15,7 +15,9 @@ ONLY = {
     "110": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call.",
     "111": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call.",
     "112": "Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call.",
-    "114": "Only an established SEAP may apply to this call.",
+    # WP-143: the document admits a SEAP being established too
+    "114": ("Only a SEAP may apply to this call: an established one, or one being established whose application has already been "
+            "submitted to the Commission."),
     "193": "Only a SEAP or a group of Member States may apply to this call.",
 }
 

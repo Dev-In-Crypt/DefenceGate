@@ -85,6 +85,13 @@ def views(countries: list[str]) -> list[tuple[str, str, dict]]:
                 # The wider list said "at least 11,560" beside an exact 315,232 for the narrower default scope.
                 kw = {**base, "status": status, "country": None, "scope": "all", "page": 1, "pageSize": TENDER_PAGE_SIZE}
                 out.append((name, snapshot_key(name, kw), kw))
+        # WP-143 (r9-system): the first page and the scope counts of each frequent search word, closed and all. The stored match
+        # set (WP-142) is read in 4 ms, but the list statement over its thousands of ids still took 4.2 s cold ("fuel", all: 5.5 s
+        # for the page); kept here as the plain lists are. A word typed another way is a search of its own and runs live.
+        for q in tenders.search_set_words():
+            for status in LIST_STATUSES:
+                kw = {**base, "q": q, "status": status, **({"page": 1, "pageSize": TENDER_PAGE_SIZE} if name == "tenders" else {})}
+                out.append((name, snapshot_key(name, kw), kw))
     base = _defaults(changes.list_changes.__wrapped__)
     base["with_meta"] = True
     for size in CHANGE_PAGE_SIZES:

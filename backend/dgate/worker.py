@@ -532,7 +532,7 @@ def job_cascade_flags() -> JobResult:
     return result
 
 
-def job_digest() -> JobResult:
+def job_digest(recompute_last: int = 2) -> JobResult:
     """Daily: store the weekly digest issues (weekly_digest.py, WP-31): the last two complete weeks
     again and any week still missing, at most eight a run. The pages read the stored row."""
     counts: dict[str, int] = {}
@@ -541,12 +541,24 @@ def job_digest() -> JobResult:
         from . import weekly_digest
 
         with db.connect(settings().dsn) as conn:
-            counts.update(weekly_digest.refresh(conn))
+            counts.update(weekly_digest.refresh(conn, recompute_last=recompute_last))
         log.info("digest: %s", ", ".join(f"{k} {v}" for k, v in counts.items()))
 
     result = run_job("digest", _run)
     result.detail = result.detail or ", ".join(f"{k} {v}" for k, v in counts.items())
     return result
+
+
+def job_digest_gaps() -> JobResult:
+    """WP-143, hourly and at start: store the digest weeks that are missing (a suppression entry drops them all, a new week
+    has ended). The API builds a missing week on the request, which takes longer than its 5 s limit on production
+    (/digest.atom 502 from 12:56 UTC on 26 October 2026). One small query, and no job_run row, when nothing is missing."""
+    from . import weekly_digest
+
+    with db.connect(settings().dsn) as conn:
+        if not weekly_digest.missing_weeks(conn):
+            return JobResult("digest", "success", 0.0, "nothing missing")
+    return job_digest(recompute_last=0)
 
 
 def job_requalify() -> JobResult:
@@ -1111,10 +1123,12 @@ def catch_up() -> list[JobResult]:
 # WP-114: the scheduled jobs `catch_up_jobs` does not cover: the ingest jobs and the backups have catch-ups of their own
 # (by the sources' last success, by the newest dump), the hourly ones run again within the hour, and the TED history is
 # resumed by `start_backfill_thread`.
-OWN_CATCH_UP = {"backup_nightly", "backup_verify", "backup_freshness", "alerts_hourly", "ted_history_daily"}
+OWN_CATCH_UP = {"backup_nightly", "backup_verify", "backup_freshness", "alerts_hourly", "ted_history_daily", "digest_gaps"}
 # A job that runs this seldom and has no record at all is not started by a restart: its first scheduled slot is kept
 # (a monthly crawl of CORDIS or of the EDF factsheets is hours of requests to a public site, and a model budget).
 UNRECORDED_MAX_PERIOD = timedelta(days=1)
+# WP-143: when the scheduled worker started (`main`), for `catch_up_jobs`' wait; None outside it (`--once`, tests)
+STARTED_AT: float | None = None
 
 
 def last_slot(trigger, now: datetime) -> tuple[datetime | None, timedelta | None]:
@@ -1178,6 +1192,13 @@ def catch_up_jobs(sched=None, now: datetime | None = None) -> list[JobResult]:
             log.info("catch-up: %s has no recorded run; its next slot runs it", job.id)
             continue
         due.append((slot, job.func, job.id))
+    wait = cfg.catch_up_jobs_delay_seconds - (time.monotonic() - STARTED_AT) if due and STARTED_AT is not None else 0
+    if wait > 0:
+        # WP-143: the r13 deploy's 503s met requalify_weekly started 20 s after the worker, beside a cold site and API
+        log.info("catch-up: %s wait %.0f s after the start", ", ".join(d[2] for d in due), wait)
+        time.sleep(wait)
+        # a slot that fired meanwhile ran the job itself
+        due = [d for d in due if (last_job_start(job_names(d[2]))[0] or datetime.min.replace(tzinfo=timezone.utc)) < d[0]]
     results = []
     for slot, func, job_id in sorted(due, key=lambda d: d[0]):
         log.warning("catch-up: %s missed its slot of %s UTC, running now", job_id, f"{slot:%Y-%m-%d %H:%M}")
@@ -1292,6 +1313,7 @@ def build_scheduler():
     # After the twins and the buyer families (09:15, 10:15): the week's notices are collapsed by then.
     sched.add_job(job_digest, CronTrigger(hour=(cfg.twins_hour + 2) % 24, minute=0),
                   id="digest_daily", max_instances=1, misfire_grace_time=3600)
+    sched.add_job(job_digest_gaps, CronTrigger(minute=5), id="digest_gaps", max_instances=1, misfire_grace_time=1800)
     sched.add_job(job_ted_awards, CronTrigger(hour=cfg.ted_awards_hour, minute=cfg.ted_awards_minute),
                   id="ted_awards_daily", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_requalify,
@@ -1368,6 +1390,7 @@ def describe_schedule() -> list[str]:
         f"(financial support to third parties, set on each call from its text and facts)",
         f"digest         {(cfg.twins_hour + 2) % 24:02d}:00 UTC  "
         f"(weekly digest issues: last two complete weeks and any missing)",
+        "digest_gaps    :05 UTC  (weekly digest issues that are missing, e.g. after a suppression entry)",
         f"ted_awards     {cfg.ted_awards_hour:02d}:{cfg.ted_awards_minute:02d} UTC  "
         f"(winners of TED result notices not read yet, core scope and VEAT, at most {cfg.ted_awards_limit})",
         f"requalify      Sun {cfg.requalify_hour:02d}:00 UTC  "
@@ -1431,6 +1454,8 @@ def main(argv: list[str] | None = None) -> int:
     # (internal audit M8): a PLACSP catch-up is 15-40 minutes and a week's window hours,
     # and every slot that passed meanwhile was lost. `run_job` keeps a slot from starting
     # a job the catch-up is still running.
+    global STARTED_AT
+    STARTED_AT = time.monotonic()
     ready = wait_for_database()
     if ready:
         close_interrupted_runs()

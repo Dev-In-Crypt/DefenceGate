@@ -79,6 +79,10 @@ def main(argv: list[str] | None = None) -> int:
             c = undo(conn, write=a.yes)
         else:
             c = mark(conn, sorted({int(x) for x in a.ids.split(",") if x.strip()}), write=a.yes)
+        # WP-143: a suppression entry drops the stored digest weeks (`suppress.drop_derived`); the run of 26 October 2026 (11:44 UTC)
+        # left them dropped and /digest.atom built its weeks per request past the API's limit. Stored again here, as `suppress` does.
+        if a.yes and (c.get("buyers_withheld") or c.get("withholdings_lifted")):
+            print(suppress_ops.rebuild_digest(conn))
     if a.yes:
         print(suppress_ops.LIST_HINT)
     print("written" if a.yes else "report only (add --yes to write)")

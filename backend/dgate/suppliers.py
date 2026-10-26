@@ -81,7 +81,7 @@ from .normalise import (
     redact_emails,
 )
 from .ops.company_groups import GROUPS
-from .suppress import not_published, removed
+from .suppress import not_published, removed, withheld_buyer_name
 from .tenders import _buyer_names, _day, _id_of, _split, live_id_of, search_words, time_boxed
 
 router = APIRouter()
@@ -184,7 +184,7 @@ def _sums(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def largest_item(r: dict[str, Any]) -> dict[str, Any]:
     title = redact_emails(r["title_en"] or r["title_original"]) or ""
     return {"id": str(r["id"]), "slug": make_slug(r["id"], title), "noticeId": r["native_id"], "title": title,
-            "buyerName": None if r["buyer_withheld"] else r["buyer_name_raw"], "publishedAt": _day(r["published_at"]),
+            "buyerName": withheld_buyer_name(r), "publishedAt": _day(r["published_at"]),
             "amount": float(r["va"]), "currency": r["vc"].strip(), "sourceUrl": r["source_url"],
             "source": r["source_code"]}
 
@@ -850,6 +850,9 @@ def _award_rows(conn, base: str, p: dict[str, Any], twins: str) -> list[dict[str
     """Every award row of a supplier, newest notice first, each valued by `value_of` (WP-95: with its kind)."""
     return conn.execute(
         f"""SELECT o.id, o.native_id, o.title_en, o.title_original, o.buyer_name_raw, o.buyer_withheld, o.country,
+                   -- WP-143: what a withheld buyer is called (`withheld_buyer_name`): a natural person is said so
+                   (o.buyer_withheld AND EXISTS (SELECT 1 FROM organisation b WHERE b.id = o.buyer_org_id
+                                                    AND b.individual_reason IS NOT NULL)) AS buyer_person,
                    COALESCE(o.published_at, o.notice_date) AS published_at, a.cpv_main, a.winners_in_notice, v.va, v.vc, v.vk, v.vp,
                    a.winners_in_notice > 1 AS shared, o.source_url, a.id AS award_id,
                    (SELECT code FROM source WHERE id = o.source_id) AS source_code, {KEY_HASH} AS k,
@@ -957,7 +960,7 @@ def get_supplier(slug: str, cpv: str | None = Query(None, max_length=200),
         title = redact_emails(r["title_en"] or r["title_original"]) or ""
         out_notices.append({
             "id": str(r["id"]), "slug": make_slug(r["id"], title), "noticeId": r["native_id"], "title": title,
-            "buyerName": None if r["buyer_withheld"] else r["buyer_name_raw"], "buyerCountry": r["country"],
+            "buyerName": withheld_buyer_name(r), "buyerCountry": r["country"],
             "publishedAt": _day(r["published_at"]), "cpv": r["cpv_main"], "winnersInNotice": r["winners_in_notice"],
             "valueAmount": float(r["va"]) if r["va"] is not None else None,
             "valueCurrency": r["vc"].strip() if r["va"] is not None else None,
@@ -1082,7 +1085,7 @@ def get_supplier_contracts(slug: str, conn=Depends(get_conn)):
         src = sources.get(r["source_code"]) or {}
         items.append({
             "noticeId": r["native_id"], "slug": make_slug(r["id"], title), "title": title,
-            "buyerName": None if r["buyer_withheld"] else r["buyer_name_raw"], "buyerCountry": r["country"],
+            "buyerName": withheld_buyer_name(r), "buyerCountry": r["country"],
             "publishedAt": _day(r["published_at"]), "cpv": r["cpv_main"], "winnersInNotice": r["winners_in_notice"],
             "valueAmount": float(r["va"]) if has else None, "valueCurrency": r["vc"].strip() if has else None,
             "valueKind": r["vk"] if has else None,

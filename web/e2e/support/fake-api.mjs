@@ -16,6 +16,7 @@ const PORT = Number(process.argv[2] ?? process.env.FAKE_API_PORT ?? 4010);
 const NOW = '2026-10-12T08:00:00Z';
 const SRC = { sourceId: 'ted', sourceName: 'TED', url: 'https://ted.europa.eu/en/notice/-/detail/1', retrievedAt: '2026-10-11T06:20:00Z', lastChangeKind: 'first_seen', licence: 'Commission Decision 2011/833/EU', attribution: '© European Union, TED' };
 const stats = { requests: [] };
+const busyOnce = new Set();
 
 const tender = (n, over = {}) => ({
   id: String(n), slug: `${n}-notice-${n}`, noticeId: `${n}-2026`, title: `Notice ${n}`, titleLanguage: 'en', originalTitle: null, originalLanguage: null,
@@ -140,6 +141,16 @@ function route(url) {
   if (p === '/v1/tenders/scope-counts' && q.get('q') === 'slowcounts') return [503, { detail: 'the count took too long; narrow the request' }, 5000];
   if (p === '/v1/tenders/scope-counts') return [200, { relevant: 1522, core: 294, supply: 1274, overlap: 46, capped: false, asOf: '2026-10-12T07:55:00Z' }];
   if (p === '/v1/tenders') return tenders(q);
+  // WP-143 (e2e/wp143-api.spec.ts): a notice 777nnn answers "busy" (every connection taken, api.py `_busy`) the first time it is
+  // asked; a notice 778nnn always answers a statement time-out (503, Retry-After 5)
+  if (/^\/v1\/tenders\/777\d{3}(-[a-z0-9-]*)?$/.test(p) && !busyOnce.has(p)) {
+    busyOnce.add(p);
+    return [503, { detail: 'the service is busy; retry shortly' }, 0, { 'retry-after': '2' }];
+  }
+  // WP-143 item 13: a buyer withheld as a natural person (410 with the owner's words); 779002 one removed on request
+  if (/^\/v1\/buyers\/779001(-[a-z0-9-]*)?$/.test(p)) return [410, { detail: 'Name not shown: it identifies a private person.' }];
+  if (/^\/v1\/buyers\/779002(-[a-z0-9-]*)?$/.test(p)) return [410, { detail: 'removed on request' }];
+  if (/^\/v1\/tenders\/778\d{3}(-[a-z0-9-]*)?$/.test(p)) return [503, { detail: 'the query took too long; narrow the request' }, 0, { 'retry-after': '5' }];
   if (/^\/v1\/tenders\/\d+/.test(p) && !p.endsWith('/versions')) {
     const n = Number(/^\/v1\/tenders\/(\d+)/.exec(p)[1]);
     return [200, tender(n, n % 2 ? { source: { ...SRC, lastChangeKind: 'amendment' }, versionCount: 3, amended: true } : {})];
@@ -161,9 +172,9 @@ function route(url) {
 }
 
 createServer((req, res) => {
-  const [status, body, delay = 0] = route(new URL(req.url ?? '/', 'http://x'));
+  const [status, body, delay = 0, headers = {}] = route(new URL(req.url ?? '/', 'http://x'));
   setTimeout(() => {
-    res.writeHead(status, { 'content-type': 'application/json' });
+    res.writeHead(status, { 'content-type': 'application/json', ...headers });
     res.end(JSON.stringify(body));
   }, delay);
 }).listen(PORT, '127.0.0.1', () => console.log(`fake API on ${PORT}`));

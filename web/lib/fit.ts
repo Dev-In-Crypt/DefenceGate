@@ -175,7 +175,12 @@ const APPLICANTS: Record<string, { title: string; only: string; plain: Applicant
     only: 'Only contracting authorities, international organisations, SEAPs and the EDA may apply to this call.',
     plain: ['international_organisation', 'seap', 'eda'], maybe: ['contracting_authority'],
   },
-  seap_support: { title: 'Who may apply: an established SEAP', only: 'Only an established SEAP may apply to this call.', plain: ['seap'], maybe: [] },
+  // WP-143 (r9-site, call 114): the document also admits a SEAP being established that has applied (rule EDIP-SEAP-APPLICANT)
+  seap_support: {
+    title: 'Who may apply: an established SEAP',
+    only: 'Only a SEAP may apply to this call: an established one, or one being established whose application has already been submitted to the Commission.',
+    plain: ['seap'], maybe: [],
+  },
   edpci_preparation: { title: 'Who may apply: a SEAP or a group of Member States', only: 'Only a SEAP or a group of Member States may apply to this call.', plain: ['seap'], maybe: ['contracting_authority'] },
 };
 

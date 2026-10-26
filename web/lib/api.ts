@@ -53,7 +53,7 @@ export const isBuyerSlug = isCallSlug;
 export const isSupplierSlug = isCallSlug;
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  constructor(public status: number, message: string, public detail?: string) { super(message); }
 }
 
 /**
@@ -87,11 +87,23 @@ const HTTP_TIMEOUT_MS = 20_000;
  */
 const UNREACHABLE_RETRY_MS = 15_000;
 const UNREACHABLE_PAUSE_MS = 500;
+/**
+ * WP-143 (r13 deploy, 26 October 2026: 121 "busy" answers in 40 s became 105 error pages): the API's "busy" answer (every database
+ * connection taken: 503 with Retry-After 2, api.py `_busy`) is asked once more after that wait, inside the same window. A statement
+ * time-out (503, Retry-After 5) is not: asking again would only double the load.
+ */
+const BUSY_RETRY_MAX_S = 2;
+function busyPauseMs(res: Response): number | null {
+  if (res.status !== 503) return null;
+  const s = Number(res.headers.get('retry-after'));
+  return Number.isFinite(s) && s > 0 && s <= BUSY_RETRY_MAX_S ? s * 1000 : null;
+}
 
 export async function http<T>(path: string, mode: CacheMode = 'revalidate', seconds: number = REVALIDATE_SECONDS): Promise<T | null> {
   const extra = mode === 'no-store' ? await visitorHeaders() : {};
   const until = Date.now() + UNREACHABLE_RETRY_MS;
   let res: Response;
+  let busyRetried = false;
   for (;;) {
     try {
       res = await fetch(`${API_BASE}${path}`, {
@@ -99,14 +111,24 @@ export async function http<T>(path: string, mode: CacheMode = 'revalidate', seco
         signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
         ...(mode === 'no-store' ? { cache: 'no-store' as const } : { next: { revalidate: seconds } }),
       });
-      break;
     } catch (e) {
       // undici's "fetch failed" (TypeError) is a connection that never opened; a timeout is a DOMException and is not retried
       if (!(e instanceof TypeError) || Date.now() + UNREACHABLE_PAUSE_MS > until) throw e;
       await new Promise((r) => setTimeout(r, UNREACHABLE_PAUSE_MS));
+      continue;
     }
+    const pause = busyRetried ? null : busyPauseMs(res);
+    if (pause === null || Date.now() + pause > until) break;
+    busyRetried = true;
+    await res.body?.cancel().catch(() => undefined);
+    await new Promise((r) => setTimeout(r, pause));
   }
   if (res.status === 404) return null;
+  if (res.status === 410) {
+    // WP-143: the API says why a 410 (removed on request, or a buyer withheld as a natural person); the page words follow it
+    const detail = await res.json().then((b: { detail?: unknown }) => (typeof b?.detail === 'string' ? b.detail : undefined), () => undefined);
+    throw new ApiError(410, `GET ${path} failed`, detail);
+  }
   if (!res.ok) throw new ApiError(res.status, `GET ${path} failed`);
   return (await res.json()) as T;
 }
@@ -117,6 +139,17 @@ export const REMOVED = 'removed' as const;
 export function whenRemoved(e: unknown): typeof REMOVED {
   if (e instanceof ApiError && e.status === 410) return REMOVED;
   throw e;
+}
+/**
+ * WP-143 (owner, 26 October 2026): the words for a buyer withheld because it is a natural person (nobody asked), as the API
+ * sends them (backend suppress.PERSON_NAME): its page, and its name wherever a notice names its buyer.
+ */
+export const PERSON_NOT_SHOWN = 'Name not shown: it identifies a private person.';
+export const PERSON = 'person' as const;
+/** `.catch(whenRemovedOrPerson)` on the buyer fetch: `PERSON` for a buyer withheld as a natural person, else as `whenRemoved`. */
+export function whenRemovedOrPerson(e: unknown): typeof REMOVED | typeof PERSON {
+  if (e instanceof ApiError && e.status === 410 && e.detail === PERSON_NOT_SHOWN) return PERSON;
+  return whenRemoved(e);
 }
 export async function httpOrThrow<T>(path: string, mode: CacheMode = 'revalidate', seconds: number = REVALIDATE_SECONDS): Promise<T> {
   const r = await http<T>(path, mode, seconds);
