@@ -30,8 +30,10 @@ export async function GET(request: Request): Promise<Response> {
   // Half a feed presented as the whole one would mislead a subscriber: an issue that cannot be read is an error.
   if (got.some((d) => d === null)) return unavailable();
   const issues = got as Digest[];
-  const body = buildDigestAtom(issues, { origin: SITE.url.replace(/\/$/, ''), country: filters.country, cpv: filters.cpv, generatedAt: new Date().toISOString() });
   const lastModified = new Date(issues.reduce((m, d) => (d.weekTo > m ? d.weekTo : m), '1970-01-01T00:00:00Z'));
+  // WP-142: a feed with no issue is dated like its Last-Modified, never by the clock: `<updated>` at the second of the request gave
+  // two requests a second apart two ETags, and a reader holding the first never got its 304 (the e2e flake of 26 October 2026)
+  const body = buildDigestAtom(issues, { origin: SITE.url.replace(/\/$/, ''), country: filters.country, cpv: filters.cpv, generatedAt: lastModified.toISOString() });
   const etag = etagOf(body);
   const headers = { etag, 'last-modified': lastModified.toUTCString(), 'cache-control': 'public, max-age=3600' };
   if (notModified(request, etag, lastModified)) return new Response(null, { status: 304, headers });

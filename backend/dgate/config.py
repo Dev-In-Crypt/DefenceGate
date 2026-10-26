@@ -501,6 +501,10 @@ class Settings:
     # cost more than it saved for every word tried (docs/verification/round6/wp120-selfcheck.md, item 3).
     search_ids_ms: int = field(
         default_factory=lambda: _env_int("DGATE_SEARCH_IDS_MS", 0))
+    # WP-142: searches the worker keeps a match set for (`tenders.refresh_search_sets`) beside the first term of every product
+    # group, comma-separated, as typed on the site ("boots": the home page links it)
+    search_set_words: list[str] = field(
+        default_factory=lambda: [w.strip() for w in _env("DGATE_SEARCH_SET_WORDS", "boots").split(",") if w.strip()])
     backup_keep_days_local: int = field(
         default_factory=lambda: _env_int("DGATE_BACKUP_KEEP_DAYS_LOCAL", 7))
     # Past this age of its newest dump (on the host, and in the store) the backup is

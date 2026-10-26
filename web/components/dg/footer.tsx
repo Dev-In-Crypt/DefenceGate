@@ -3,7 +3,8 @@ import { cn } from '@/lib/utils';
 import { Logo } from './logo';
 import { CARD_SURFACE } from './card';
 import { FOOTER_GROUPS, LEGAL_LINKS as LEGAL } from '@/lib/nav';
-import { getHealth, lastDataUpdate } from '@/lib/api';
+import { lastDataUpdate } from '@/lib/api';
+import type { Health } from '@/lib/types';
 import { formatDateTimeUtc } from '@/lib/format';
 
 /** A footer link: 44 px high on a phone (a tap target), 32 px from lg, where the links stand in columns, on one line each. */
@@ -12,9 +13,13 @@ const LINK = 'inline-flex min-h-11 items-center text-small font-semibold text-in
 /**
  * One card: the brand (a row of its own below xl, a column from xl), six link groups side by side from lg (two columns on a
  * phone), then the legal line and the disclaimer at the left and the source line (with the Atom feed) at the right.
+ *
+ * WP-142: synchronous, with the sources' status read by the layout beside its own call. As an async component the footer was a
+ * part of the page that arrived on its own, after the list; a browser that began to hydrate while the document was still
+ * arriving (a loaded e2e run; the production edge sends a page whole, WP-63) failed on it with React error #418: 28 of 60
+ * sliced loads of /tenders?q=fastcounts, 1 of 60 with this footer (docs/verification/round6/wp142-selfcheck.md).
  */
-export async function Footer() {
-  const health = await getHealth();
+export function Footer({ health }: { health: Health }) {
   return (
     <footer className="page pb-4 print:hidden">
       <div className={cn(CARD_SURFACE, 'flex flex-col gap-4 p-5 sm:px-6')}>
