@@ -11,7 +11,7 @@ set -u
 DOMAIN=$(sed -n 's/^DGATE_DOMAIN=//p' infra/.env | tail -n 1)
 BASE="https://${DOMAIN:-localhost}"
 fail=0
-for path in / /tenders "/tenders?status=closed" "/tenders?status=all" /funding /buyers /suppliers /organisations /networks \
+for path in / /tenders "/tenders?status=closed" "/tenders?status=all" /funding /buyers /suppliers /organisations /networks/consortium-gaps /networks/ukraine-partners \
             /changes /digest /market /calendar /data /changes.atom /digest.atom /funding.atom /calendar.ics /sitemap.xml; do
     out=$(curl -s -o /dev/null -A 'DefenceGate-warm/1.0' -w '%{http_code} %{time_total}' --max-time 60 "${BASE}${path}")
     echo "warm: ${out} ${path}"
