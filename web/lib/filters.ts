@@ -295,6 +295,7 @@ export function toTenderQuery(f: TenderFilters): string {
   if (f.cpv?.length && f.cpvMain) p.set(PARAM.cpvMain, 'true');
   if (f.notCpv?.length) p.set(PARAM.notCpv, f.notCpv.join(','));
   if (f.buyer) p.set('buyer', f.buyer);
+  if (f.unit) p.set('unit', f.unit);
   if (f.deadlineFrom) p.set(PARAM.from, f.deadlineFrom);
   if (f.deadlineTo) p.set(PARAM.to, f.deadlineTo);
   if (f.valueMin !== undefined) p.set(PARAM.min, String(f.valueMin));

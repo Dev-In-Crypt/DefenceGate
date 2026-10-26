@@ -1,0 +1,6 @@
+# WP-144: Politechnika Warszawska as one legal body (ops.accept_merge_candidates --ids-file, WP-129 format). Head 60, the
+# university's own name ('politechnika warszawska'), not 29844 ('... szkola biznesu'), which the plan would pick without a head
+# (it has the most notices). 29844 holds NIP 5250005834 and 283751 REGON 000001554: one body's two registers (no clash).
+candidate_id,decision,head,evidence
+2509709,ACCEPT,60,"WP-144: the same 2 notices (2025/BZP 00135429, 00140472) in pl_ezam and pl_atlas, buyer stated as Politechnika Warszawska"
+2508832,ACCEPT,60,"WP-144: NIP 5250005834 (row 29844) and REGON 000001554 (row 283751) are Politechnika Warszawska's two registers"

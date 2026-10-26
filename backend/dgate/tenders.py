@@ -386,6 +386,17 @@ class TenderVersion(BaseModel):
     redated: list[FieldChange] = []
 
 
+class BuyerUnit(BaseModel):
+    # the value of `unit=` on the tender list: the name the notices state, folded (`UNIT_KEY`)
+    key: str
+    # the commonest spelling of it among the notices
+    name: str
+    # the unit's notices as `/v1/tenders?buyer=&unit=&status=all` (the list's default scope, All defence) shows them, each once
+    tenderCount: int
+    # of them, the military goods and works (`scope=core`)
+    coreCount: int
+
+
 class Buyer(BaseModel):
     id: str
     slug: str
@@ -408,6 +419,8 @@ class Buyer(BaseModel):
     cpvCount: int | None = None
     # WP-111: on the buyer's own page, the names its other rows publish under (`variant_names`)
     variantNames: list[str] = []
+    # WP-144: on the buyer's own page, its units (`buyer_units`), most tenders first
+    units: list[BuyerUnit] = []
 
 
 class BuyerPage(BaseModel):
@@ -936,8 +949,10 @@ def _present(conn, rows: list[dict[str, Any]], *, checked: bool = False) -> list
 
 def buyers_with_page(conn, rows: list[dict[str, Any]]) -> set[int]:
     """Of the buyers of these notices, the ones that have a buyer page. A page exists for a buyer family
-    with at least one notice of the default scope (`aggregate_sql`; WP-96: All defence, it was the core scope and a buyer
-    that only supplies (the armed forces buying food) had none, and a link to it was a 404 for 73 of the 389 buyers of the open list (WP-52, T14).
+    with at least one defence notice we show (WP-144 item 5: of any scope; a family whose notices are all outside the default
+    scope, dual-use, has a page that lists them, `_live_buyer`. Before, only the default scope, `aggregate_sql`; WP-96: All
+    defence, it was the core scope and a buyer that only supplies (the armed forces buying food) had none, and a link to it was a
+    404 for 73 of the 389 buyers of the open list (WP-52, T14)).
     A core notice settles it for its own buyer; the others are asked of the database in one query."""
     ids = {r["buyer_org_id"] for r in rows if r.get("buyer_org_id") and not r.get("buyer_withheld")}
     known = {r["buyer_org_id"] for r in rows
@@ -946,10 +961,10 @@ def buyers_with_page(conn, rows: list[dict[str, Any]]) -> set[int]:
     if not ask:
         return known
     got = conn.execute(
-        f"""SELECT x.id FROM unnest(%s::bigint[]) AS x(id)
+        """SELECT x.id FROM unnest(%s::bigint[]) AS x(id)
              WHERE EXISTS (SELECT 1 FROM opportunity o
                             WHERE o.buyer_org_id = ANY(dgate_family_ids(x.id))
-                              AND o.is_defence AND NOT o.suppressed AND NOT o.buyer_withheld AND {_api().SCOPE_SQL["relevant"]})""",
+                              AND o.is_defence AND NOT o.suppressed AND NOT o.buyer_withheld)""",
         (ask,)).fetchall()
     return known | {r["id"] for r in got}
 
@@ -981,28 +996,39 @@ def mirror_hidden_by(o: str, p: str) -> str:
             f"AND (CASE WHEN {o}.source_id = {_PL_ATLAS} THEN NOT {mirror_kept(o, p)} ELSE {mirror_kept(p, o)} END)")
 
 
-def mirror_clause(where: list[str]) -> str:
-    """WP-135: the Polish copy rule alone: `o` is kept unless its kept copy (`mirror_hidden_by`) passes `where` too."""
-    p_where = [re.sub(r"\bo\.", "p.", clause) for clause in where]
+def mirror_clause(where: list[str], extra: list[str] | None = None) -> str:
+    """WP-135: the Polish copy rule alone: `o` is kept unless its kept copy (`mirror_hidden_by`) passes `where` too (and
+    `extra`, written over `p`)."""
+    p_where = [re.sub(r"\bo\.", "p.", clause) for clause in where] + (extra or [])
     return f"NOT EXISTS (SELECT 1 FROM opportunity p WHERE {mirror_hidden_by('o', 'p')} AND " + " AND ".join(p_where) + ")"
 
 
 # How many times the parameters of `where` appear in `where AND collapse_clauses(where)`: once in `where`, once per rule.
 COLLAPSE_REPEATS = 5
 
+# WP-144: a unit of a buyer is the buyer's name as a notice states it, folded (case, accents, punctuation: `dg_fold`,
+# migration 0054), within the buyer's family (its head, the rows merged into it and its members). No grouping beyond that.
+UNIT_KEY = "dg_fold(o.buyer_name_raw)"
+UNIT_MAX_LENGTH = 400
 
-def collapse_clauses(where: list[str], *, same_buyer: bool = False) -> str:
+
+def collapse_clauses(where: list[str], *, same_buyer: bool = False, same_unit: bool = False) -> str:
     """The four rules that show a notice once, as one SQL condition over `opportunity o`:
     the filters (`where`, written over `o`) are applied to the notice that would replace
     this one as well, so a filter that keeps a notice and not its twin never makes it vanish.
     `same_buyer` is for an aggregate over every buyer at once: the replacing notice must be
-    the same buyer's, which is what `buyer = X` in `where` says for the list. The condition
-    carries no parameters of its own: each `%s` of `where` appears once per rule (`COLLAPSE_REPEATS`)."""
+    the same buyer's, which is what `buyer = X` in `where` says for the list. `same_unit` (WP-144) is the same for an
+    aggregate over a buyer's units: the replacing notice must state the same unit (`UNIT_KEY`), which is what `unit=` in
+    `where` says for the list. The condition carries no parameters of its own: each `%s` of `where` appears once per rule
+    (`COLLAPSE_REPEATS`)."""
+    def same_unit_of(alias: str) -> list[str]:
+        return [f"{UNIT_KEY.replace('o.', f'{alias}.')} = {UNIT_KEY}"] if same_unit else []
+
     def extra(alias: str) -> list[str]:
         # The same buyer is the same family (migration 0055): a twin filed under another
         # name variant of the body still replaces the notice.
         return ([f"dgate_buyer_head({alias}.buyer_org_id) = dgate_buyer_head(o.buyer_org_id)"]
-                if same_buyer else [])
+                if same_buyer else []) + same_unit_of(alias)
 
     # A national notice is shown once: it is dropped when the TED notice it was forwarded
     # as would itself be in this result (same filters), so a filter that keeps the national
@@ -1061,7 +1087,7 @@ def collapse_clauses(where: list[str], *, same_buyer: bool = False) -> str:
                        + " AND ".join(rep_where) + ")")
     # WP-135: a Polish notice held from the bulletin and from its mirror is shown once (`mirror_hidden_by`, which already
     # asks for the same buyer family).
-    return " AND ".join((not_collapsed, not_rectified, not_republished, mirror_clause(where)))
+    return " AND ".join((not_collapsed, not_rectified, not_republished, mirror_clause(where, same_unit_of("p"))))
 
 
 # -------------------------------------------------------------- endpoints
@@ -1373,7 +1399,7 @@ def search_match(q: str | None) -> tuple[str, list[Any]] | None:
 
 
 def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min_, max_, currency,
-                    conn=None, *, cpv_main: bool = False, not_cpv: str | None = None):
+                    conn=None, *, cpv_main: bool = False, not_cpv: str | None = None, unit: str | None = None):
     """The WHERE conditions (written over `opportunity o`) and their parameters that a tenders
     list or export applies: one place, so the list and the export can never disagree.
 
@@ -1443,6 +1469,14 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
         else:
             where.append("o.buyer_org_id = ANY(ARRAY(SELECT unnest(dgate_family_ids(%s))))")
             params.append(buyer)
+    unit = unit.replace("\x00", "").strip() if isinstance(unit, str) else None
+    if unit:
+        # WP-144: one unit of the buyer (`buyer_units`): the notices that state that name. Read on a buyer's notices only
+        # (an index walk of the family); a notice whose buyer is withheld names no unit.
+        if buyer is None:
+            raise HTTPException(422, "unit: only with buyer")
+        where += ["NOT o.buyer_withheld", f"{UNIT_KEY} = dg_fold(%s)"]
+        params.append(unit)
     if from_:
         where.append("o.deadline_at >= %s")
         params.append(datetime.combine(from_, time(0, 0), tzinfo=timezone.utc))
@@ -1657,6 +1691,7 @@ def list_tenders(
     confidence: str | None = Query(None, max_length=40),
     cpvMain: bool = Query(False),
     notCpv: str | None = Query(None, max_length=400),
+    unit: str | None = Query(None, max_length=UNIT_MAX_LENGTH),
     conn=Depends(get_conn),
     with_meta=Depends(serves_meta),
 ):
@@ -1672,13 +1707,14 @@ def list_tenders(
         the core notices (the notice itself is defence), soonest deadline first, then the other purchases of
         defence buyers; the same two-read way. The total is the same list's: only the order changes"""
     where, params, eff = _tender_filters(q, country, cpv, status, scope, goods, buyer, from_,
-                                         to, min_, max_, currency, conn=conn, cpv_main=cpvMain, not_cpv=notCpv)
+                                         to, min_, max_, currency, conn=conn, cpv_main=cpvMain, not_cpv=notCpv,
+                                         unit=unit)
     levels = _confidence_levels(confidence)
     if levels:
         where.append("(" + " OR ".join(CONFIDENCE_SQL[lv] for lv in levels) + ")")
     asked = {"q": q, "country": country, "cpv": cpv, "status": status, "scope": scope, "goods": goods,
              "buyer": buyer, "from_": from_, "to": to, "min_": min_, "max_": max_, "currency": currency,
-             "sort": sort, "confidence": confidence, "cpvMain": cpvMain, "notCpv": notCpv}
+             "sort": sort, "confidence": confidence, "cpvMain": cpvMain, "notCpv": notCpv, "unit": unit}
     start = (page - 1) * pageSize
     served = start < MAX_OFFSET
     if status == "all" and sort in (None, "open-first", "deadline-asc"):
@@ -1727,7 +1763,7 @@ def list_tenders(
             # finish. Each notice of the Open list is in this list or stands for its twin here, so its count holds.
             o_where, o_params, _ = _tender_filters(q, country, cpv, "open", scope, goods, buyer, from_,
                                                    to, min_, max_, currency, conn=conn, cpv_main=cpvMain,
-                                                   not_cpv=notCpv)
+                                                   not_cpv=notCpv, unit=unit)
             if levels:
                 o_where.append("(" + " OR ".join(CONFIDENCE_SQL[lv] for lv in levels) + ")")
             total = max(total, _count(conn, o_where, o_params)[0])
@@ -1804,6 +1840,7 @@ def export_tenders(
     notCpv: str | None = Query(None, max_length=400),
     publishedFrom: date | None = None,
     publishedTo: date | None = None,
+    unit: str | None = Query(None, max_length=UNIT_MAX_LENGTH),
     conn=Depends(get_conn),
 ):
     """One page of a CSV export: the notices the list would show for the same filters, newest id
@@ -1816,7 +1853,8 @@ def export_tenders(
     notice date where none is stated (the date the list's "newest published" order reads), so a time
     series can be read a year at a time."""
     where, params, _ = _tender_filters(q, country, cpv, status, scope, goods, buyer, from_,
-                                       to, min_, max_, currency, conn=conn, cpv_main=cpvMain, not_cpv=notCpv)
+                                       to, min_, max_, currency, conn=conn, cpv_main=cpvMain, not_cpv=notCpv,
+                                       unit=unit)
     for bound, op in ((publishedFrom, ">="), (publishedTo, "<=")):
         if bound is not None:
             where.append(f"coalesce(o.published_at, o.notice_date) {op} %s")
@@ -1865,6 +1903,7 @@ def tender_scope_counts(
     currency: str | None = Query(None, pattern="^[A-Za-z]{3}$"),
     cpvMain: bool = Query(False),
     notCpv: str | None = Query(None, max_length=400),
+    unit: str | None = Query(None, max_length=UNIT_MAX_LENGTH),
     conn=Depends(get_conn),
 ):
     """How many notices the list would show under each scope for the same other filters, with
@@ -1879,7 +1918,7 @@ def tender_scope_counts(
     from .config import settings
 
     gone = ("tender-scope-counts-unavailable", q, country, cpv, status, goods, buyer, from_, to, min_, max_, currency,
-            cpvMain, notCpv)
+            cpvMain, notCpv, unit)
     keep = settings().list_cache_seconds > 0 and not EXACT_TOTALS.get()
     if keep and stats._get(gone, stats._list_cache) is not stats._ABSENT:
         raise HTTPException(503, "the count took too long; narrow the request")
@@ -1887,7 +1926,8 @@ def tender_scope_counts(
     capped = False
     for scope in ("relevant", "core", "supply"):
         where, params, _ = _tender_filters(q, country, cpv, status, scope, goods, buyer, from_,
-                                           to, min_, max_, currency, conn=conn, cpv_main=cpvMain, not_cpv=notCpv)
+                                           to, min_, max_, currency, conn=conn, cpv_main=cpvMain, not_cpv=notCpv,
+                                           unit=unit)
         out[scope], c = _count(conn, where, params)
         if c and out[scope] == 0:
             # Not even a lower bound in the time allowed (a search word that matches a fifth of the archive,
@@ -3117,17 +3157,23 @@ def get_buyer(slug: str, conn=Depends(get_conn)):
     row = conn.execute(
         f"SELECT org.id, org.canonical_name, org.country, {family_defence('org')} AS is_defence_buyer "
         "FROM organisation org WHERE org.id = %s", (head,)).fetchone() if at is not None else None
+    if row:
+        row = {**row, "n": counts[at], "open_n": open_n[at], "last_published": last_published[at],
+               "variants": variants[at], "scope": "relevant"}
+    else:
+        row = _live_buyer(conn, head)
     if not row:
         gone = conn.execute("SELECT individual_reason FROM organisation WHERE id = %s AND suppressed", (org_id,)).fetchone()
         if gone:
             # WP-143: a buyer withheld as a natural person was not removed on request: the owner's words, still 410
             raise not_shown_person() if gone["individual_reason"] else removed()
         raise HTTPException(404, "no such buyer")
-    row = {**row, "n": counts[at], "open_n": open_n[at], "last_published": last_published[at],
-           "variants": variants[at]}
     out = _buyer(row, _buyer_names(conn, [row["id"]]))
+    out["scope"] = row["scope"]
+    if row["scope"] != "relevant":
+        out["openCoreCount"] = None
     # WP-96: of the open tenders (the list's default scope), the military goods and works, as `scope=core` counts them
-    if row["open_n"]:
+    elif row["open_n"]:
         where, params, _ = _tender_filters(None, None, None, "open", "core", None, row["id"], None, None, None,
                                            None, None, conn=conn)
         out["openCoreCount"] = _count(conn, where, params)[0]
@@ -3137,7 +3183,121 @@ def get_buyer(slug: str, conn=Depends(get_conn)):
     family = conn.execute("SELECT dgate_family_ids(%s) AS ids", (row["id"],)).fetchone()["ids"]
     out["organisationSlug"] = network_slug_of_buyer(conn, family)
     out["variantNames"] = variant_names(conn, row["id"], family, out["name"])
+    out["units"] = buyer_units(conn, row["id"]) if row["n"] and row["scope"] == "relevant" else []
     return out
+
+
+def _live_buyer(conn, head: int) -> dict[str, Any] | None:
+    """A buyer the stored aggregate (`buyer_base`) does not hold, counted now: one that is newer than the worker's last run
+    (in the default scope, as the aggregate counts it), or (WP-144 item 5, owner's decision of 26 October 2026) one whose
+    defence notices are all outside the default scope (a military product code bought by a civil buyer, dual-use: 2,084
+    buyers on production, 9421 "Dyrektor Urzędu Morskiego w Gdyni" among them), whose page then lists those under `scope`
+    `all`. None for a buyer with no defence notice we show, a row merged into another or one removed on request."""
+    org = conn.execute(
+        f"SELECT org.id, org.canonical_name, org.country, {family_defence('org')} AS is_defence_buyer FROM organisation org "
+        "WHERE org.id = %s AND org.merged_into IS NULL AND NOT org.suppressed", (head,)).fetchone()
+    if not org:
+        return None
+
+    def counted(status: str, scope: str) -> tuple[list[str], list[Any], int]:
+        where, params, _ = _tender_filters(None, None, None, status, scope, None, head, None, None, None, None, None,
+                                           conn=conn)
+        where.append("NOT o.buyer_withheld")
+        return where, params, _count(conn, where, params)[0]
+
+    for scope in ("relevant", "all"):
+        where, params, n = counted("all", scope)
+        if n:
+            break
+    else:
+        return None
+    last = conn.execute(f"SELECT max(o.published_at) AS d FROM opportunity o WHERE {' AND '.join(where)}",
+                        params).fetchone()["d"]
+    variants = conn.execute("SELECT count(*) AS n FROM buyer_family_member WHERE head_org_id = %s", (head,)).fetchone()["n"]
+    return {**org, "n": n, "open_n": counted("open", scope)[2], "last_published": last, "variants": variants,
+            "scope": scope}
+
+
+# WP-144: a buyer's units. A unit is the buyer's name as a notice states it, folded (`UNIT_KEY`), within the buyer's family;
+# each is counted as the tender list counts it with `unit=` (status all, the list's default scope, the list's collapse with the
+# twin in the same unit: `collapse_clauses(same_unit=True)`), so a unit's count is the total its list says, and the military
+# goods and works among them. The collapse costs seconds for the largest bodies (Ministerstvo obrany: 2.3 s, BAAINBw: 4.7 s on
+# production, 26 October 2026; every family at once ran past 30 s), so the worker counts each buyer that states two names or
+# more (`compute_buyer_units`, stored as `list_snapshot` key BUYER_UNITS_KEY with the other snapshots) and the API reads that,
+# as it reads the buyer counts (`buyer_base`). Without a stored result one buyer's are counted live, in a time box (UNITS_MS);
+# past it the buyer has no unit choice until the worker's next run.
+BUYER_UNITS_KEY = "buyer-units"
+UNITS_MS = 1500
+
+
+def _live_units(conn, head: int) -> list[dict[str, Any]]:
+    """One buyer's units, counted now (the buyer's notices, by index)."""
+    where, params, _ = _tender_filters(None, None, None, "all", "relevant", None, head, None, None, None, None, None,
+                                       conn=conn)
+    where.append("NOT o.buyer_withheld")
+    rows = conn.execute(
+        f"SELECT %s::bigint AS head, {UNIT_KEY} AS k, o.buyer_name_raw AS raw, count(*) AS n, "
+        f"count(*) FILTER (WHERE {CORE}) AS core FROM opportunity o WHERE {' AND '.join(where)} "
+        f"AND {collapse_clauses(where, same_unit=True)} GROUP BY 1, 2, 3",
+        [head, *params * COLLAPSE_REPEATS]).fetchall()
+    return _units_by_head(rows).get(head, [])
+
+
+def _units_by_head(rows) -> dict[int, list[dict[str, Any]]]:
+    """Rows of (head, k, raw, n, core) as each head's units, most tenders first; a head with fewer than two has none (a
+    choice of one is no choice). A unit's name is its commonest spelling."""
+    heads: dict[int, dict[str, dict[str, Any]]] = defaultdict(dict)
+    for r in sorted(rows, key=lambda r: (-r["n"], r["raw"] or "")):
+        key = (r["k"] or "").strip()
+        name = clean_buyer_name(r["raw"])
+        if not key or not name:
+            continue
+        u = heads[r["head"]].setdefault(key, {"key": key, "name": name, "tenderCount": 0, "coreCount": 0})
+        u["tenderCount"] += r["n"]
+        u["coreCount"] += r["core"]
+    return {h: sorted(us.values(), key=lambda u: (-u["tenderCount"], u["name"].casefold()))
+            for h, us in heads.items() if len(us) >= 2}
+
+
+def compute_buyer_units(conn) -> dict[str, list[dict[str, Any]]]:
+    """Every buyer's units (the worker, `ops/warm_lists`), keyed by the head's id as text (a JSON object): the buyers whose
+    notices state two names or more (folded once per spelling), each counted as `_live_units` counts it."""
+    heads = [r["head"] for r in conn.execute(
+        f"""SELECT head FROM (SELECT COALESCE(m.head_org_id, o.buyer_org_id) AS head, o.buyer_name_raw AS raw
+                                FROM opportunity o {_FAMILY_O} WHERE {" AND ".join(_core_where())} GROUP BY 1, 2) x
+             GROUP BY head HAVING count(DISTINCT {UNIT_KEY.replace("o.buyer_name_raw", "raw")}) >= 2 ORDER BY head""").fetchall()]
+    return {str(h): us for h in heads if (us := _live_units(conn, h))}
+
+
+def _stored_buyer_units(conn) -> dict[str, Any] | None:
+    from .listcache import SNAPSHOT_HOURS, restored
+
+    try:
+        with conn.transaction():        # a savepoint: a role that may not read the table loses nothing else
+            row = conn.execute("SELECT body FROM list_snapshot WHERE key = %s "
+                               "AND computed_at > now() - make_interval(hours => %s)",
+                               (BUYER_UNITS_KEY, SNAPSHOT_HOURS)).fetchone()
+    except Exception:  # noqa: BLE001 - a snapshot is a shortcut, never a failure
+        return None
+    body = restored(row["body"]) if row else None
+    return body if isinstance(body, dict) else None
+
+
+def buyer_units(conn, head: int) -> list[dict[str, Any]]:
+    """WP-144: the units of the buyer `head` (the family's head), as the worker stored them, else counted live in a time box;
+    none when it has fewer than two."""
+    from . import stats
+    from .config import settings
+
+    stored = (stats.cached_stale((BUYER_UNITS_KEY,), _stored_buyer_units, conn, BUYER_BASE_SECONDS, BUYER_BASE_STALE_SECONDS)
+              if settings().list_cache_seconds > 0 else _stored_buyer_units(conn))
+    if stored is not None:
+        return stored.get(str(head), [])
+    try:
+        with time_boxed(conn, UNITS_MS):
+            return _live_units(conn, head)
+    except psycopg.errors.QueryCanceled:
+        return []
 
 
 def variant_names(conn, head: int, family: list[int] | None, shown: str) -> list[str]:

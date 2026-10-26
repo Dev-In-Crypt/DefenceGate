@@ -457,6 +457,8 @@ export interface TenderFilters {
   notCpv?: string[];
   /** Organisation id. Set by code (the buyer page), never read from the URL. */
   buyer?: string;
+  /** WP-144: one unit of `buyer` (a `BuyerUnit.key`). Set by the buyer page from its own units, only with `buyer`. */
+  unit?: string;
   /** YYYY-MM-DD, inclusive, UTC */
   deadlineFrom?: string;
   deadlineTo?: string;
@@ -709,6 +711,22 @@ export interface Buyer {
   cpvCount?: number | null;
   /** The profile of the same body in the networks layer (/organisations/<slug>), when it took part in funded projects. */
   organisationSlug?: string | null;
+  /** WP-144: on the buyer's own page, its units (the names its notices state), most tenders first; none below two. */
+  units?: BuyerUnit[];
+  /** The scope the counts are of: `relevant` (the default), or WP-144 item 5 `all` for a buyer whose notices are all outside it. */
+  scope?: 'relevant' | 'all';
+}
+
+/** WP-144: a unit of a buyer: the buyer's name as its notices state it (folded: case, accents, punctuation). */
+export interface BuyerUnit {
+  /** The value of `unit=` on the tender list. */
+  key: string;
+  /** Its commonest spelling. */
+  name: string;
+  /** Its tenders as the tender list shows them with `unit=` (any status, All defence, each once). */
+  tenderCount: number;
+  /** Of them, the military goods and works. */
+  coreCount: number;
 }
 
 /** GET /v1/stats/market: counts of core-scope notices published. Never spend, never market size. */

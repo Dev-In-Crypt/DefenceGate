@@ -5,8 +5,9 @@ import { weekMonday, weekOf } from '../digest';
 import { buyerNames, expand, matchesSlots, namesAll } from '../search-terms';
 import { BUYER_PAGE_SIZE, TENDER_PAGE_SIZE, defaultTenderSort } from '../filters';
 import { listOrder } from '../export-cache';
+import { unitKey } from '../buyer-units';
 import type {
-  Buyer, BuyerFilters, CalendarItem, CalendarPage, Change, ChangeFilters, ChangePage, CountryCode, Money, Paginated, Tender, TenderFilters, TenderScope,
+  Buyer, BuyerFilters, BuyerUnit, CalendarItem, CalendarPage, Change, ChangeFilters, ChangePage, CountryCode, Money, Paginated, Tender, TenderFilters, TenderScope,
   TenderVersion,
 } from '../types';
 
@@ -34,6 +35,8 @@ interface RawTender {
   deadline: string | null; publishedAt: string | null; value?: [number, string];
   native?: string; security?: boolean; subcontracting?: boolean;
   sameNotice?: { source: string; url: string | null; id?: string; noticeId?: string }[];
+  /** WP-144: the buyer's name as the notice states it, where it names a unit of the buyer (else the buyer's own name). */
+  unit?: string;
 }
 
 const RAW: RawTender[] = [
@@ -48,6 +51,7 @@ const RAW: RawTender[] = [
     sameNotice: [{ source: 'pl-ezam', url: 'https://ezamowienia.gov.pl', id: '3', noticeId: '2026/BZP 00412345' }] },
   { words: 'dostawa-materialow-eksploatacyjnych-warsztatow', noticeId: '2026/BZP 00412345', sourceId: 'pl-ezam', retrievedAt: '2026-10-11T06:35:00Z',
     title: 'Dostawa materiałów eksploatacyjnych dla warsztatów', titleLanguage: 'pl', buyer: 1, cpvCodes: ['44510000'],
+    unit: 'Demo Armaments Agency, Regional Logistics Base',
     procedure: 'Przetarg nieograniczony', legalBasis: '32009L0081', deadline: '2026-10-30T09:00:00Z', publishedAt: '2026-10-02T00:00:00Z', value: [2_100_000, 'PLN'] },
   { words: 'vehicle-fleet-maintenance-services', noticeId: '601778-2026', sourceId: 'eu-ted', retrievedAt: '2026-10-11T06:20:00Z',
     title: 'Maintenance services for a vehicle fleet', buyer: 3, cpvCodes: ['50110000', '34300000'], procedure: 'Open procedure', legalBasis: '32009L0081',
@@ -186,6 +190,7 @@ export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Ten
     if (status === 'planned' ? !planned : status === 'closed' ? t.status !== 'closed' || planned : status === 'open' && t.status !== 'open') return false;
     if (scope !== 'all' && scope !== 'relevant' && t.scope !== scope) return false;
     if (f.buyer && t.buyerId !== f.buyer) return false;
+    if (f.buyer && f.unit && unitKey(statedName(t)) !== unitKey(f.unit)) return false;
     // WP-90: the main code only, and the codes to leave out (any of the notice's), as the API reads them
     const codes = f.cpvMain ? t.cpvCodes.slice(0, 1) : t.cpvCodes;
     if (f.cpv?.length && !codes.some((c) => f.cpv!.some((p) => c.startsWith(p)))) return false;
@@ -388,7 +393,26 @@ export function queryBuyers(f: BuyerFilters, ref: Date = now()): Paginated<Buyer
   return { items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize };
 }
 
+/** WP-144: the buyer's name as the notice states it (`RawTender.unit`). */
+function statedName(t: Tender): string {
+  return RAW[Number(t.id) - 1]?.unit ?? t.buyerName;
+}
+
+/** WP-144: as the API's `buyer_units`: the names the buyer's notices state, folded, most tenders first; none below two. */
+function buyerUnits(id: string, ref: Date): BuyerUnit[] {
+  const units = new Map<string, BuyerUnit>();
+  for (const t of allTenders(ref).filter((x) => x.buyerId === id)) {
+    const key = unitKey(statedName(t));
+    const u = units.get(key) ?? { key, name: statedName(t), tenderCount: 0, coreCount: 0 };
+    u.tenderCount += 1;
+    if (t.scope === 'core') u.coreCount += 1;
+    units.set(key, u);
+  }
+  return units.size < 2 ? [] : [...units.values()].sort((a, b) => b.tenderCount - a.tenderCount || a.name.localeCompare(b.name));
+}
+
 export function findBuyer(slug: string, ref: Date = now()): Buyer | null {
   const id = /^(\d+)(?:-|$)/.exec(slug)?.[1];
-  return id ? (allBuyers(ref).find((b) => b.id === id) ?? null) : null;
+  const b = id ? (allBuyers(ref).find((x) => x.id === id) ?? null) : null;
+  return b ? { ...b, units: buyerUnits(b.id, ref) } : null;
 }

@@ -7,7 +7,8 @@ totals in them are exact (`tenders.EXACT_TOTALS`; the live list stops counting a
 deeper page of the same filters repeats the exact total from here). Open lists and their counts are not
 kept: a few thousand rows, read live, so that the counts beside a list are the list's own at the same
 time (WP-52, T13). Also kept here: the sitemap's tender and buyer slugs (T15), and the buyer aggregate, a
-pass over every core notice that the buyer pages and the directory read (T14), and (WP-142) the match sets of the
+pass over every core notice that the buyer pages and the directory read (T14), (WP-144) each buyer's units (the names its
+notices state, `tenders.compute_buyer_units`), and (WP-142) the match sets of the
 frequent search words (`tenders.refresh_search_sets`, table `search_match_set`). The API
 (`listcache.cache_list` with `snapshot=True`) reads a row by key when its memory has no answer. Derived data:
 a snapshot never replaces the live query for a filter that was not computed, and an old one (over
@@ -101,6 +102,7 @@ def views(countries: list[str]) -> list[tuple[str, str, dict]]:
         kw = {**base, "pageSize": FEED_PAGE_SIZE, "page": page}
         out.append(("changes", snapshot_key("changes", kw), kw))
     out.append(("buyer-base", tenders.BUYER_BASE_KEY, {}))        # before the slugs, which read it
+    out.append(("buyer-units", tenders.BUYER_UNITS_KEY, {}))      # WP-144: the buyer pages' unit choice
     # WP-98c: the supplier list's value orders, unfiltered (the whole set, and TED's rows)
     for ted_only in (False, True):
         out.append(("supplier-values", suppliers.value_order_key(ted_only), {"ted_only": ted_only}))
@@ -168,6 +170,8 @@ def _write_views(conn, todo, kept: list[str], write: bool) -> tuple[int, int]:
             elif name == "buyer-base":
                 # One pass over every core notice, tested for twins (seconds): the buyer pages read it.
                 body = jsonable_encoder(tenders.compute_buyer_base(conn, exact=True))
+            elif name == "buyer-units":
+                body = tenders.compute_buyer_units(conn)
             elif name == "contract-values":
                 body = money.compute(conn)
             elif name == "supplier-values":
