@@ -425,7 +425,7 @@ def call_verdict(conn, call_id: int, answers: dict[str, Any], payload: dict[str,
 
     item = fit_facts(ids=str(call_id), conn=conn)["items"].get(str(call_id))
     call = {"state": item["state"], "facts": item["facts"], "programme": item["programme"], "topic": item["topic"] or "",
-            "ukraineNoFunding": item["ukraineNoFunding"]} if item else None
+            "ukraineNoFunding": item.get("ukraineNoFunding")} if item else None
     r = verdict.call_fit(call, answers, {"assessments": payload["assessments"], "roadmap": payload["roadmap"]})
     return {"fit": r["fit"], "shown": verdict.shown_fit(r), "word": verdict.fit_word(r), "blockedBy": r["blockedBy"], "conditions": r["conditions"],
             "lines": [{k: x[k] for k in ("key", "label", "verdict", "reason")} for x in ((r.get("result") or {}).get("lines") or [])]}

@@ -81,7 +81,7 @@ def test_a_document_that_refuses_funding_to_ukrainian_entities_marks_its_edip_ca
     assert body["ukraineNoFunding"] is True and body["ukraineBasis"] == {"reason": ukraine.NO_FUNDING, "evidence": SAID}
     # the badge's facts carry the sentence, and the verdict of a Ukrainian applicant is blocked with it
     facts = client.get("/v1/fit/facts", params={"ids": f"{said},{silent}"}).json()["items"]
-    assert facts[str(said)]["ukraineNoFunding"] == SAID and facts[str(silent)]["ukraineNoFunding"] is None
+    assert facts[str(said)]["ukraineNoFunding"] == SAID and "ukraineNoFunding" not in facts[str(silent)]
     answers = WP93["requests"]["P5"]["profile"]
     assert answers["country"] == "UA"
     v = readiness_api.call_verdict(conn, said, answers, {"assessments": [], "roadmap": []})

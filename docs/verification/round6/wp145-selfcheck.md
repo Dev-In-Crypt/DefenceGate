@@ -43,7 +43,7 @@ Articles 9(1) and 2)") is unchanged, and the readiness check keeps blocking a Uk
   another question), reason `call_document_no_funding`, evidence = the sentence. `ukraine.run` reads the stored "Call document" texts
   of the `EDF-EDIP-P-` calls only. Runs nightly (worker, with the cascade flags) and as the ops step below.
 - API: `ukraineNoFunding` (bool) on every call of `/v1/funding` and its detail; filter `uaNoFunding=true` (before the counts);
-  `/v1/fit/facts` items carry the sentence; `verdict.check` adds the line "No funding for Ukrainian entities" (no) for a country UA
+  `/v1/fit/facts` items of such calls carry the sentence (absent otherwise, so older answers are unchanged); `verdict.check` adds the line "No funding for Ukrainian entities" (no) for a country UA
   applicant with the sentence as quote (`readiness/api.call_verdict` passes it). No migration (the reason is a text column).
 - Site: the badge "No funding for Ukrainian entities" on the list card and the call page header (`data-ua-no-funding`); the
   "Ukrainian participants" panel line "Ukrainian entities cannot receive funding under this call: the call document says so." with the
@@ -73,7 +73,13 @@ says it. Outcome list: marked: none; silent: 108, 109, 110, 111, 112, 114, 115, 
 
 ## Runs (`D:\DEFENCEGATE TESTS\wp145\`)
 
-RUNS_PLACEHOLDER
+- ruff: clean. Unit: **4085 passed** (after the last change). Integration (Postgres on 55545, one run on the final tree): **1564
+  passed** (`int3.log`). An earlier run had stopped with the laptop's restart; the run after it found one real failure, fixed:
+  `test_wp32` compares a `/v1/fit/facts` item exactly, so the new key is now sent only for a marked call (absent otherwise).
+- tsc: clean. Lib checks (`node scripts/run-checks.mjs`): all green; **wp93 60/60** pairs and **wp102 58/58** checkable pairs, Python
+  and TS equal (240 and 350 call x profile verdicts); the truth pairs are unchanged.
+- Build: ok. Playwright (lock held): wp145-api, wp132-api, wp91, wp109, wp141: 56 passed, 1 skipped, 3 failed in wp145-api on the
+  spec's own selectors (the panel heading, the folded filter on a phone); after the fix wp145-api **6 passed** (desktop and 375).
 
 ## Files outside the funding/eligibility area
 

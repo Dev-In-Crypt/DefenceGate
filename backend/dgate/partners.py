@@ -426,9 +426,10 @@ def fit_facts(ids: str = Query(..., min_length=1, max_length=1200, pattern=r"^[0
     items: dict[str, Any] = {}
     for r in rows:
         # Which programme's rules judge the call is decided by the browser from these two (lib/fit.ts programmesOfCall).
-        which = {"programme": programme_of(r["programme_code"]), "topic": r["topic_code"],
-                 # WP-145: the call document's sentence that Ukrainian entities cannot receive funding (the verdict blocks with it)
-                 "ukraineNoFunding": redact_emails(r["open_to_ukraine_evidence"]) if r["open_to_ukraine_reason"] == NO_FUNDING else None}
+        which = {"programme": programme_of(r["programme_code"]), "topic": r["topic_code"]}
+        if r["open_to_ukraine_reason"] == NO_FUNDING:
+            # WP-145: the call document's sentence that Ukrainian entities cannot receive funding (the verdict blocks with it); absent otherwise
+            which["ukraineNoFunding"] = redact_emails(r["open_to_ukraine_evidence"])
         got = read.get(r["id"]) or eligibility.page_rules(r["conditions_raw"])
         if got is None:
             items[str(r["id"])] = {"state": "no_source", "basis": None, "facts": {}, **which}
