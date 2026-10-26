@@ -26,11 +26,7 @@ const FAKE = /@fake-api/;
 const desktop = { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } };
 const mobile = { ...devices['Pixel 5'], viewport: { width: 375, height: 812 } };
 const others = external && process.env.E2E_FAKE_API ? {} : { grepInvert: FAKE };
-<<<<<<< HEAD
-const fake = { grep: FAKE, testMatch: ['wp52b-api.spec.ts', 'wp127-api.spec.ts', 'wp63.spec.ts', 'wp132-api.spec.ts', 'wp143-api.spec.ts', 'wp144-api.spec.ts'] };
-=======
-const fake = { grep: FAKE, testMatch: ['wp52b-api.spec.ts', 'wp127-api.spec.ts', 'wp63.spec.ts', 'wp132-api.spec.ts', 'wp143-api.spec.ts', 'wp145-api.spec.ts'] };
->>>>>>> wp-wp145
+const fake = { grep: FAKE, testMatch: ['wp52b-api.spec.ts', 'wp127-api.spec.ts', 'wp63.spec.ts', 'wp132-api.spec.ts', 'wp143-api.spec.ts', 'wp144-api.spec.ts', 'wp145-api.spec.ts'] };
 
 export default defineConfig({
   testDir: './e2e',
