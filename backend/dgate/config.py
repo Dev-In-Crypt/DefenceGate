@@ -261,6 +261,10 @@ class Settings:
     # (docs/sources/es_placsp.md) and decided: the supplier map leaves them out unless this is "true".
     placsp_awards_public: bool = field(
         default_factory=lambda: os.environ.get("DGATE_PLACSP_AWARDS_PUBLIC", "false").strip().lower() == "true")
+    # WP-154: the paid part of the company signals (/v1/account/signals: the full lists and the site's CSV). Closed unless
+    # "true"; the first rows of each signal are public either way (`signals.FREE_ROWS`).
+    signals_full_open: bool = field(
+        default_factory=lambda: os.environ.get("DGATE_SIGNALS_FULL_OPEN", "false").strip().lower() == "true")
     # The monthly PLACSP archive catch-up of the award results (WP-61, `worker.job_placsp_awards_catchup`): a
     # safety net behind the nightly walk, which collects them already. Off unless this is "true" (one download of
     # the previous month's archive, about 400 MB, on the 3rd of each month).

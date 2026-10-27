@@ -18,6 +18,7 @@ import type {
   ShortlistStatus, StateItem, StateKey, Track, PaidFeature as Feature,
 } from './types';
 import { PLAN_LABELS, readPlanChoice, type Billing, type PlanChoice, type PlanId } from './plans';
+import { signalQuery, type SignalAnswer, type SignalFilters } from './signals';
 
 const API_BASE = process.env.DG_API_URL;
 const INTERNAL_SECRET = process.env.DG_INTERNAL_SECRET;
@@ -431,3 +432,14 @@ export const openPortal = () => call<string>('/billing/portal', { method: 'POST'
 
 /** Also moves the account's lastVisitAt: the API does that on this call only. */
 export const getDashboard = () => call<Dashboard>('/dashboard', {}, toDashboard);
+
+/* ---- WP-154: company signals, the paid part (the whole list a page at a time; the CSV asks for CSV_ROWS at once) ---- */
+
+/** 404 `not_open` while DGATE_SIGNALS_FULL_OPEN is off, 402 without a plan that includes it, 401 signed out (lib/signals fullState). */
+export const getFullSignal = (f: Omit<SignalFilters, 'page'>, page: number, pageSize: number) => {
+  const q = signalQuery(f);
+  return call<SignalAnswer>(`/signals/${f.kind}?${q ? `${q}&` : ''}page=${page}&pageSize=${pageSize}`, {}, (raw) => {
+    if (!isRecord(raw) || !Array.isArray(raw.items)) throw new Error('bad signals');
+    return raw as unknown as SignalAnswer;
+  });
+};
