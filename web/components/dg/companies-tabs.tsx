@@ -8,9 +8,10 @@ import { MAIN_NAV } from '@/lib/nav';
  */
 export const COMPANY_TABS = [
   { key: 'suppliers', label: 'Won contracts', href: '/suppliers',
-    says: 'Companies named as winners of defence contracts in public award notices of the last three years.' },
+    says: 'Winners of defence contracts in public award notices of the last three years.' },
+  // WP-150: one line; which programmes the list holds is said by its scope line and its Programme filter
   { key: 'organisations', label: 'In EU-funded projects', href: '/organisations',
-    says: 'Companies and research bodies that took part in EU-funded defence and research projects: the European Defence Fund, Horizon Europe, Horizon 2020 and FP7.' },
+    says: 'Companies and research bodies in EU-funded defence and research projects.' },
 ] as const;
 
 export type CompanyTab = (typeof COMPANY_TABS)[number]['key'];

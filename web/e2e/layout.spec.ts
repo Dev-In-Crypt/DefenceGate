@@ -143,7 +143,8 @@ test('the facts of a call page are a hairline grid of at most three columns', as
   await visit(page, '/funding', { title: /funding/i, h1: /funding/i });
   const href = await page.locator('a[href^="/funding/"]:not([href*="export"])').first().getAttribute('href');
   await visit(page, href!, { title: /DefenceGate/, h1: /.+/ });
-  const cols = await page.locator('dl.facts-grid').first().evaluate((e) => getComputedStyle(e).gridTemplateColumns.split(' ').length);
+  // WP-150: the Key facts card's grid (the page head now has a row of four short facts, the profile-head layout of a buyer page, first)
+  const cols = await page.getByLabel('Key facts').locator('dl.facts-grid').first().evaluate((e) => getComputedStyle(e).gridTemplateColumns.split(' ').length);
   expect(cols).toBeLessThanOrEqual(3);
   expect(cols).toBeGreaterThanOrEqual(1);
   if (isMobile(page)) expect(cols).toBe(1);

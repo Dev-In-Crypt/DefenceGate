@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { AboutData } from '../dg/about-data';
 import { Button } from '../dg/button';
 import { Choice, FoldGroup, Select, TextInput } from '../dg/form';
 import { FilterPanel } from './filter-panel';
@@ -44,7 +45,13 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
   return (
     <FilterPanel activeCount={activeFilterCount(filters)} defaults={{ [PARAM.status]: DEFAULT_STATUS }}>
       <form method="get" action={basePath} role="search" aria-label="Filter funding calls" className={FORM}>
-        <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, call ID or keyword" defaultValue={filters.q ?? ''} hint="Titles, IDs and the source’s topic keywords, whole words; drone also finds unmanned." />
+        {/* WP-150 (as WP-149 on /tenders): one line under the field, what is searched one click away */}
+        <div className="flex min-w-0 flex-col">
+          <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, call ID or keyword" defaultValue={filters.q ?? ''} hint="Matches whole words." />
+          <AboutData summary="What is searched">
+            <p className="m-0">Titles, call IDs and the source’s topic keywords, as whole words; drone also finds unmanned.</p>
+          </AboutData>
+        </div>
         {show('status') && (
           <FoldGroup legend="Status">
             {/* WP-109: six statuses in two columns, so the folded form stays as short as with five (wp47) */}

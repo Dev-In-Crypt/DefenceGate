@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, LockKeyhole } from 'lucide-react';
 import { cpvDictionaryTitle } from '@/lib/cpv';
 import { approachSentence, buyerLine, directiveShare, type Demand } from '@/lib/demand';
 import { formatDateUtc } from '@/lib/format';
@@ -8,7 +8,8 @@ import { buildMetadata } from '@/lib/seo';
 import { WHAT_IS_SENT } from '@/lib/sent-copy';
 import { countryName } from '@/lib/taxonomy';
 import { Button } from '@/components/dg/button';
-import { Callout } from '@/components/dg/blocks';
+import { Callout, NoteLine } from '@/components/dg/blocks';
+import { AboutData } from '@/components/dg/about-data';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
 
 export const revalidate = 3600;
@@ -128,9 +129,12 @@ export default async function SpainAutomotivePage() {
 
       {sample && <Sample d={sample} />}
 
-      <Callout title="Your answers are not stored on our server">
-        <p className="m-0" data-what-is-sent>They are saved in this browser: there is no account and no copy on our server. {WHAT_IS_SENT}</p>
-      </Callout>
+      {/* WP-150: a reassurance is one line, the paragraph behind it unchanged (as on /readiness and /readiness/supplier) */}
+      <NoteLine icon={LockKeyhole} data-privacy-line more={
+        <AboutData summary="What is kept and what is sent">
+          <p className="m-0" data-what-is-sent>They are saved in this browser: there is no account and no copy on our server. {WHAT_IS_SENT}</p>
+        </AboutData>
+      }>Your answers are not stored on our server.</NoteLine>
 
       <section lang="es" aria-labelledby="s-resumen" className="flex min-w-0 flex-col gap-2" data-summary-es>
         <h2 id="s-resumen" className="m-0 text-h3">Resumen en español</h2>

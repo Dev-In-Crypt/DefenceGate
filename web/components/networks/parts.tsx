@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, ListFilter } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { displayName } from '@/lib/display-name';
 import { formatDateUtc, formatNumber } from '@/lib/format';
@@ -8,6 +8,7 @@ import { DEFENCE_PROGRAMMES, DEFENCE_PROGRAMMES_WORDS, PROGRAMME_CHOICES, contri
 import { BUYER_COUNTRIES } from '@/lib/taxonomy';
 import type { FundingRow, OrgFilters, OrgListItem, OrgProjectRow, OrgRef, PartnerRow, ProjectMember, SourceNote } from '@/lib/networks-types';
 import { Button } from '../dg/button';
+import { NoteLine } from '../dg/blocks';
 import { DataTable } from '../dg/data-table';
 import { CARD_BODY, CARD_TEXT, CARD_TITLE } from '../dg/cards';
 import { CardLink } from '../dg/card-link';
@@ -90,7 +91,8 @@ export function ProgrammeScope({ filters, basePath }: { filters: OrgFilters; bas
   const chosen = filters.programme ?? [];
   const link = (f: OrgFilters) => `${basePath}${toOrgQuery({ ...f, page: 1 })}`;
   return (
-    <p role="status" className="m-0 max-w-prose rounded-md bg-surface-inset px-4 py-3 text-body">
+    // WP-150: a scope line (NoteLine, the callout policy of WP-149), not a tinted box: what the list holds and the one link that changes it
+    <NoteLine role="status" icon={ListFilter}>
       {filters.allProgrammes ? (
         <>Showing <strong>all programmes</strong>, including civil research from Horizon Europe, Horizon 2020 and FP7.{' '}
           <Link href={link({ ...filters, allProgrammes: false, programme: [] })} className="font-semibold">Show only {DEFENCE_PROGRAMMES_WORDS}</Link>.</>
@@ -101,7 +103,7 @@ export function ProgrammeScope({ filters, basePath }: { filters: OrgFilters; bas
         <>Showing <strong>{DEFENCE_PROGRAMMES_WORDS}</strong>, the defence programmes.{' '}
           <Link href={link({ ...filters, allProgrammes: true, programme: [] })} className="font-semibold">Show all programmes</Link>, including civil research (Horizon Europe, Horizon 2020, FP7).</>
       )}
-    </p>
+    </NoteLine>
   );
 }
 

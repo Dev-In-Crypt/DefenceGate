@@ -191,6 +191,31 @@ export default async function TenderDetailPage({ params }: Props) {
             <Button href={sourceUrl} external variant="text" className="self-start">View original at {sourceDisplay(tender.source.sourceName)}</Button>
           )}
         </div>
+        {/* WP-150: the facts a reader decides on, on the first screen at 1440 and 375 px: the value, the deadline and the buyer (the
+            status is in the tags above; on a phone the deadline is the box above). The full facts stay in Key facts. */}
+        <div data-head-facts>
+        <FactsGrid className="facts-grid--4">
+          <FactCell label={award ? AWARD_VALUE_LABEL[award.kind] : noticeValueLabel(tender)}>
+            <AmountDisplay money={award ? { amount: award.amount, currency: award.currency } : tender.estimatedValue} />
+          </FactCell>
+          {/* from lg; on a phone the deadline box above says it */}
+          <FactCell label="Deadline" tone={closed ? 'closed' : 'default'} className="max-lg:hidden">
+            {d.iso
+              ? <><time dateTime={d.iso}>{d.utc}</time>{d.countdown && <span className="block font-sans text-small font-normal text-ink-muted">{d.countdown}</span>}</>
+              : <span className="font-sans">{d.label}</span>}
+          </FactCell>
+          <FactCell label={otherBuyers.length > 0 ? 'Buyers' : 'Buyer'} className="min-[360px]:col-span-2">
+            <span className="font-sans text-body">
+              {tender.buyerSlug
+                ? <Link href={`/buyers/${tender.buyerSlug}`} className="py-2 font-semibold">{buyer}</Link>
+                : <span className="font-semibold">{buyer}</span>}
+              {/* WP-95: every buyer of a joint procurement, as the notice names them */}
+              {otherBuyers.length > 0 && <span data-other-buyers>{otherBuyers.map((b) => `; ${displayName(b, 'title')}`).join('')} (joint procurement)</span>}
+            </span>
+          </FactCell>
+        </FactsGrid>
+        </div>
+        {/* the source's own words and the method lines under the facts */}
         {nonEnglish && <LangLabel kind="language" code={tender.titleLanguage} />}
         {tender.originalTitle && (
           <p className="m-0 max-w-prose text-body text-ink-muted">
@@ -198,14 +223,6 @@ export default async function TenderDetailPage({ params }: Props) {
             {' · '}<LangLabel kind="title" code={tender.originalLanguage} />
           </p>
         )}
-        <p className="m-0 max-w-prose text-body">
-          <span className="text-ink-muted">{otherBuyers.length > 0 ? 'Buyers: ' : 'Buyer: '}</span>
-          {tender.buyerSlug
-            ? <Link href={`/buyers/${tender.buyerSlug}`} className="py-2 font-semibold">{buyer}</Link>
-            : <span className="font-semibold">{buyer}</span>}
-          {/* WP-95: every buyer of a joint procurement, as the notice names them */}
-          {otherBuyers.length > 0 && <span data-other-buyers>{otherBuyers.map((b) => `; ${displayName(b, 'title')}`).join('')} (joint procurement)</span>}
-        </p>
         {/* WP-95: who the award names; natural persons are counted, never named */}
         {(awardedTo.length > 0 || awardedPersons > 0) && (
           <p className="m-0 max-w-prose text-body" data-awarded-to>

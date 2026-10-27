@@ -114,8 +114,8 @@ test('3: the five steps ask 24 questions at least, and the pages that count them
   expect(await walk(page, SHORTEST), 'questions per step, shortest route').toEqual([7, 5, 2, 8, 2]);
   await visit(page, '/', { title: /DefenceGate/, h1: 'Win, partner, qualify.' });
   const tile = page.locator('[data-tile]').nth(2);
-  await expect(tile).toContainText('five steps of 24 to 35 questions');
-  await expect(tile.locator('[data-figure]')).toContainText('24 to 35 questions');
+  // WP-150: the tile lost its description; its figure says the five steps and the range
+  await expect(tile.locator('[data-figure]')).toContainText('steps, 24 to 35 questions');
   await visit(page, '/readiness', { title: /readiness/i, h1: /readiness/i, text: [/24 to 35 in all/] });
   await visit(page, '/check', { title: /Check my company/, h1: 'Check my company', text: [/Five steps of 24 to 35 questions/] });
 });
@@ -127,8 +127,8 @@ test('3: the services route of the supplier profile asks 18 to 23 questions, wit
   expect(await countQuestions(form), 'services, outside Spain').toBe(18);
   await page.getByLabel('Country where your company is established').selectOption('ES');
   expect(await countQuestions(form), 'services, in Spain').toBe(23);
-  await visit(page, '/', { title: /DefenceGate/, h1: 'Win, partner, qualify.' });
-  await expect(page.locator('[data-tile]').nth(2)).toContainText('To supply defence buyers, one page of 17 to 53 questions.');
+  // WP-150: the home tile no longer describes the routes; /check, which it opens, says the supplier profile's range
+  await visit(page, '/check', { title: /Check my company/, h1: 'Check my company', text: ['one page of 17 to 53 questions'] });
 });
 
 test('2: step 1 asks one question of what the organisation is, and its answer sets both inputs of the rules', async ({ page }) => {

@@ -163,6 +163,21 @@ export default async function CallDetailPage({ params }: Props) {
         title={displayName(call.title)}
         titleProps={{ lang: nonEnglish ? call.titleLanguage : undefined, className: closed ? 'text-ink-muted' : 'text-ink' }}
       >
+        {/* WP-150: the facts a reader decides on, on the first screen at 1440 and 375 px: the deadline, the budget and who funds it (the
+            status is in the tags above). The deadline box and Key facts below keep the detail; the source's words and method lines follow. */}
+        <div data-head-facts>
+          <FactsGrid className="facts-grid--4">
+            {!outOfScope && (
+              <FactCell label="Deadline" tone={closed ? 'closed' : 'default'}>
+                {d.iso
+                  ? <><time dateTime={d.iso}>{d.utc}</time>{d.countdown && <span className="block font-sans text-small font-normal text-ink-muted">{d.countdown}</span>}</>
+                  : <span className="font-sans">{d.label}</span>}
+              </FactCell>
+            )}
+            <FactCell label="Budget"><BudgetDisplay money={call.budget} note={call.budgetNote} /></FactCell>
+            <FactCell label="Funder" className="min-[360px]:col-span-2"><span className="font-sans text-body">{funderLine(call)}</span></FactCell>
+          </FactsGrid>
+        </div>
         {nonEnglish && <LangLabel kind="language" code={call.titleLanguage} />}
         {call.originalTitle && (
           <p className="m-0 max-w-prose text-body text-ink-muted">
@@ -170,7 +185,6 @@ export default async function CallDetailPage({ params }: Props) {
             {' · '}<LangLabel kind="title" code={call.originalLanguage} />
           </p>
         )}
-        <p className="m-0 max-w-prose text-body text-ink-muted">{funderLine(call)}</p>
         {/* WP-91 (UX audit 6): what the call funds and whether one can apply, on the first screen (phone included) */}
         {/* WP-92: the topic description's own Objective / Expected outcome, commercial sentences only (backend topic_summary.py) */}
         {call.fundsSummary ? (

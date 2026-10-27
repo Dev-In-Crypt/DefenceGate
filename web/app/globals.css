@@ -151,7 +151,8 @@
   .facts-grid.facts-grid--flush { clip-path: inset(1px 0 0 0); }
   .facts-grid.facts-grid--flush > div:first-child { border-top-width: 1px; }
   /* Four short facts in one row (a profile head), two by two when narrow. */
-  .facts-grid.facts-grid--4 { grid-template-columns: repeat(auto-fit, minmax(min(100%, max(160px, calc((100% - 72px) / 4 - 1px))), 1fr)); }
+  /* WP-150: 152 px, so a 375 px phone (343 px of content) gets the two columns this rule meant (at 160 px two needed 344 and it got one) */
+  .facts-grid.facts-grid--4 { grid-template-columns: repeat(auto-fit, minmax(min(100%, max(152px, calc((100% - 72px) / 4 - 1px))), 1fr)); }
   /* AutoGrid: as many columns as fit at --auto-min, a lone card takes the row. */
   .auto-grid {
     display: grid; gap: 16px;

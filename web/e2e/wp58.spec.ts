@@ -188,6 +188,7 @@ test('the empty-state link of /digest is underlined like any link in running tex
 
 test('the buyer link of a tender page is a 32 px target (it follows "Buyer:", so the stand-alone rule of WP-55 missed it)', async ({ page }) => {
   await page.goto('/tenders/1-framework-agreement-machined-aluminium-housings');
-  const h = await page.locator('#main p', { hasText: 'Buyer:' }).getByRole('link').first().evaluate((el) => el.getBoundingClientRect().height);
+  // WP-150: the buyer is a fact of the page head ("Buyer" above it), no longer a "Buyer:" sentence
+  const h = await page.locator('#main [data-head-facts] div', { hasText: 'Buyer' }).getByRole('link').first().evaluate((el) => el.getBoundingClientRect().height);
   expect(h).toBeGreaterThanOrEqual(32);
 });

@@ -59,6 +59,24 @@ function route(method, path, headers, body) {
     return [200, { id: 'u1', email: 'ann@example.test', createdAt: '2026-10-22T08:00:00Z', profile: { role: 'supplier', tracks: ['tenders'], countries: [], scope: 'core', cadence: 'daily' },
       onboarded: true, lastVisitAt: null, terms: { current: true }, security: { hasPassword: true, totp: false } }];
   }
+  // WP-150 (e2e/wp150.spec.ts): a dashboard with an entry in each block that has titles (a saved search, a change, a follow)
+  if (path === '/v1/account/dashboard') {
+    if (headers['x-dg-session'] !== SESSION) return [401, { error: 'unauthenticated' }];
+    const src = { sourceId: 'ted', sourceName: 'TED', url: 'https://ted.europa.eu/en/notice/-/detail/1', retrievedAt: '2026-10-11T06:20:00Z', lastChangeKind: 'first_seen', licence: 'Commission Decision 2011/833/EU', attribution: '© European Union, TED' };
+    const tender = { id: '102', slug: '102-sample-notice', noticeId: '102-2026', title: 'Maintenance of logistics vehicles (sample)', titleLanguage: 'en', originalTitle: null, originalLanguage: null,
+      buyerId: '5', buyerSlug: '5-sample-buyer', buyerName: 'Sample Ministry of Defence', country: 'PL', cpv: '35800000', cpvCodes: ['35800000'], procedure: 'Open procedure', legalBasis: '32009L0081',
+      scope: 'core', deadline: '2026-10-23T12:00:00Z', publishedAt: '2026-10-01T00:00:00Z', estimatedValue: null, status: 'open', statusNative: 'open', amended: true, versionCount: 3,
+      securityClearance: false, subcontracting: false, sameNotice: [], source: src };
+    return [200, {
+      lastVisitAt: '2026-10-10T08:00:00Z',
+      matches: [{ search: { id: 'q1', name: 'Poland, vehicles', kind: 'tender' }, newCount: 1, totalCount: 17, items: [tender] }],
+      closingSoon: [{ kind: 'tender', item: tender, source: 'shortlist' }],
+      changes: [{ kind: 'tender', item: tender, observedAt: '2026-10-11T06:00:00Z', changes: [{ field: 'deadline', label: 'Deadline', before: '2026-10-16T12:00:00Z', after: '2026-10-23T12:00:00Z' }] }],
+      following: [{ kind: 'buyer', ref: '5', name: 'Sample Ministry of Defence', openCount: 4, latestAt: '2026-10-11T06:00:00Z' }],
+      shortlist: { counts: { bidding: 1 }, items: [{ kind: 'tender', ref: '102', status: 'bidding', note: '', createdAt: '2026-10-04T08:00:00Z', updatedAt: '2026-10-10T08:00:00Z', item: tender }] },
+      pulse: null,
+    }];
+  }
   return [404, { detail: 'not here' }];
 }
 

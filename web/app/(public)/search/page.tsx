@@ -128,7 +128,8 @@ export default async function SearchPage({ searchParams }: Props) {
     <>
       <PageHeader crumbs={[{ label: 'Home', href: '/' }, { label: 'Search', href: '/search' }]} title="Search"
         lead={q ? undefined : 'One search over tenders, funding calls, buyers and companies. Each part shows its first five matches and leads to the full list.'}>
-        <SiteSearchForm id="page-search" defaultValue={q} className="max-w-2xl" />
+        {/* WP-150: the large page search fills the column, as on home (WP-149) */}
+        <SiteSearchForm id="page-search" defaultValue={q} />
       </PageHeader>
       {(result === 'failed' || result === 'limited') && (
         <ErrorState title={result === 'limited' ? 'Too many searches from your network just now' : 'The search is not available right now'} retryHref={`/search?${new URLSearchParams({ q })}`}>

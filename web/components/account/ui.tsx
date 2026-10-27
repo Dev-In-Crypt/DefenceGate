@@ -81,6 +81,20 @@ export function LoadFailed({ href }: { href: string }) {
 }
 
 /**
+ * The title of a row in an account block: a link to the public page, or plain text when there is none. WP-150: always in a span of
+ * its own, never the direct child of an `li`: globals.css underlines every `li > a` at rest (a link in running text), and the
+ * dashboard's "Changes on what you follow" put its title link straight in the `li`, the one block whose titles were underlined.
+ * Here the title underlines only on its own hover, as in every other block (the card hover rule).
+ */
+export function ItemTitle({ href, children }: { href: string | null; children: React.ReactNode }) {
+  return (
+    <span className="min-w-0 break-words text-body font-semibold" data-item-title>
+      {href ? <Link href={href} className="text-ink">{children}</Link> : children}
+    </span>
+  );
+}
+
+/**
  * One notice or call as a compact row: title (a link to the public page), who it is from and the deadline.
  * `item` null is a notice that is no longer published; the row says so and stays removable elsewhere.
  */
@@ -105,9 +119,7 @@ export function ItemRow({ kind, item, refId, badge }: {
   return (
     <li className="flex flex-col gap-2 rounded-md bg-surface-inset p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
       <div className="flex min-w-0 flex-col gap-1">
-        {href
-          ? <Link href={href} className="break-words text-body font-semibold text-ink">{item.title}</Link>
-          : <span className="break-words text-body font-semibold">{item.title}</span>}
+        <ItemTitle href={href}>{item.title}</ItemTitle>
         {who && <span className="text-small text-ink-muted">{who}</span>}
         {badge && <span className="pt-1">{badge}</span>}
       </div>

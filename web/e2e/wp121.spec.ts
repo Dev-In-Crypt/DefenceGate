@@ -81,13 +81,13 @@ for (const theme of ['light', 'dark'] as const) {
 test('3: the check tile says the questions it asks, not "five short sets"', async ({ page }) => {
   await visit(page, '/', HOME);
   const tile = page.locator('[data-tile]').nth(2);
-  await expect(tile).toContainText('five steps of 24 to 35 questions');
-  // WP-131: the range counted on every route of the form (e2e/wp131.spec.ts 4, lib/question-counts.ts)
-  await expect(tile).toContainText('To supply defence buyers, one page of 17 to 53 questions.');
+  // WP-150: the tile is one line, its figure and one action; the figure says the readiness check's range, /check says both ranges
+  await expect(tile.locator('[data-figure]')).toContainText('steps, 24 to 35 questions');
   await expect(tile).not.toContainText(/Five short sets/i);
-  // the readiness check says the same of itself; the chooser page too
+  // the readiness check says the same of itself; the chooser page too, with the supplier profile's range
+  // (WP-131: the range counted on every route of the form, e2e/wp131.spec.ts 4, lib/question-counts.ts)
   await visit(page, '/readiness', { title: /readiness/i, h1: /readiness/i, text: [/24 to 35 in all/] });
-  await visit(page, '/check', { title: /Check my company/, h1: 'Check my company', text: [/Five steps of 24 to 35 questions/] });
+  await visit(page, '/check', { title: /Check my company/, h1: 'Check my company', text: [/Five steps of 24 to 35 questions/, 'one page of 17 to 53 questions'] });
 });
 
 /** The questions a form shows now: each group (a fieldset) once, and each field outside a group. */
@@ -134,10 +134,10 @@ test('4: "Find partners" opens the organisations in EU-funded defence projects, 
 
 test('7: EDF, EDIP and SAFE are expanded where the home page first names them, and /glossary has them', async ({ page }) => {
   await visit(page, '/', HOME);
-  const lead = page.locator('section[aria-labelledby="hero"] p').first();
-  for (const [id, full] of [['edf', 'European Defence Fund'], ['edip', 'European Defence Industry Programme'], ['safe', 'Security Action for Europe']]) {
-    await expect(lead.locator(`abbr[data-glossary="${id}"]`)).toHaveAttribute('title', full);
-  }
+  // WP-150: the owner's shorter lead names no programme, so the hero has none to expand; nothing above the tiles names one bare
+  const hero = page.locator('section[aria-labelledby="hero"]');
+  expect(await hero.innerText()).not.toMatch(/\b(EDF|EDIP|SAFE)\b/);
+  expect(await page.locator('section[aria-label="Three questions"]').innerText()).not.toMatch(/\b(EDF|EDIP|SAFE)\b/);
   await visit(page, '/glossary', { title: /glossary/i, h1: /glossary/i });
   for (const id of ['edf', 'edip', 'safe']) await expect(page.locator(`[id="${id}"]`)).toBeAttached();
 });

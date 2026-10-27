@@ -128,7 +128,7 @@ export function CallListTemplate({
 
           <FilterNotices notices={notices} />
           {/* Below lg the filters are folded away and the column is one. WP-106 (p09): the tools before the results, not after 38,000 px of them. */}
-          {exportHref && result.total > 0 && <ResultTools csvHref={exportHref} calendarHref={calendarHref} icsHref={filters.status === 'closed' ? undefined : icsHref} className="lg:hidden" total={result.total} status={filters.status} />}
+          {exportHref && result.total > 0 && <ResultTools csvHref={exportHref} calendarHref={calendarHref} icsHref={filters.status === 'closed' ? undefined : icsHref} className="lg:hidden" compact total={result.total} status={filters.status} />}
           {view === 'list' && result.total > 0 && <FitFilter whole={whole} />}
           {result.search && result.search.alsoSearched.length > 0 && (
             <p className="m-0 text-small text-ink-muted">Also searched: {result.search.alsoSearched.join(', ')}.</p>

@@ -210,22 +210,22 @@ export default async function SuppliersPage({ searchParams }: Props) {
         )}
         <LiveForm defaults={{ sort: 'awards' }}>
         <form method="get" action="/suppliers" role="search" aria-label="Find suppliers" className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-small font-semibold">Company name
+          <label className="flex flex-col gap-2 text-small font-semibold">Company name
             <input name="q" defaultValue={f.q} maxLength={100} className={INPUT} />
           </label>
-          <label className="flex flex-col gap-1 text-small font-semibold">Supplier's country, for example DE
+          <label className="flex flex-col gap-2 text-small font-semibold">Supplier's country, for example DE
             <input name="country" defaultValue={f.country} maxLength={20} className={`${INPUT} w-40`} />
           </label>
-          <label className="flex flex-col gap-1 text-small font-semibold">Buyer's country, for example ES
+          <label className="flex flex-col gap-2 text-small font-semibold">Buyer's country, for example ES
             <input name="buyerCountry" defaultValue={f.buyerCountry} maxLength={20} className={`${INPUT} w-40`} aria-describedby="country-help" />
           </label>
-          <label className="flex flex-col gap-1 text-small font-semibold">Product, for example ammunition
+          <label className="flex flex-col gap-2 text-small font-semibold">Product, for example ammunition
             <input name="product" defaultValue={f.product} maxLength={60} className={`${INPUT} w-48`} aria-describedby="product-help" />
           </label>
-          <label className="flex flex-col gap-1 text-small font-semibold">CPV code, for example 35
+          <label className="flex flex-col gap-2 text-small font-semibold">CPV code, for example 35
             <input name="cpv" defaultValue={f.cpv} maxLength={40} className={`${INPUT} w-40`} />
           </label>
-          <label className="flex flex-col gap-1 text-small font-semibold">Order
+          <label className="flex flex-col gap-2 text-small font-semibold">Order
             <span className={cn(boxCls(), 'relative text-small font-normal')}>
               <ListboxSelect name="sort" defaultValue={f.sort} aria-describedby="order-help" accessibleName="Order"
                 className="text-small font-normal"
@@ -233,7 +233,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
             </span>
           </label>
           {(pageCredit || f.source) && (
-            <label className="flex flex-col gap-1 text-small font-semibold">Sources
+            <label className="flex flex-col gap-2 text-small font-semibold">Sources
               <span className={cn(boxCls(), 'relative text-small font-normal')}>
                 <ListboxSelect name="source" defaultValue={f.source ?? ''} aria-describedby="source-help" accessibleName="Sources"
                   className="text-small font-normal"
