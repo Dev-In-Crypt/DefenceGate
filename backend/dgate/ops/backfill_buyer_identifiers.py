@@ -207,11 +207,14 @@ def load_plan(conn):
 
 def collect_identifiers(per: dict[int, list[tuple[str, int, str]]], read_lines, *,
                         rounds: int = 3, max_bundles: int | None = None, log_every: int = 50,
+                        identify=None,
                         ) -> tuple[dict[int, collections.Counter], dict[str, int]]:
     """One usable identifier for each organisation, from as few bundles as it takes.
 
     `per` maps an organisation to all its notices as (bundle, line, country);
-    `read_lines(bundle)` returns the bundle's JSON lines. Round one reads the fewest
+    `read_lines(bundle)` returns the bundle's JSON lines; `identify(record, country)` reads
+    the identifier of one landed record (default: a TED notice's, `notice_identifier`;
+    WP-151's BOAMP repair passes its own). Round one reads the fewest
     bundles that contain a notice of every organisation and takes one notice from
     each. An organisation whose notice stated no usable identifier goes into the next
     round with its other notices, up to `rounds`.
@@ -254,7 +257,7 @@ def collect_identifiers(per: dict[int, list[tuple[str, int, str]]], read_lines, 
                 if not 0 <= line < len(lines):
                     continue
                 stats["notices"] += 1
-                ident = notice_identifier(json.loads(lines[line]), country)
+                ident = (identify or notice_identifier)(json.loads(lines[line]), country)
                 if ident:
                     idents[o][ident] += 1
                 else:
