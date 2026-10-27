@@ -32,6 +32,7 @@ methods, plus the numbers this run attached (logged in `organisation_repair`).
     python -m dgate.ops.boamp_buyer_ids                          # report: changes nothing
     python -m dgate.ops.boamp_buyer_ids --yes                    # merge and attach; prints the undo
     python -m dgate.ops.boamp_buyer_ids --undo FROM TO [--yes]   # undo one run
+    python -m dgate.ops.boamp_buyer_ids --groups FILE [--yes]    # merge groups a person reviewed (method boamp_siret_review)
 
 Afterwards: `python -m dgate.reprocess --reclassify-serving --yes` (the serving rows read the flag
 and the buyer class from the organisation they point at).
@@ -60,9 +61,11 @@ log = logging.getLogger("boamp_buyer_ids")
 
 METHOD_ID = "boamp_siret"
 METHOD_NAME = "boamp_exact_name"
-METHODS = (METHOD_ID, METHOD_NAME)
+METHOD_REVIEW = "boamp_siret_review"           # a group the owner reviewed (--groups FILE)
+METHODS = (METHOD_ID, METHOD_NAME, METHOD_REVIEW)
 CONF_ID = 0.90
 CONF_NAME = db.CONF_EXACT_NAME
+CONF_REVIEW = 0.95
 DETECTED_BY = "ops.boamp_buyer_ids"
 ATTACHED = "boamp_identifier_attached"       # organisation_repair action of a number this run attached
 SWITCH = date(2024, 1, 1)                    # BOAMP's eForms notices start in 2024
@@ -348,6 +351,48 @@ def run(conn, store: RawStore, *, apply: bool = False, max_bundles: int | None =
     return result
 
 
+def apply_groups(conn, groups: list[dict[str, Any]], *, apply: bool = False, out=print) -> dict[str, Any]:
+    """Groups a person reviewed: [{"group": "G5", "head": id, "members": [id, ...]}], each member merged into its head.
+
+    A member is left when either row is gone or merged since, or `db.merge_organisations` refuses it (another country,
+    two different registered numbers). Report by default; undone with `--undo` over the printed window."""
+    ids = sorted({g["head"] for g in groups} | {m for g in groups for m in g["members"]})
+    live = {r["id"]: r for r in conn.execute(
+        "SELECT id, merged_into, country FROM organisation WHERE id = ANY(%s)", (ids,)).fetchall()}
+    todo = [(g["group"], g["head"], m) for g in groups for m in g["members"]
+            if all(live.get(i) and live[i]["merged_into"] is None for i in (g["head"], m))]
+    res: dict[str, Any] = {"groups": len(groups), "members": sum(len(g["members"]) for g in groups),
+                           "to_merge": len(todo), "merged": 0, "skipped": 0}
+    out(f"reviewed groups: {res['groups']}, members {res['members']}, still separate and to merge {len(todo)}")
+    if not apply:
+        conn.rollback()
+        out("report only: nothing written (add --yes)")
+        return res
+    started = conn.execute("SELECT now() AS t").fetchone()["t"]
+    conn.commit()
+    for group, head, member in todo:
+        try:
+            with conn.transaction():
+                db.merge_organisations(conn, head, member, method=METHOD_REVIEW, confidence=CONF_REVIEW,
+                                       evidence=f"BOAMP buyer group {group}, reviewed by the owner",
+                                       detected_by=DETECTED_BY)
+            conn.commit()
+            res["merged"] += 1
+        except Exception as exc:  # noqa: BLE001 - logged; the other members go on
+            log.error("%s: %s <- %s not merged: %s", group, head, member, exc)
+            conn.rollback()
+            res["skipped"] += 1
+    ended = conn.execute("SELECT now() AS t").fetchone()["t"]
+    conn.commit()
+    res["window"] = (started.isoformat(), ended.isoformat())
+    res["families_written"] = buyer_families.run(conn, write=True)
+    res["directory_rows"] = networks.refresh_organisation_network(conn)["organisations"]
+    out(f"merged {res['merged']}, left {res['skipped']}")
+    out(f"to undo this run: python -m dgate.ops.boamp_buyer_ids --undo '{started.isoformat()}' "
+        f"'{ended.isoformat()}' [--yes]")
+    return res
+
+
 def undo(conn, start: str, end: str, *, apply: bool = False, out=print) -> dict[str, Any]:
     """Undo one run: its merges (`ops.undo_merges` over METHODS in the window) and the numbers it attached."""
     attached = conn.execute(
@@ -376,11 +421,16 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--undo", nargs=2, metavar=("FROM", "TO"), help="undo the run of [FROM, TO) (timestamps with zone)")
     p.add_argument("--max-bundles", type=int, default=None, help="stop after this many bundles (a sample)")
     p.add_argument("--rounds", type=int, default=3)
+    p.add_argument("--groups", metavar="FILE", help="merge the groups a person reviewed (JSON list of "
+                   '{"group", "head", "members"}); "-" reads standard input')
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     with db.connect(settings().dsn) as conn:
         if a.undo:
             undo(conn, *a.undo, apply=a.yes)
+        elif a.groups:
+            with (open(a.groups, encoding="utf-8") if a.groups != "-" else sys.stdin) as f:
+                apply_groups(conn, json.load(f), apply=a.yes)
         else:
             run(conn, build_store(), apply=a.yes, max_bundles=a.max_bundles, rounds=a.rounds)
     return 0

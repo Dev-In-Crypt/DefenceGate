@@ -150,3 +150,29 @@ def test_the_report_changes_nothing_and_yes_merges_and_undo_restores(conn, tmp_p
     assert {k: v for k, v in back.items() if k != "26-10"} == orgs
     assert _n(conn, """SELECT count(*) n FROM organisation_merge_candidate
                         WHERE status = 'merged' AND match_method = ANY(%s)""", list(op.METHODS)) == 0
+
+
+def test_reviewed_groups_merge_with_their_method_and_undo_restores(conn, tmp_path, monkeypatch):
+    store = FileRawStore(tmp_path / "raw")
+    orgs = _land_split(conn, store, monkeypatch)
+    head, m1, m2 = orgs["18-12"], orgs["19-12"], orgs["25-12"]
+    groups = [{"group": "G1", "head": head, "members": [m1, m2]}]
+    before = _state(conn)
+
+    report = op.apply_groups(conn, groups, apply=False, out=lambda *_: None)
+    assert _state(conn) == before
+    assert (report["members"], report["to_merge"]) == (2, 2)
+
+    done = op.apply_groups(conn, groups, apply=True, out=lambda *_: None)
+    assert (done["merged"], done["skipped"]) == (2, 0)
+    rows = {r["id"]: r for r in conn.execute(
+        "SELECT id, merged_into, merge_method, merge_confidence FROM organisation WHERE id = ANY(%s)", ([m1, m2],))}
+    assert all((r["merged_into"], r["merge_method"], float(r["merge_confidence"])) == (head, op.METHOD_REVIEW, 0.95)
+               for r in rows.values())
+    assert _n(conn, "SELECT count(*) n FROM opportunity_version") == before[4]       # the archive is not touched
+    assert op.apply_groups(conn, groups, apply=False, out=lambda *_: None)["to_merge"] == 0   # a second run finds nothing
+
+    undone = op.undo(conn, *done["window"], apply=True, out=lambda *_: None)
+    assert undone["applied"]
+    back = {r["native_id"]: r["buyer_org_id"] for r in conn.execute("SELECT native_id, buyer_org_id FROM opportunity")}
+    assert back == orgs
