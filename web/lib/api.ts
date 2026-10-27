@@ -14,6 +14,8 @@ import { now } from './deadline';
 import { FEED_MAX } from './analyst';
 import { clientIp } from './hits';
 import { recall, remember } from './last-good';
+import { signalQuery, type SignalAnswer, type SignalFilters } from './signals';
+import * as signalsMock from './mock/signals';
 import * as callsMock from './mock/calls';
 import * as sourcesMock from './mock/sources';
 import * as statsMock from './mock/stats';
@@ -557,6 +559,18 @@ export async function getBuyer(slug: string): Promise<Buyer | null> {
   if (!isBuyerSlug(slug)) return null;
   if (API_BASE) return http<Buyer>(`/v1/buyers/${encodeURIComponent(slug)}`, 'revalidate', DETAIL_REVALIDATE_SECONDS);
   return tenderMock.findBuyer(slug);
+}
+
+/**
+ * WP-154: the first rows of a company signal and how many there are (GET /v1/signals/{kind}). Visitor-shaped filters are not
+ * kept in the shared cache; the unfiltered lists revalidate as the other lists. The paid part (the rest) is lib/account.ts.
+ */
+export async function getSignal(f: Omit<SignalFilters, 'page'>): Promise<SignalAnswer> {
+  if (!API_BASE) return signalsMock.querySignal(f);
+  const q = signalQuery(f);
+  const res = await http<SignalAnswer>(`/v1/signals/${f.kind}${q ? `?${q}` : ''}`, q ? 'no-store' : 'revalidate', LIST_REVALIDATE_SECONDS);
+  if (!res) throw new ApiError(404, `GET /v1/signals/${f.kind} failed`);
+  return res;
 }
 
 /**

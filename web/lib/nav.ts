@@ -58,6 +58,8 @@ export const FOOTER_GROUPS: { title: string; links: readonly FooterLink[] }[] = 
   ] },
   { title: 'About', links: [
     { label: 'About DefenceGate', href: '/about' }, { label: 'Pricing', href: '/pricing' }, { label: 'Opportunity pack', href: '/pack' },
+    // WP-154: footer only until the owner places it in the menu
+    { label: 'Company signals', href: '/signals' },
     { label: 'Alerts (not open yet)', href: '/alerts' },
   ] },
 ];

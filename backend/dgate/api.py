@@ -1177,6 +1177,13 @@ from .search import router as _search_router  # noqa: E402
 
 app.include_router(_search_router)
 
+# WP-154: company signals (signals.py): the first rows public, the full lists behind DGATE_SIGNALS_FULL_OPEN and a plan.
+from .signals import account_router as _signals_account_router  # noqa: E402
+from .signals import router as _signals_router  # noqa: E402
+
+app.include_router(_signals_router)
+app.include_router(_signals_account_router)
+
 
 @app.exception_handler(RequestValidationError)
 async def _validation_error(request: Request, exc: RequestValidationError):
