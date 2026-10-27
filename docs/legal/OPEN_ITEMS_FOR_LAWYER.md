@@ -85,3 +85,15 @@ nothing it collects is served until these are answered. Measurements: `docs/sour
 5. Does the statutory duty to publish put these notices outside database rights (sui generis)?
 6. Notices a buyer sent only to a state platform and not to the BKMS: is anything we may use covering
    them? (A coverage question, but it decides what the product may claim.)
+
+## Collection paths that robots.txt disallows (added 27 October 2026)
+
+Found by the licence check (docs/research/DATA_LICENCES_2026-10-27.md). The owner decided on 27 October 2026 to keep collecting
+and to take the question to a lawyer.
+
+1. BOAMP (`fr_boamp`): the connector reads DILA's open-data API at `boamp-datadila.opendatasoft.com/api/...`, the endpoint the
+   data.gouv.fr entry of the dataset points to (Licence Ouverte 2.0). That host's robots.txt has `Disallow: /api/` for
+   `User-agent: *` and allows `/api/` only for Googlebot. Does collecting through a documented open-data API breach the terms,
+   or is robots.txt there aimed at crawlers only? Should we ask DILA?
+2. PLACSP (`es_placsp*`): the ATOM feeds the datos.gob.es catalogue entry publishes sit on hosts whose robots.txt is
+   `Disallow: /`. Same question for the Ministerio de Hacienda.
