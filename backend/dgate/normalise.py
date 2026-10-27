@@ -14,6 +14,7 @@ Two hard rules enforced here.
 
 from __future__ import annotations
 
+import html
 import json
 import logging
 import re
@@ -519,8 +520,12 @@ def normalise_org_name(raw: str, *, strip_noise: bool = False, fold_state: bool 
     is removed rather than kept because the same company appears with and
     without it across sources, and that difference alone should never create a
     duplicate organisation.
+
+    WP-151: HTML character references are decoded first. BOAMP's eForms-era records write
+    the buyer's name with them ("Département de l&#039;Oise"), the older ones in plain text,
+    and the reference left "l& 039 oise" in the key, so one buyer was two across 2024.
     """
-    raw = strip_name_contacts(raw)
+    raw = strip_name_contacts(html.unescape(raw) if raw and "&" in raw else raw)
     if not raw:
         return ""
     s = unicodedata.normalize("NFKD", raw)
@@ -1769,6 +1774,34 @@ def _fr_buyer_postcode(body: dict[str, Any]) -> str | None:
     return None
 
 
+def _fr_buyer_identifier(body: dict[str, Any]) -> str | None:
+    """WP-151: the buyer's SIRET (or SIREN), which every BOAMP shape states and the mapper did not read.
+
+    Older schemas: `IDENTITE/CODE_IDENT_NATIONAL`; the national form (FNSimple): `organisme/codeIdentificationNational`;
+    eForms: `cac:PartyLegalEntity/cbc:CompanyID` of the organisation the contracting party names (the review body
+    and the mediator are listed beside it with numbers of their own). The record's `nomacheteur` is written
+    differently across the 2024 switch ("MINARM/DGA/DO/S2A" then the eForms name), the number is not. Only a
+    notice with one buyer number counts: two (a joint procurement) say nothing about which body is the buyer.
+    """
+    found: set[str | None] = set()
+    for node in _fr_walk(body, "IDENTITE"):
+        if isinstance(node, dict):
+            found.add(_fr_text(node.get("CODE_IDENT_NATIONAL")))
+    for org in _fr_nodes(body, ("*", "organisme")):
+        if isinstance(org, dict):
+            found.add(_fr_text(org.get("codeIdentificationNational")))
+    ids = {_fr_text(n) for n in _fr_nodes(body, ("EFORMS", "*", "cac:ContractingParty", "cac:Party",
+                                                   "cac:PartyIdentification", "cbc:ID"))} - {None}
+    for org in _fr_walk(body, "efac:Organization"):
+        for item in org if isinstance(org, list) else [org]:
+            company = item.get("efac:Company") if isinstance(item, dict) else None
+            if isinstance(company, dict) and _fr_text((company.get("cac:PartyIdentification") or {}).get("cbc:ID")) in ids:
+                found.add(_fr_text((company.get("cac:PartyLegalEntity") or {}).get("cbc:CompanyID")))
+    numbers = {re.sub(r"\s", "", f) for f in found if f}
+    numbers = {n for n in numbers if n.isdigit() and len(n) in (9, 14)}       # SIREN or SIRET, nothing else
+    return normalise_identifier(numbers.pop(), "FR") if len(numbers) == 1 else None
+
+
 def _fr_zone(record: dict[str, Any], body: dict[str, Any]) -> str:
     """The time zone a BOAMP notice's wall times are in: the buyer's own (postcode first; else the first department
     the record lists, which is the buyer's: 26-103716 lists 973, 972, 971 for a buyer in Cayenne)."""
@@ -1877,6 +1910,7 @@ def from_boamp(record: dict[str, Any]) -> Opportunity:
         source_code=boamp.SOURCE_CODE,
         native_id=str(native_id),
         buyer_name_raw=str(record.get("nomacheteur") or "").strip() or "UNKNOWN",
+        buyer_identifier=_fr_buyer_identifier(body),
         title_original=str(record.get("objet") or "").strip(),
         country="FR",
         original_language="FR",
