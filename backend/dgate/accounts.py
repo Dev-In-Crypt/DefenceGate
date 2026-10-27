@@ -985,7 +985,8 @@ def _user_out(u: dict[str, Any]) -> dict[str, Any]:
         # `features` the paid features the account may use (all of them while no plan is on sale).
         "plan": {"current": billing.plan_of(u), "chosen": u.get("plan_choice"),
                  "billing": u.get("billing_choice")},
-        "features": billing.features(u),
+        # WP-153: `api_keys` while the data API's keys are open (the account area then shows API keys)
+        "features": billing.features(u) + (["api_keys"] if settings().api_keys_open else []),
     }
 
 
@@ -1099,11 +1100,19 @@ def export(conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
                           "creemSubscriptionId": r["creem_subscription_id"], "updatedAt": r["updated_at"]}
                          for r in conn.execute("SELECT * FROM billing_subscription WHERE account_id = %s",
                                                (uid,)).fetchall()],
+        "apiKeys": _api_keys_export(conn, uid),
         "follows": [{"kind": r["kind"], "ref": r["ref"], "createdAt": r["created_at"]}
                     for r in conn.execute(
                         "SELECT * FROM app_follow WHERE owner_id = %s ORDER BY created_at LIMIT %s",
                         (uid, MAX_FOLLOWS)).fetchall()],
     }
+
+
+def _api_keys_export(conn, uid) -> list[dict[str, Any]]:
+    """WP-153: name, prefix, scopes, dates and daily counts of the keys; never the hash."""
+    from .apikeys import export_rows
+
+    return export_rows(conn, uid)
 
 
 @router.get("/sessions")

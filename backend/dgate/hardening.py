@@ -253,6 +253,14 @@ class RateLimit(BaseHTTPMiddleware):
         from .config import settings
 
         peer = request.client.host if request.client else "unknown"
+        if request.url.path.startswith("/v1/") and not request.url.path.startswith("/v1/account"):
+            # WP-153: a request with an API key is charged to the key and reads what the key may read (dgate/apikeys.py),
+            # wherever it comes from and whether or not the address limiter is on.
+            from . import apikeys
+
+            raw = apikeys.presented(request)
+            if raw is not None:
+                return await apikeys.dispatch(request, call_next, raw, self.buckets, peer)
         if peer in LOCAL_PEERS or not settings().rate_limit:
             return await call_next(request)
         internal = is_internal(peer)

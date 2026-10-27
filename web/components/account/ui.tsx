@@ -48,6 +48,8 @@ const NOTICES: Record<string, { text: string; error?: true }> = {
   weak: { text: 'Choose another new password: at least 12 characters, and not a common or easily guessed one.', error: true },
   rate_limited: { text: 'Too many attempts. Wait a little and try again.', error: true },
   totp_off: { text: 'Two-step sign-in is off.' },
+  // WP-153
+  key_revoked: { text: 'The key is revoked. Requests with it are refused from now on.' },
   // WP-124
   subscription_active: { text: 'Your subscription is still running. Cancel it first under Billing (Manage subscription), then delete the account. Nothing was deleted.', error: true },
   founding_full: { text: 'All Founding customer places are taken. Choose another plan.', error: true },

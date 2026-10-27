@@ -13,7 +13,7 @@ import { cache } from 'react';
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type {
-  AccountSession, Cadence, Dashboard, DashboardChange, DashboardClosing, DashboardFollowing, DashboardMatch, DashboardPulse,
+  AccountSession, ApiKey, ApiKeys, Cadence, Dashboard, DashboardChange, DashboardClosing, DashboardFollowing, DashboardMatch, DashboardPulse,
   Follow, FollowKind, Me, Profile, ProfileScope, Role, SavedSearch, SearchFilters, SearchKind, ShortlistItem, ShortlistKind,
   ShortlistStatus, StateItem, StateKey, Track, PaidFeature as Feature,
 } from './types';
@@ -179,6 +179,7 @@ function toMe(raw: unknown): Me {
     planChoice: isRecord(raw.plan) ? readPlanChoice(raw.plan.chosen, raw.plan.billing) : null,
     plan: isRecord(raw.plan) ? toPlan(raw.plan.current) : 'free',
     features: toFeatures(raw.features),
+    apiKeys: arr<unknown>(raw.features).includes('api_keys'),
   };
 }
 
@@ -427,6 +428,48 @@ export const createCheckout = (plan: Exclude<PlanId, 'free'>, billing: Billing) 
   call<string>('/billing/checkout', { method: 'POST', json: { plan, billing } }, providerUrl);
 /** Creem's customer portal of this account: cancel, invoices, payment method. */
 export const openPortal = () => call<string>('/billing/portal', { method: 'POST' }, providerUrl);
+
+/* ---- keys of the data API (WP-153) ---- */
+
+const KEY_SCOPES = ['tenders', 'archive'] as const;
+const text = (v: unknown, max = 100): string => (typeof v === 'string' ? v.slice(0, max) : '');
+const stamp = (v: unknown): string | null => (typeof v === 'string' ? v.slice(0, 40) : null);
+const count = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+
+function toApiKey(raw: unknown): ApiKey {
+  if (!isRecord(raw) || typeof raw.id !== 'string') throw new Error('bad key');
+  return {
+    id: raw.id, name: text(raw.name, 60), prefix: text(raw.prefix, 12),
+    scopes: arr<unknown>(raw.scopes).map((s) => oneOf(s, KEY_SCOPES)).filter((s): s is ApiKey['scopes'][number] => s !== null),
+    ratePerMinute: count(raw.ratePerMinute), dailyQuota: count(raw.dailyQuota),
+    createdAt: stamp(raw.createdAt) ?? '', expiresAt: stamp(raw.expiresAt) ?? '',
+    lastUsedAt: stamp(raw.lastUsedAt), revokedAt: stamp(raw.revokedAt), requestsToday: count(raw.requestsToday),
+  };
+}
+
+function toApiKeys(raw: unknown): ApiKeys {
+  if (!isRecord(raw)) throw new Error('bad keys');
+  return {
+    open: raw.open === true,
+    sources: arr<unknown>(raw.sources).filter((s): s is string => typeof s === 'string').map((s) => s.slice(0, 32)),
+    maxKeys: count(raw.maxKeys),
+    keys: arr<unknown>(raw.keys).map(toApiKey),
+    events: arr<unknown>(raw.events).filter(isRecord).map((e) => ({
+      event: e.event === 'revoked' ? 'revoked' : 'created', at: stamp(e.at) ?? '', name: text(e.name, 60), prefix: text(e.prefix, 12),
+    })),
+  };
+}
+
+export const listApiKeys = () => call<ApiKeys>('/keys', {}, toApiKeys);
+/** The answer carries the key itself, once: it is shown on the page that asked and never stored by the site. */
+export const createApiKey = (name: string, scopes: ApiKey['scopes'], password: string) =>
+  call<{ key: string; meta: ApiKey }>('/keys', { method: 'POST', json: { name, scopes, password } }, (raw) => {
+    const key = isRecord(raw) ? raw.key : null;
+    if (typeof key !== 'string' || !/^dgk_[0-9a-f]{12}_[A-Za-z0-9_-]{43}$/.test(key)) throw new Error('bad key');
+    return { key, meta: toApiKey(raw) };
+  });
+export const revokeApiKey = (id: string, password: string) =>
+  call<ApiKey>(`/keys/${encodeURIComponent(id)}/revoke`, { method: 'POST', json: { password } }, toApiKey);
 
 /* ---- dashboard ---- */
 
