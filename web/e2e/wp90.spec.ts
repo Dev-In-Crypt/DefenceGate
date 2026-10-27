@@ -68,7 +68,10 @@ test('product groups, main code only, excluded codes, page size, deadline preset
   await visit(page, '/tenders', TENDERS);
   await openFilters(page);
   const form = page.getByRole('search', { name: 'Filter tenders' });
-  await expect(form.getByText(/English names of the notice's product codes/)).toBeVisible();
+  // WP-149: one line under the field, what is searched one click away beside it (it was a 9-line hint)
+  await expect(form.getByText('Every word must match, in any order.')).toBeVisible();
+  await form.getByText('What is searched').click();
+  await expect(form.getByText(/English names of the notice’s product codes/)).toBeVisible();
   const country = form.locator('details', { hasText: 'Buyer country' });
   expect(await country.evaluate((d) => (d as HTMLDetailsElement).open)).toBe(true);
   await expect(form.getByLabel('Main product code only')).toBeVisible();

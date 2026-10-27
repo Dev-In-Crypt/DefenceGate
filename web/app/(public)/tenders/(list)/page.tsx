@@ -69,7 +69,7 @@ export default async function TendersPage({ searchParams }: Props) {
     <ListPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Tenders', href: '/tenders' }]}
       title="Tenders"
-      intro="Procurement notices from defence buyers in one list, each linked to its source with its changes kept: filter, then open a notice."
+      intro="Procurement notices from defence buyers in one list, each linked to its source with its changes kept."
       meta={`${tenderSources} tender sources · Deadlines in UTC${updated ? ` · ${updatedLine(updated, result.meta?.updatedBy)}` : ''}${stamps.list ? ` · ${stamps.list}` : ''}`}
       // WP-98b: the filters as chips (phone) and what we collect for the chosen countries, above the results (an empty one too)
       scope={<><FilterChips filters={filters} basePath="/tenders" /><CoverageNote countries={filters.country} /></>}

@@ -166,7 +166,8 @@ export default async function LandingPage() {
       <JsonLd data={faqJsonLd(faq)} />
 
       {/* WP-117 (owner's option A of 25 October 2026): the headline and lead are the owner's words; one search, nothing else. */}
-      <section aria-labelledby="hero" className="flex flex-col gap-5 pt-2 md:pt-6">
+      {/* WP-149: the title, the line under it and the search, one column; the search takes the whole width, 32 px (40 from md) under the lead */}
+      <section aria-labelledby="hero" className="flex flex-col gap-4 pt-2 md:gap-5 md:pt-6">
         <h1 id="hero" className="m-0 text-display-sm [text-wrap:balance] md:text-display">Win, partner, qualify.<br className="hidden md:inline" /> Across Europe’s defence market.</h1>
         <p className="m-0 max-w-prose text-body text-ink-muted md:text-h3 md:font-normal">
           {/* WP-121: the owner's words ("step-by-step" approved by the owner on 25 Oct, it said "five-question"); the three programmes are
@@ -174,7 +175,7 @@ export default async function LandingPage() {
           Defence and dual-use tenders and EU funding calls, the companies already in EU-funded projects, and a step-by-step check against{' '}
           <Abbr id="edf" />, <Abbr id="edip" /> and <Abbr id="safe" /> rules. Free to browse, every fact linked to its source.
         </p>
-        <SiteSearchForm id="home-search" className="max-w-3xl" />
+        <SiteSearchForm id="home-search" className="mt-4 md:mt-5" />
       </section>
 
       <section aria-label="Three questions" className="flex flex-col gap-3">

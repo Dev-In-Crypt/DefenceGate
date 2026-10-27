@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { AboutData } from '../dg/about-data';
 import { Button } from '../dg/button';
 import { Choice, FoldGroup, Select, TextInput } from '../dg/form';
 import { FORM_BUTTONS } from '../funding/filter-bar';
@@ -85,9 +86,14 @@ export function TenderFilterBar({ filters, basePath, scopeCounts, countsNote }: 
   return (
     <FilterPanel activeCount={activeTenderFilterCount(filters)} defaults={{ [PARAM.status]: DEFAULT_TENDER_STATUS, [PARAM.scope]: DEFAULT_TENDER_SCOPE, [PARAM.size]: String(TENDER_PAGE_SIZE) }}>
       <form method="get" action={basePath} role="search" aria-label="Filter tenders" className={FORM}>
-        {/* WP-90: what the words are matched against, said where they are typed */}
-        <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, buyer or number" defaultValue={filters.q ?? ''}
-          hint="Searches titles in the original language and in English where TED gives one, buyer names, and the English names of the notice's product codes. Every word must match, in any order; the main product words (uniforms, spare parts, drones, fuel, ammunition and a few more) are also searched in other European languages." />
+        {/* WP-90: what the words are matched against, said where they are typed. WP-149: one line under the field, the rest one click away. */}
+        <div className="flex min-w-0 flex-col">
+          <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, buyer or number" defaultValue={filters.q ?? ''}
+            hint="Every word must match, in any order." />
+          <AboutData summary="What is searched">
+            <p className="m-0">Titles in the original language and in English where TED gives one, buyer names, and the English names of the notice&rsquo;s product codes. The main product words (uniforms, spare parts, drones, fuel, ammunition and a few more) are also searched in other European languages.</p>
+          </AboutData>
+        </div>
         {/* WP-98b: goods and services, each a row of official codes (lib/analyst.ts) */}
         <div className="flex flex-col gap-1.5" data-cpv-presets>
           <span className="text-label text-ink">Product groups</span>
