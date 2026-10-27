@@ -127,10 +127,11 @@ export function TenderFilterBar({ filters, basePath, scopeCounts, countsNote }: 
             );
           })}
         </div>
-        <TextInput name={PARAM.cpv} maxLength={200} label="CPV code" placeholder="For example 35 or 35120000" defaultValue={filters.cpv?.join(', ') ?? ''}
-          hint={preset ? `${preset.label}: ${preset.codes.length} official codes and everything under them${presetMainOnly(preset) ? ', as the main product code (a works notice lists the services of the works as further codes)' : ', as any code of the notice'}. Starts with the digits you enter; separate several with commas.` : 'Starts with the digits you enter. Separate several with commas.'} />
+        {/* WP-150: above the CPV field, beside the groups that set it too; below it the sticky Apply bar covered it at 1440 x 900 (WP-130 test 5) */}
         <Choice name={PARAM.cpvMain} value="true" label="Main product code only" defaultChecked={filters.cpvMain === true}
           hint="Reads the code a notice names first, not the others it lists." />
+        <TextInput name={PARAM.cpv} maxLength={200} label="CPV code" placeholder="For example 35 or 35120000" defaultValue={filters.cpv?.join(', ') ?? ''}
+          hint={preset ? `${preset.label}: ${preset.codes.length} official codes and everything under them${presetMainOnly(preset) ? ', as the main product code (a works notice lists the services of the works as further codes)' : ', as any code of the notice'}. Starts with the digits you enter; separate several with commas.` : 'Starts with the digits you enter. Separate several with commas.'} />
         <TextInput name={PARAM.notCpv} maxLength={200} label="Leave out product codes" placeholder="For example 3511" defaultValue={filters.notCpv?.join(', ') ?? ''}
           hint="Leaves out a notice with any code that starts with these digits (3511: fire-fighting equipment)." />
         <FoldGroup legend="Status">

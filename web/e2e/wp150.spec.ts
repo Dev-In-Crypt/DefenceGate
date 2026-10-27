@@ -88,7 +88,7 @@ test('a call page: title, status, deadline, budget and funder on the first scree
   await firstScreen(page);
   await visit(page, CALL, { title: /DefenceGate/, h1: 'Additive manufacturing of certified spare parts' });
   const facts = page.locator('[data-head-facts]');
-  for (const t of ['Deadline', 'Budget', 'Funder', 'European Commission · European Defence Fund', 'in 45 days']) await expect(facts).toContainText(t);
+  for (const t of ['Deadline', 'Budget', 'European Commission · European Defence Fund', 'in 45 days']) await expect(facts).toContainText(t);
   expect(await bottom(facts)).toBeLessThanOrEqual(page.viewportSize()!.height);
   expect(await bottom(page.locator('main header').getByText('Open', { exact: true }))).toBeLessThanOrEqual(page.viewportSize()!.height);
 });

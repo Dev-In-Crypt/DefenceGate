@@ -175,8 +175,9 @@ export default async function CallDetailPage({ params }: Props) {
               </FactCell>
             )}
             <FactCell label="Budget"><BudgetDisplay money={call.budget} note={call.budgetNote} /></FactCell>
-            <FactCell label="Funder" className="min-[360px]:col-span-2"><span className="font-sans text-body">{funderLine(call)}</span></FactCell>
           </FactsGrid>
+          {/* a line, not a third cell: the cell's row pushed "What it funds" under the fold of a 375 px phone (WP-92 test) */}
+          <p className="m-0 mt-2 max-w-prose text-body text-ink-muted">{funderLine(call)}</p>
         </div>
         {nonEnglish && <LangLabel kind="language" code={call.titleLanguage} />}
         {call.originalTitle && (
