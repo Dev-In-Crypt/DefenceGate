@@ -35,6 +35,13 @@ test('on a phone every group of the menu is a heading of the same kind, with its
   await expect(page.locator('h1')).toHaveText('Check my company');
 });
 
+test('robots.txt keeps AI crawlers and agents off the whole site (owner, 27 Oct 2026)', async ({ request }) => {
+  const body = await (await request.get('/robots.txt')).text();
+  for (const ua of ['GPTBot', 'ChatGPT-User', 'ClaudeBot', 'PerplexityBot', 'Google-Extended', 'CCBot']) expect(body).toMatch(new RegExp(`^User-Agent: ${ua}$`, 'm'));
+  expect(body).toMatch(/^User-Agent: CCBot\n(User-Agent: .+\n)*Disallow: \/$/m);
+  expect(body).not.toMatch(/^User-Agent: Googlebot$/m);
+});
+
 test('robots.txt keeps crawlers off filtered, sorted and paged addresses and leaves the plain pages open', async ({ request }) => {
   const res = await request.get('/robots.txt');
   expect(res.status()).toBe(200);
