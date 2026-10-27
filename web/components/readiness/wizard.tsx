@@ -497,7 +497,7 @@ function Keep({ profile, onImport, onProblem }: { profile: Profile; onImport: (p
           <Button type="button" variant="secondary" onClick={() => { void navigator.clipboard?.writeText(block).then(() => setCopied(true), () => setCopied(false)); }}>Copy my answers</Button>
         </div>
         {copied && <p role="status" className="m-0 font-semibold text-ink">Copied.</p>}
-        <label className="flex flex-col gap-1 text-label text-ink">Load answers from a file
+        <label className="flex flex-col gap-2 text-label text-ink">Load answers from a file
           <input type="file" accept="application/json,.json" className="min-h-11 font-sans text-small"
             onChange={(e) => {
               const f = e.target.files?.[0];
@@ -507,7 +507,7 @@ function Keep({ profile, onImport, onProblem }: { profile: Profile; onImport: (p
               else void f.text().then(load);
             }} />
         </label>
-        <label className="flex flex-col gap-1 text-label text-ink">Or paste the copied answers here
+        <label className="flex flex-col gap-2 text-label text-ink">Or paste the copied answers here
           <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} maxLength={20_000} spellCheck={false}
             className="max-w-form rounded-md border-strong border-input-edge bg-surface p-3 font-mono text-small text-ink" />
         </label>

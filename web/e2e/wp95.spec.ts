@@ -16,7 +16,8 @@ test('an award notice names its legal-entity winners with a link, counts a perso
   await expect(page.getByLabel('Key facts').getByText('Awarded value', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Key facts').getByText('Estimated value', { exact: true })).toHaveCount(0);
   await expect(page.locator('[data-other-buyers]')).toContainText('(joint procurement)');
-  await expect(page.getByText('Buyers:', { exact: true })).toBeVisible();
+  // WP-150: "Buyers:" before the names became the label "Buyers" of the page head's facts
+  await expect(page.locator('[data-head-facts]').getByText('Buyers', { exact: true })).toBeVisible();
 });
 
 test('a notice with no award shows no winner block and keeps "Estimated value"', async ({ page }) => {

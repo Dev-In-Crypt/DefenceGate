@@ -108,7 +108,8 @@ test('the header search and the home search open the results page', async ({ pag
 
 // WP-117 (owner's option A, 25 Oct 2026): the three task buttons under the lead became the three question tiles under the search.
 test('home: the lead, the search and the three tasks before anything else; no "What is in here"', async ({ page }) => {
-  await visit(page, '/', { title: /DefenceGate/, h1: 'Win, partner, qualify.', text: [/^Defence and dual-use tenders and EU funding calls, the companies already in/] });
+  // WP-150: the owner's shorter lead (27 Oct 2026)
+  await visit(page, '/', { title: /DefenceGate/, h1: 'Win, partner, qualify.', text: [/^Defence tenders, EU funding calls, partners and an eligibility check\./] });
   const tasks = page.getByRole('list', { name: 'What do you want to know?' });
   // WP-121 (moved): the first task is two actions (tenders, funding), the partners task opens the organisations in EU-funded defence projects
   await expect(tasks.getByRole('link', { name: /^Browse tenders/ })).toHaveAttribute('href', '/tenders');

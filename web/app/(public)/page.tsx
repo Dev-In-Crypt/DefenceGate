@@ -7,13 +7,12 @@ import { getOrganisations } from '@/lib/networks-api';
 import { parseOrgFilters } from '@/lib/networks';
 import { portalWords } from '@/lib/coverage-copy';
 import { sourceKinds } from '@/lib/source-status';
-import { STEPS_QUESTIONS, SUPPLIER_QUESTIONS, rangeWords } from '@/lib/question-counts';
+import { STEPS_QUESTIONS, rangeWords } from '@/lib/question-counts';
 import { getCallDeadline, getTenderDeadline, now, soonestOpen, type DeadlineInfo } from '@/lib/deadline';
 import { displayName } from '@/lib/display-name';
 import { formatDateTimeUtc, formatDateUtc, formatMoney, formatNumber, isPlaceholderAmount, plural, repeatedCallBudgets } from '@/lib/format';
 import { buildMetadata, faqJsonLd, organizationJsonLd } from '@/lib/seo';
 import { faqItems, homeFaq } from '@/lib/site-copy';
-import { GLOSSARY } from '@/lib/glossary';
 import { PROGRAMMES, countryName, isNonEnglish } from '@/lib/taxonomy';
 import type { Money } from '@/lib/types';
 import { Button } from '@/components/dg/button';
@@ -34,62 +33,64 @@ export const metadata: Metadata = buildMetadata({
   path: '/',
 });
 
-/** A figure of a tile: the number, or nothing at all when the data service gave none (never a dash, never a zero it did not say). */
-function Figure({ value, label }: { value: number | null | undefined; label: string }) {
+/**
+ * A figure of a tile: the number, large, or nothing at all when the data service gave none (never a dash, never a zero it did not say).
+ * WP-150: the number is the tile's one big element (40/48 mono, 32/40 in the two-action tile, where two stand one above the other).
+ */
+function Figure({ value, label, size = 'lg' }: { value: number | null | undefined; label: string; size?: 'lg' | 'md' }) {
   if (value === null || value === undefined) return null;
   return (
-    <span data-figure="" className="flex flex-col">
-      <span className="font-mono text-h3 tabular-nums">{formatNumber(value)}</span>
+    <span data-figure="" className="flex min-w-0 flex-col">
+      <span className={`font-mono font-medium tabular-nums ${size === 'lg' ? 'text-h1' : 'text-h1-sm'}`}>{formatNumber(value)}</span>
       <span className="text-small text-ink-muted">{label}</span>
     </span>
   );
 }
 
+/** WP-150: the head of a tile: the question (the heading, so the three stand in the page's outline) and one short line. */
+function TileHead({ id, question, title }: { id: string; question: string; title: string }) {
+  return (
+    <>
+      <h2 id={`${id}-q`} className="m-0 text-h4 text-accent-text">{question}</h2>
+      <span id={`${id}-t`} className="text-h3 font-bold">{title}</span>
+    </>
+  );
+}
+
 /**
- * One of the three questions (WP-117, owner's option A): the whole tile is one link. The question is the heading, so the three stand
- * in the page's outline. WP-130 (WCAG 2.5.3 Label in Name): the link is named by its own text, question first, so its name holds
- * every word it shows, "Find partners" and "Start the check" too (it was named by the question and title only, and a voice-control
- * user saying the words on the tile could not open it).
+ * One of the three questions (WP-117, owner's option A): the whole tile is one link. WP-130 (WCAG 2.5.3 Label in Name): the link is
+ * named by its own text, question first, so its name holds every word it shows. WP-150 (owner, 27 Oct 2026, "bolder"): one short line,
+ * the big number and one action; the long descriptions are said on the pages the tiles open (docs/verification/round6/wp150-selfcheck.md).
  */
-function Tile({ id, href, question, title, body, go, children }: { id: string; href: string; question: string; title: string; body: string; go: string; children?: React.ReactNode }) {
+function Tile({ id, href, question, title, go, children }: { id: string; href: string; question: string; title: string; go: string; children?: React.ReactNode }) {
   return (
     <li className="min-w-0">
       <Link href={href} data-tile=""
         className={`group flex h-full flex-col gap-3 border-strong text-ink no-underline transition-colors duration-dg hover:border-ink-muted focus-visible:border-ink-muted ${CARD_SURFACE} ${CARD_PADDING}`}>
-        <h2 id={`${id}-q`} className="m-0 text-h4 text-accent-text">{question}</h2>
-        <span id={`${id}-t`} className="text-h3 font-bold">{title}</span>
-        <span id={`${id}-b`} className="text-body text-ink-muted">{body}</span>
-        {children && <span id={`${id}-n`} className="mt-auto flex flex-wrap gap-x-6 gap-y-2 pt-1">{children}</span>}
+        <TileHead id={id} question={question} title={title} />
+        {children && <span id={`${id}-n`} className="mt-auto flex flex-wrap gap-x-6 gap-y-2 pt-4">{children}</span>}
         <span className={`inline-flex items-center gap-2 text-body font-bold ${children ? '' : 'mt-auto'}`}>{go}<Icon icon={ArrowRight} size="inline" /></span>
       </Link>
     </li>
   );
 }
 
-/** WP-121: a programme's short name, expanded from the glossary (the same words as /glossary#<id>). */
-function Abbr({ id }: { id: string }) {
-  const e = GLOSSARY.find((g) => g.id === id)!;
-  return <abbr title={e.full} data-glossary={id} className="cursor-help">{e.term}</abbr>;
-}
-
 /**
  * WP-121: the tile of two lists (tenders and funding calls). The tile is not a link (a link may not hold another); each of its two actions
  * is, a box with its own count that shows its hover and keyboard focus on its edge and tint, never as an underline (WP-118's card rule).
  */
-function SplitTile({ id, question, title, body, actions }: { id: string; question: string; title: string; body: string; actions: { href: string; go: string; value: number | null; label: string }[] }) {
+function SplitTile({ id, question, title, actions }: { id: string; question: string; title: string; actions: { href: string; go: string; value: number | null; label: string }[] }) {
   return (
     <li className="min-w-0">
-      <div data-tile="" role="group" aria-labelledby={`${id}-q ${id}-t`} aria-describedby={`${id}-b`}
+      <div data-tile="" role="group" aria-labelledby={`${id}-q ${id}-t`}
         className={`flex h-full flex-col gap-3 border-strong text-ink ${CARD_SURFACE} ${CARD_PADDING}`}>
-        <h2 id={`${id}-q`} className="m-0 text-h4 text-accent-text">{question}</h2>
-        <span id={`${id}-t`} className="text-h3 font-bold">{title}</span>
-        <span id={`${id}-b`} className="text-body text-ink-muted">{body}</span>
+        <TileHead id={id} question={question} title={title} />
         <span className="mt-auto flex flex-col gap-2 pt-1">
           {actions.map((a) => (
             <Link key={a.href} href={a.href} data-tile-action=""
               className="flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-md border border-line px-4 py-2 text-ink no-underline transition-colors duration-dg hover:border-ink-muted hover:bg-surface-inset focus-visible:border-ink-muted focus-visible:bg-surface-inset">
               <span className="inline-flex items-center gap-2 text-body font-bold">{a.go}<Icon icon={ArrowRight} size="inline" /></span>
-              <Figure value={a.value} label={a.label} />
+              <Figure value={a.value} label={a.label} size="md" />
             </Link>
           ))}
         </span>
@@ -170,10 +171,8 @@ export default async function LandingPage() {
       <section aria-labelledby="hero" className="flex flex-col gap-4 pt-2 md:gap-5 md:pt-6">
         <h1 id="hero" className="m-0 text-display-sm [text-wrap:balance] md:text-display">Win, partner, qualify.<br className="hidden md:inline" /> Across Europe’s defence market.</h1>
         <p className="m-0 max-w-prose text-body text-ink-muted md:text-h3 md:font-normal">
-          {/* WP-121: the owner's words ("step-by-step" approved by the owner on 25 Oct, it said "five-question"); the three programmes are
-              expanded where they are first named (and in /glossary) */}
-          Defence and dual-use tenders and EU funding calls, the companies already in EU-funded projects, and a step-by-step check against{' '}
-          <Abbr id="edf" />, <Abbr id="edip" /> and <Abbr id="safe" /> rules. Free to browse, every fact linked to its source.
+          {/* WP-150: the owner's shortened lead, word for word (27 Oct 2026); it names no programme, so nothing to expand here */}
+          Defence tenders, EU funding calls, partners and an eligibility check. Free, every fact linked to its source.
         </p>
         <SiteSearchForm id="home-search" className="mt-4 md:mt-5" />
       </section>
@@ -182,21 +181,18 @@ export default async function LandingPage() {
         <ul aria-label="What do you want to know?" className="m-0 grid list-none gap-4 p-0 md:grid-cols-3">
           {/* WP-121: two actions, each with its own count (the tile showed the funding count and led to tenders only) */}
           <SplitTile id="t-open" question="What is open?" title="Find tenders and funding"
-            body="Defence and dual-use tenders from TED and national portals, and EU and national funding calls, with their deadlines."
             actions={[
               { href: '/tenders', go: 'Browse tenders', value: openTenders, label: plural(openTenders ?? 0, 'open tender') },
               { href: '/funding', go: 'Browse funding', value: openCalls, label: plural(openCalls ?? 0, 'open funding call') },
             ]} />
           {/* WP-121: the organisations of the EU's defence programmes, most defence projects first (the winners list opened on Spanish
               caterers: only Spain's national awards are read); the number is the count of that same list */}
-          <Tile id="t-partners" href="/organisations" question="Who is already in?" title="Find partners" go="Find partners"
-            body="Companies and research bodies in EU-funded defence projects, those with the most defence projects first, each with its projects and partners.">
+          <Tile id="t-partners" href="/organisations" question="Who is already in?" title="Find partners" go="Find partners">
             {orgs && <Figure value={orgs.total} label={`${orgs.totalExact === false ? 'or more ' : ''}${plural(orgs.total, 'organisation')} in EU-funded defence projects`} />}
           </Tile>
-          {/* WP-121: the questions as counted per route (docs/verification/round6/wp121-selfcheck.md): the readiness check's five steps ask
-              and the supplier profile ask, from lib/question-counts.ts (WP-131: counted on the forms by e2e/wp125.spec.ts and e2e/wp131.spec.ts) */}
-          <Tile id="t-check" href="/check" question="Can I take part?" title="Check if my company qualifies" go="Start the check"
-            body={`One question first, then the check that fits. For EU funding, five steps of ${rangeWords(STEPS_QUESTIONS)} questions: the answer says what the EDF, EDIP and SAFE rules mean for your company, with the rule text it rests on. To supply defence buyers, one page of ${rangeWords(SUPPLIER_QUESTIONS)} questions.`}>
+          {/* WP-121: the questions as counted on the forms (lib/question-counts.ts, e2e/wp125.spec.ts and e2e/wp131.spec.ts). WP-150: the
+              tile keeps the readiness check's range in its figure; both ranges, the supplier profile's too, are said on /check */}
+          <Tile id="t-check" href="/check" question="Can I take part?" title="Check if my company qualifies" go="Start the check">
             <Figure value={5} label={`steps, ${rangeWords(STEPS_QUESTIONS)} questions, no account`} />
           </Tile>
         </ul>

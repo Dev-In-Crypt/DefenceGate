@@ -48,7 +48,7 @@ export default async function BuyersPage({ searchParams }: Props) {
     <ListPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Buyers', href: '/buyers' }]}
       title="Buyers"
-      intro="The bodies that publish defence and dual-use tenders. Open a buyer to see its notices in our archive, open ones first."
+      intro="The bodies that publish defence and dual-use tenders."
       // WP-98b: what we collect for the chosen countries
       scope={<CoverageNote countries={filters.country} />}
       filterBar={<BuyerFilterBar filters={filters} basePath="/buyers" />}

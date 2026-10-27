@@ -10,7 +10,8 @@ export interface FieldProps { label?: string; hint?: string; error?: string; cla
 export function Field({ id, label, hint, error, className, children }: FieldProps & { id: string; children: React.ReactNode }) {
   return (
     <div className={cn('flex flex-col gap-1', className)}>
-      {label && <label htmlFor={id} className="text-label text-ink">{label}</label>}
+      {/* WP-150: the label 8 px above its control (4 of its own, 4 of the gap); the hint stays 4 px under it */}
+      {label && <label htmlFor={id} className="mb-1 text-label text-ink">{label}</label>}
       {children}
       {error ? (
         <span id={`${id}-help`} className="flex items-center gap-1 text-small text-alert"><Icon icon={CircleAlert} size="inline" />{error}</span>

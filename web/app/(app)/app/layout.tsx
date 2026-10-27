@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Fragment } from 'react';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { safeReturnPath } from '@/lib/safe-url';
@@ -67,6 +68,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <>
       {skip}
       <div className="page py-4 lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:items-start lg:gap-12">
+        {/* WP-150 (React error #418 on /app, found at 375 px on 27 Oct 2026, at 1280 px too: about 1 load in 5). The server payload comes
+            in pieces at the end of the page, and a large part of it (the page under <main>, <main> itself under this div) is a separate
+            piece referred to from its parent. When React began hydrating before such a piece had arrived, it paused while reading the
+            children of the element around it and, on resuming, tried to claim that element again from inside it: the hydration
+            failed and the account area was rendered again from scratch. A keyed Fragment between the element and those children is
+            what React resumes instead, and a Fragment claims nothing. Not a Suspense boundary: around the page it stopped the redirect
+            of a server action (/app/settings?n=...) from being shown. */}
+        <Fragment key="shell">
         {/* Below lg: logo, theme and a native disclosure menu (works without script). */}
         <header className="mb-6 flex flex-col gap-2 lg:hidden">
           <div className="flex items-center justify-between gap-3 rounded-pill bg-surface py-3 pl-6 pr-3">
@@ -112,8 +121,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <div><Button type="submit">Accept</Button></div>
             </form>
           )}
-          {children}
+          <Fragment key="page">{children}</Fragment>
         </main>
+        </Fragment>
       </div>
     </>
   );

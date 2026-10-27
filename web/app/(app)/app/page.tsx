@@ -8,7 +8,7 @@ import { Callout } from '@/components/dg/blocks';
 import { FactCell } from '@/components/dg/data-display';
 import { Tag } from '@/components/dg/tag';
 import { describeChange } from '@/components/dg/version-timeline';
-import { AppHeader, Block, ItemRow, LoadFailed, NextStep } from '@/components/account/ui';
+import { AppHeader, Block, ItemRow, ItemTitle, LoadFailed, NextStep } from '@/components/account/ui';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Dashboard', robots: { index: false, follow: false } };
@@ -76,7 +76,7 @@ function Changes({ d }: { d: Dashboard }) {
             const href = itemHref(c.kind, c.item.id, c.item.slug);
             return (
               <li key={`${c.kind}/${c.item.id}/${c.observedAt}`} className="flex flex-col gap-2 rounded-md bg-surface-inset p-4">
-                {href ? <Link href={href} className="break-words text-body font-semibold text-ink">{c.item.title}</Link> : <span className="text-body font-semibold">{c.item.title}</span>}
+                <ItemTitle href={href}>{c.item.title}</ItemTitle>
                 <span className="font-mono text-mono text-ink-muted">Detected <time dateTime={c.observedAt}>{formatDateUtc(c.observedAt)}</time></span>
                 <ul className="m-0 flex list-none flex-col gap-1 p-0">
                   {c.changes.map((ch, i) => <li key={`${ch.field}-${i}`} className="min-w-0 text-body">{describeChange(ch)}</li>)}
@@ -104,7 +104,7 @@ function Following({ d }: { d: Dashboard }) {
             return (
               <li key={`${f.kind}/${f.ref}`} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-md bg-surface-inset p-4">
                 <span className="flex min-w-0 flex-col">
-                  {href ? <Link href={href} className="break-words text-body font-semibold text-ink">{f.name}</Link> : <span className="text-body font-semibold">{f.name}</span>}
+                  <ItemTitle href={href}>{f.name}</ItemTitle>
                   <span className="text-small text-ink-muted">{f.kind === 'buyer' ? 'Buyer' : 'Programme'}{f.latestAt ? ` · latest ${formatDateUtc(f.latestAt)}` : ''}</span>
                 </span>
                 <span className="font-mono text-mono-strong tabular-nums">{formatNumber(f.openCount)} open</span>

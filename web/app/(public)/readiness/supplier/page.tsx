@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { buildMetadata } from '@/lib/seo';
 import { WHAT_IS_SENT } from '@/lib/sent-copy';
-import { Callout } from '@/components/dg/blocks';
+import { LockKeyhole } from 'lucide-react';
+import { NoteLine } from '@/components/dg/blocks';
 import { AboutData } from '@/components/dg/about-data';
 import { ContentPage } from '@/components/dg/content-page';
 import { SupplierForm } from '@/components/readiness/supplier';
@@ -25,6 +26,7 @@ export default async function SupplierPage({ searchParams }: Props) {
       lead="Say what you make and what you hold: the results show who wins defence contracts for it, who buys it, and what their rules ask of you."
     >
       {/* WP-88: who it is for and what it gives, collapsed; the form follows one sentence. */}
+      <div className="flex min-w-0 flex-col">
       <AboutData summary="Who this is for and what you get">
         <div className="flex max-w-prose flex-col gap-3" data-supplier-audience>
           <p className="m-0">
@@ -50,12 +52,14 @@ export default async function SupplierPage({ searchParams }: Props) {
           </p>
         </div>
       </AboutData>
-      <Callout title="Your answers are not stored on our server">
+      {/* WP-150 (as /readiness, WP-149): a reassurance is one line beside the form, not a framed box; the paragraphs behind it are unchanged */}
+      <NoteLine icon={LockKeyhole} data-privacy-line more={
         <AboutData summary="What is kept and what is sent">
-        <p className="m-0">They are saved in this browser, on this device, together with the answers of the readiness check. There is no account and no copy on our server.</p>
-        <p className="m-0" data-what-is-sent>{WHAT_IS_SENT}</p>
+          <p className="m-0">They are saved in this browser, on this device, together with the answers of the readiness check. There is no account and no copy on our server.</p>
+          <p className="m-0" data-what-is-sent>{WHAT_IS_SENT}</p>
         </AboutData>
-      </Callout>
+      }>Your answers are not stored on our server.</NoteLine>
+      </div>
       <SupplierForm offer={offer} />
     </ContentPage>
   );

@@ -79,7 +79,7 @@ export default async function FundingHubPage({ searchParams }: Props) {
   return (
     <CallListTemplate
       title="Funding"
-      intro="EU and national funding calls for defence and dual-use projects: filter by programme, country or deadline, and open a call for its rules and source."
+      intro="EU and national funding calls for defence and dual-use projects, each linked to its source."
       basePath="/funding"
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Funding', href: '/funding' }]}
       filters={filters} result={result} view={view} health={health} chips={CHIPS} alternatives={alternatives}

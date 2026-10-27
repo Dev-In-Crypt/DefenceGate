@@ -8,8 +8,8 @@ import { visit } from './helpers';
  */
 
 const isMobile = (page: Page) => (page.viewportSize()?.width ?? 1280) < 700;
-// WP-121: "a five-question check" became "a step-by-step check" (the one change to the lead the owner approved, 25 Oct 2026)
-const LEAD = 'Defence and dual-use tenders and EU funding calls, the companies already in EU-funded projects, and a step-by-step check against EDF, EDIP and SAFE rules. Free to browse, every fact linked to its source.';
+// WP-121: "a five-question check" became "a step-by-step check" (25 Oct 2026). WP-150: the owner shortened the lead to these words (27 Oct 2026).
+const LEAD = 'Defence tenders, EU funding calls, partners and an eligibility check. Free, every fact linked to its source.';
 const ldOf = (page: Page) => page.locator('script[type="application/ld+json"]').evaluateAll((s) => s.map((n) => JSON.parse(n.textContent ?? '{}')));
 const faqOf = async (page: Page) => ((await ldOf(page)).find((b) => b['@type'] === 'FAQPage')?.mainEntity ?? []).map((q: { name: string }) => q.name) as string[];
 /** "Showing 1–20 of 1,234 tenders": the list's own total. */
@@ -60,7 +60,8 @@ test('home: exactly three tiles; each link leads to its page, with the live coun
   // each count is inside the action it belongs to
   await expect(tiles.first().locator('a[href="/tenders"] [data-figure]')).toContainText(/open tenders?$/);
   await expect(tiles.first().locator('a[href="/funding"] [data-figure]')).toContainText(/open funding calls?$/);
-  await expect(tiles.nth(2)).toContainText('five steps of 24 to 35 questions');
+  // WP-150: the tile's description is gone (one short line, the number, one action); its figure says the steps and the range
+  await expect(tiles.nth(2).locator('[data-figure] > span:last-child')).toHaveText('steps, 24 to 35 questions, no account');
   await expect(tiles.nth(2)).not.toContainText('Five short sets of questions');
   await expect(tiles.nth(2).locator('[data-figure]')).toContainText('24 to 35 questions');
   // the same numbers as the lists the tiles lead to (never hard-coded)

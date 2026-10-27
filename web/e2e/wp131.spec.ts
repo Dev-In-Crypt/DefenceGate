@@ -120,8 +120,7 @@ test('4: the supplier profile asks the range the pages print, counted on every r
     max = Math.max(max, await openEverything(page.locator('main form').first()));
   }
   expect({ min, max }, 'lib/question-counts.ts SUPPLIER_QUESTIONS').toEqual(SUPPLIER_QUESTIONS);
-  await visit(page, '/', { title: /DefenceGate/, h1: 'Win, partner, qualify.' });
-  await expect(page.locator('[data-tile]').nth(2)).toContainText(`To supply defence buyers, one page of ${min} to ${max} questions.`);
+  // WP-150: the home tile no longer describes the routes (one line, its figure, one action); /check and /readiness say the range
   await visit(page, '/check', { title: /Check my company/, h1: 'Check my company', text: [`one page of ${min} to ${max} questions`] });
   await visit(page, '/readiness', { title: /readiness/i, h1: /readiness/i, text: [`(one page, ${min} to ${max} questions)`] });
 });
