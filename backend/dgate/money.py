@@ -31,11 +31,12 @@ TOP_GROUPS = 12
 
 def compute(conn) -> dict[str, Any]:
     """One row per contract (`award_set.KEY`) and winner of the set: its buyer, buyer family, buyer country, day, CPV codes, and
-    its contract value when it is summed (currency and amount, else null), as `suppliers.contract_values_sql` sums it."""
+    its contract value when it is summed (currency and amount, else null), as `suppliers.contract_values_sql` sums it. WP-152:
+    with the contract's key (`k`, `award_set.KEY_HASH`), so a slice counts a contract of several winners once (`competition`)."""
     from .suppliers import _RANK_V, SUSPECT_VALUE_MAX, _twins, value_of
 
     rows = conn.execute(
-        f"""SELECT DISTINCT ON (org.id, {KEY_HASH}) org.id AS org,
+        f"""SELECT DISTINCT ON (org.id, {KEY_HASH}) org.id AS org, {KEY_HASH} AS k,
                    CASE WHEN o.buyer_withheld THEN NULL ELSE o.buyer_org_id END AS buyer,
                    CASE WHEN o.buyer_withheld THEN NULL ELSE COALESCE(f.head_org_id, o.buyer_org_id) END AS head,
                    o.country, COALESCE(o.published_at, o.notice_date)::date AS day, o.cpv_codes, v.va, v.vc, v.vk, v.vp
@@ -43,10 +44,10 @@ def compute(conn) -> dict[str, Any]:
              WHERE {award_set.scope()}
              ORDER BY org.id, {KEY_HASH}, (v.va IS NULL), {_RANK_V}, NOT COALESCE(v.vp, FALSE), v.va DESC NULLS LAST""",
         {"since": award_set.since()}).fetchall()
-    cols: dict[str, list[Any]] = {k: [] for k in ("org", "buyer", "head", "country", "day", "cpv", "cur", "amt")}
+    cols: dict[str, list[Any]] = {k: [] for k in ("org", "k", "buyer", "head", "country", "day", "cpv", "cur", "amt")}
     for r in rows:
         summed = (r["va"] is not None and r["vk"] == CONTRACT and (r["vp"] or float(r["va"]) >= SUSPECT_VALUE_MAX))
-        for k, v in (("org", r["org"]), ("buyer", r["buyer"]), ("head", r["head"]), ("country", r["country"]),
+        for k, v in (("org", r["org"]), ("k", r["k"]), ("buyer", r["buyer"]), ("head", r["head"]), ("country", r["country"]),
                      ("day", r["day"].isoformat() if r["day"] else None), ("cpv", list(r["cpv_codes"] or [])),
                      ("cur", r["vc"].strip() if summed else None), ("amt", round(float(r["va"]), 2) if summed else None)):
             cols[k].append(v)

@@ -162,7 +162,9 @@ def test_paid_features_are_pro_and_up_and_free_keeps_none_of_them():
     for feature in ("saved_searches", "email_alerts"):
         assert not billing.allows("free", feature)
         assert all(billing.allows(p, feature) for p in ("pro", "team", "consultant", "founding"))
-    assert set(billing.FEATURES) == {"saved_searches", "email_alerts"}     # nothing "Coming" is gated
+    # nothing "Coming" is gated; WP-152: the company report is built (behind DGATE_COMPANY_REPORT_OPEN, test_wp152)
+    assert set(billing.FEATURES) == {"saved_searches", "email_alerts", "company_report"}
+    assert not billing.allows("free", "company_report")
 
 
 def test_while_no_plan_is_on_sale_nothing_is_withheld_and_once_it_is_the_plan_decides(monkeypatch):
