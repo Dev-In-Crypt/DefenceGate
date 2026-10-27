@@ -7,7 +7,7 @@
 import { headers } from 'next/headers';
 import { TtlCache } from './export-cache';
 import type { ValueSum } from './value-totals';
-import type { Buyer, BuyerFilters, BuyerProfile, BuyerSuppliers, CalendarPage, Call, CallFilters, ChangeFilters, ChangePage, Digest, DigestWeek, Health, MarketFilters, MarketStats, Paginated, ScopeCounts, SiteStats, Supplier, SupplierContracts, SupplierFilters, SupplierItem, SupplierSummary, Tender, TenderFilters, TenderVersion } from './types';
+import type { Buyer, BuyerFilters, BuyerProfile, BuyerSuppliers, CalendarPage, Call, CallFilters, ChangeFilters, ChangePage, Digest, DigestWeek, Health, MarketFilters, MarketStats, Paginated, ScopeCounts, SiteStats, Supplier, SupplierCompetition, SupplierContracts, SupplierFilters, SupplierItem, SupplierSummary, Tender, TenderFilters, TenderVersion } from './types';
 import { BUYER_PAGE_SIZE, CHANGE_PAGE_SIZE, DEFAULT_PAGE_SIZE, PARAM, TENDER_PAGE_SIZE, toBuyerQuery, toChangeQuery, toQuery, toTenderQuery } from './filters';
 import { PLACEHOLDER_AMOUNT_MAX } from './format';
 import { now } from './deadline';
@@ -551,6 +551,14 @@ export async function getSupplierContracts(slug: string): Promise<SupplierContra
   if (!isSupplierSlug(slug)) return null;
   if (!API_BASE) return supplierMock.supplierContracts(slug);
   return http<SupplierContracts>(`/v1/suppliers/${encodeURIComponent(slug)}/contracts`, 'no-store');
+}
+
+/** WP-152: the company's competitors, where it wins and its share (GET /v1/suppliers/{slug}/competition). null: no such supplier or an
+ * API without the endpoint; a 410 throws (`whenRemoved`). */
+export async function getSupplierCompetition(slug: string): Promise<SupplierCompetition | null> {
+  if (!isSupplierSlug(slug)) return null;
+  if (!API_BASE) return supplierMock.supplierCompetition(slug);
+  return http<SupplierCompetition>(`/v1/suppliers/${encodeURIComponent(slug)}/competition`, 'revalidate', DETAIL_REVALIDATE_SECONDS);
 }
 
 export async function getBuyer(slug: string): Promise<Buyer | null> {

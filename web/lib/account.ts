@@ -375,7 +375,7 @@ export const getState = (keys: StateKey[]) =>
 /* ---- billing (WP-124): Creem, merchant of record ---- */
 
 const toPlan = (v: unknown): PlanId => (typeof v === 'string' && Object.hasOwn(PLAN_LABELS, v) ? (v as PlanId) : 'free');
-const toFeatures = (v: unknown): Feature[] => arr<unknown>(v).filter((f): f is Feature => f === 'saved_searches' || f === 'email_alerts');
+const toFeatures = (v: unknown): Feature[] => arr<unknown>(v).filter((f): f is Feature => f === 'saved_searches' || f === 'email_alerts' || f === 'company_report');
 
 export interface BillingState {
   open: boolean;

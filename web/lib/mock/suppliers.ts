@@ -3,7 +3,7 @@
  * companies, so the supplier pages have something to lay out in the demo build and in the end-to-end tests. Shapes only; the numbers
  * are made up, which is why this is never used with an API configured.
  */
-import type { BuyerSuppliers, Paginated, Supplier, SupplierContract, SupplierContracts, SupplierFilters, SupplierItem, SupplierNotice, SupplierSummary } from '../types';
+import type { BuyerSuppliers, Paginated, Supplier, SupplierCompetition, SupplierContract, SupplierContracts, SupplierFilters, SupplierItem, SupplierNotice, SupplierSummary } from '../types';
 import type { ValueSum } from '../value-totals';
 
 const ITEMS: SupplierItem[] = [
@@ -136,6 +136,29 @@ export function supplierContracts(slug: string): SupplierContracts | null {
     licence: 'Commission Decision 2011/833/EU (reuse permitted with attribution)', attribution: 'Source: TED, © European Union.',
   }));
   return { slug: s.slug, name: s.name, total: items.length, cap: 5000, items, identifiers: s.identifiers };
+}
+
+/**
+ * WP-152: GET /v1/suppliers/{slug}/competition in the demo: the other demo companies as competitors (one of them under the same name, as a
+ * second record of a company would be), invented counts. The company report is off, as it is by default (DGATE_COMPANY_REPORT_OPEN).
+ */
+export function supplierCompetition(slug: string): SupplierCompetition | null {
+  const s = findSupplier(slug);
+  if (!s) return null;
+  const others = ITEMS.filter((x) => x.id !== s.id);
+  const n = s.awardCount;
+  return {
+    available: true, asOf: '2026-10-12T06:00:00Z', since: '2023-10-12', contracts: n, markets: 4, competitorCount: others.length,
+    competitors: others.map((x, i) => ({ slug: x.slug, name: i === 3 ? s.name : x.name, country: i === 3 ? s.country : x.country, overlap: 9 - 2 * i, markets: 3 - Math.min(i, 2),
+      buyers: 2 - Math.min(i, 1), ours: Math.max(1, n - 3 * i), sameName: i === 3, sameGroup: i === 0 && s.id === '1' ? 'Demo' : null })),
+    byCountry: [{ key: 'DE', contracts: Math.ceil(n / 2) }, { key: 'FR', contracts: Math.floor(n / 2) }],
+    byClass: [{ key: '3541', contracts: Math.ceil(n / 2) }, { key: '3512', contracts: Math.floor(n / 2) }, { key: '3410', contracts: 1 }],
+    size: { currency: 'EUR', median: 1_500_000, valued: 3, otherCurrencies: 0 }, withoutValue: Math.max(0, n - 3),
+    shareByClass: [{ key: '3541', contracts: Math.ceil(n / 2), total: 240, currency: 'EUR', value: 2_700_000, valued: 2, valueTotal: 310_000_000, valuedTotal: 61 }],
+    shareByCountry: [{ key: 'DE', contracts: Math.ceil(n / 2), total: 1_830, currency: 'EUR', value: 2_700_000, valued: 2, valueTotal: 1_250_000_000, valuedTotal: 402 },
+      { key: 'FR', contracts: Math.floor(n / 2), total: 960, currency: null }],
+    reportOpen: false,
+  };
 }
 
 /**

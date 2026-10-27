@@ -918,7 +918,7 @@ export interface Me {
 }
 
 /** WP-124: the paid features that exist (backend billing.FEATURES). */
-export type PaidFeature = 'saved_searches' | 'email_alerts';
+export type PaidFeature = 'saved_searches' | 'email_alerts' | 'company_report';
 
 /** GET /v1/account/sessions */
 export interface AccountSession {
@@ -1144,6 +1144,49 @@ export interface SupplierContracts {
   slug: string; name: string; total: number; cap: number; items: SupplierContract[];
   /** WP-112: its registration numbers as its page shows them (absent from an older API). */
   identifiers?: string[];
+}
+/** WP-152, GET /v1/suppliers/{slug}/competition (backend/dgate/competition.py). A market is one buyer and one CPV class. */
+export interface Competitor {
+  slug: string; name: string; country: string | null;
+  /** Its contracts in the markets it shares with the company. */
+  overlap: number;
+  markets: number;
+  buyers: number;
+  /** The company's own contracts in those markets. */
+  ours: number;
+  /** The same name in the same country: possibly the company itself under another record. */
+  sameName: boolean;
+  /** The curated group both are listed under. */
+  sameGroup: string | null;
+}
+export interface CompetitionTally { key: string; contracts: number }
+export interface CompetitionShare {
+  /** A CPV class (4 digits) or a buyer country. */
+  key: string;
+  contracts: number;
+  /** Every contract of the award set there. */
+  total: number;
+  /** The commonest currency of the contract values there; null when none states one. */
+  currency: string | null;
+  value?: number | null; valued?: number | null; valueTotal?: number | null; valuedTotal?: number | null;
+}
+export interface SupplierCompetition {
+  /** False while the stored contract rows are being renewed: nothing else is filled. */
+  available: boolean;
+  asOf?: IsoDateTime | null;
+  since?: string | null;
+  contracts: number;
+  markets: number;
+  competitorCount: number;
+  competitors: Competitor[];
+  byCountry: CompetitionTally[];
+  byClass: CompetitionTally[];
+  size: { currency: string; median: number; valued: number; otherCurrencies: number } | null;
+  withoutValue: number;
+  shareByClass: CompetitionShare[];
+  shareByCountry: CompetitionShare[];
+  /** The paid company report exists (DGATE_COMPANY_REPORT_OPEN). */
+  reportOpen: boolean;
 }
 /** WP-98b: `sort` value-XXX orders by the contract values in currency XXX; `source` ted lists TED's winners only. */
 export interface SupplierFilters { q?: string; country?: string; buyerCountry?: string; cpv?: string; group?: string; sort?: SupplierSort; source?: 'ted'; page?: number; pageSize?: number }
