@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { LockKeyhole } from 'lucide-react';
 import { getRequirements } from '@/lib/readiness-api';
 import { buildMetadata } from '@/lib/seo';
 import { WHAT_IS_SENT } from '@/lib/sent-copy';
 import { STEPS_QUESTIONS, SUPPLIER_QUESTIONS, rangeWords } from '@/lib/question-counts';
-import { Callout } from '@/components/dg/blocks';
+import { NoteLine } from '@/components/dg/blocks';
 import { AboutData } from '@/components/dg/about-data';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
 import { Wizard, type WizardRequirement } from '@/components/readiness/wizard';
@@ -32,29 +32,31 @@ export default async function ReadinessPage() {
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Check my company', href: '/check' }, { label: 'Readiness check', href: '/readiness' }]}
       title="Readiness check"
-      lead={`Answer five sets of questions (${rangeWords(STEPS_QUESTIONS)} in all, depending on your answers) to see, programme by programme, whether your company can take part in EU defence funding and what to obtain first.`}
+      lead={`See whether your company can take part in EU defence funding and what to obtain first: five sets of questions, ${rangeWords(STEPS_QUESTIONS)} in all.`}
     >
-      {/* WP-88: the heading says what is true of the whole flow (the next paragraph says what is sent once); the detail is collapsed. */}
-      <Callout title="Your answers are not stored on our server">
-        <AboutData summary="What is kept and what is sent">
-        <p className="m-0">They are saved in this browser, on this device. There is no account and no copy on our server. The verdict, each rule with its reason and the text of its source, and an ordered list of what to obtain, who issues it and what it costs, are worked out from them.</p>
-        {/* WP-131: the list is made from the two request builders (lib/sent-copy.ts), so it cannot drift from what is sent */}
-        <p className="m-0" data-what-is-sent>{WHAT_IS_SENT}</p>
-        </AboutData>
-      </Callout>
-
-      {/* WP-65: the second way in. The funding wizard below is unchanged. */}
-      <nav aria-label="Which check" className="flex flex-col gap-1 rounded-lg border border-edge bg-surface p-5">
-        <p className="m-0 text-body">The questions below are for EU defence funding (the European Defence Fund, EDIP and SAFE). Something else?</p>
-        <Link href="/readiness/supplier" className="inline-flex min-h-11 items-center gap-2 text-body font-bold">
-          I make parts or materials and want to supply defence buyers (one page, {rangeWords(SUPPLIER_QUESTIONS)} questions)<ArrowRight size={18} aria-hidden="true" className="shrink-0" />
-        </Link>
-        <Link href="/readiness/spain-automotive" className="inline-flex min-h-11 items-center gap-2 text-body font-bold">
-          A civilian manufacturer in Spain, such as an automotive supplier: what the check gives you<ArrowRight size={18} aria-hidden="true" className="shrink-0" />
-        </Link>
-      </nav>
-
-      <Wizard requirements={requirements} />
+      {/* WP-149: the first question comes right under the title; the privacy statement and the scope are one line each beside it. */}
+      <div className="flex min-w-0 flex-col gap-4">
+        <div className="flex min-w-0 flex-col">
+          {/* WP-88: the line says what is true of the whole flow (the paragraph behind it says what is sent once); the detail is collapsed. */}
+          <NoteLine icon={LockKeyhole} data-privacy-line more={
+            <AboutData summary="What is kept and what is sent">
+              <p className="m-0">They are saved in this browser, on this device. There is no account and no copy on our server. The verdict, each rule with its reason and the text of its source, and an ordered list of what to obtain, who issues it and what it costs, are worked out from them.</p>
+              {/* WP-131: the list is made from the two request builders (lib/sent-copy.ts), so it cannot drift from what is sent */}
+              <p className="m-0" data-what-is-sent>{WHAT_IS_SENT}</p>
+            </AboutData>
+          }>Your answers are not stored on our server.</NoteLine>
+          {/* WP-65: the second way in. The funding wizard below is unchanged. */}
+          <nav aria-label="Which check">
+            <NoteLine>
+              For EU defence funding (EDF, EDIP and SAFE). Something else?{' '}
+              <Link href="/readiness/supplier" className="font-semibold">I make parts or materials and want to supply defence buyers (one page, {rangeWords(SUPPLIER_QUESTIONS)} questions)</Link>
+              {' · '}
+              <Link href="/readiness/spain-automotive" className="font-semibold">A civilian manufacturer in Spain</Link>
+            </NoteLine>
+          </nav>
+        </div>
+        <Wizard requirements={requirements} />
+      </div>
 
       <ContentSection title="What it checks">
         <p className="m-0 text-body text-ink-muted">

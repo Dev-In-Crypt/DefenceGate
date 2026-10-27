@@ -5,6 +5,27 @@ import { Icon } from './icon';
 import { AutoGrid } from './auto-grid';
 import { Card, CARD_PADDING, CARD_SURFACE } from './card';
 
+/**
+ * WP-149 (the callout policy): a reassurance, a scope note or a method note is one small line beside the thing it is about, never a
+ * framed box above the service. The icon and the sentence, then optionally `more` (an AboutData or a link) on the same line; an
+ * opened disclosure takes the whole width under it. The framed Callout below stays for what changes what the visitor must do.
+ */
+export function NoteLine({ icon = Info, children, more, className, ...rest }: {
+  icon?: LucideIcon; children: React.ReactNode; more?: React.ReactNode; className?: string;
+} & React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div {...rest} className={cn('flex min-w-0 items-start gap-2 text-small text-ink-muted', className)}>
+      {/* 14 px down: centred on the first 20 px line of the sentence under its 12 px padding, however many lines it wraps to */}
+      <Icon icon={icon} size="inline" className="mt-3.5 text-ink-muted" />
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 [&>[data-about]:has(details[open])]:basis-full">
+        {/* run-text: a link in the sentence is underlined, not told apart by colour alone (globals.css) */}
+        <span className="run-text min-w-0 py-3 [overflow-wrap:anywhere]">{children}</span>
+        {more}
+      </div>
+    </div>
+  );
+}
+
 /** A short, framed note. Used for the "in short" summary of long texts and for plain-language caveats. */
 export function Callout({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
   return (

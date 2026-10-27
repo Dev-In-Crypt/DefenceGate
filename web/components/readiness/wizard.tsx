@@ -246,7 +246,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
               {/* A button 44 px high with the 8 px bar inside: any step can be reached, and the thin bar is not the only target. */}
               <button type="button" onClick={() => go(i + 1)} aria-current={i + 1 === current ? 'step' : undefined}
                 className="flex min-h-11 w-full flex-col justify-center border-0 bg-transparent p-0">
-                <span className={`block h-2 w-full rounded-pill ${i + 1 < current ? 'bg-primary' : i + 1 === current ? 'bg-ink' : 'bg-surface-inset'}`} />
+                <span className={`block h-2 w-full rounded-pill ${i + 1 < current ? 'bg-primary' : i + 1 === current ? 'bg-ink' : 'bg-line'}`} />
                 <span className="sr-only">Go to step {i + 1}: {title}{i + 1 < current ? ' (done)' : i + 1 === current ? ' (current)' : ''}</span>
               </button>
             </li>

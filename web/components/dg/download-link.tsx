@@ -4,8 +4,11 @@ import { cn } from '@/lib/utils';
 import { exportCap, EXPORT_ROW_CAP } from '@/lib/export-cache';
 import { MARKET_FIRST_YEAR } from '@/lib/filters';
 import { now } from '@/lib/deadline';
+import { AboutData } from './about-data';
 import { buttonVariants } from './button';
 import { Icon } from './icon';
+
+const LINK = 'inline-flex min-h-11 items-center gap-2 text-small font-bold';
 
 /** The years a tender file can be asked for, newest first: the archive holds notices from 2021 (MARKET_FIRST_YEAR). */
 function publicationYears(): number[] {
@@ -31,8 +34,10 @@ function PublishedRange({ csvHref }: { csvHref: string }) {
  * The tools of a result list, under the filters: the CSV of the current result (a plain link, not a
  * client-routed one, so nothing prefetches the file) and a way to the deadline calendar.
  */
-export function ResultTools({ csvHref, calendarHref = '/calendar', feedHref, icsHref, className, total, status, atLeast }: {
+export function ResultTools({ csvHref, calendarHref = '/calendar', feedHref, icsHref, className, total, status, atLeast, compact = false }: {
   csvHref: string; calendarHref?: string; className?: string;
+  /** WP-149: a row of links with no card (above the results on a phone), not the card under the filters. */
+  compact?: boolean;
   /** WP-91: the calendar file of exactly this result (the funding search's /funding.ics). */
   icsHref?: string;
   /** WP-87: the Atom feed of the changes of this result (the list's filters travel with it). */
@@ -46,12 +51,18 @@ export function ResultTools({ csvHref, calendarHref = '/calendar', feedHref, ics
   const cut = typeof total === 'number' && total > cap;
   // The tenders file marks a cut in a column (`result_truncated`); the funding file still ends with a note row.
   const tenders = csvHref.startsWith('/tenders/');
+  const holds = 'The public fields of this result, up to 2,000 rows (1,000 when the status is All), with source, licence and attribution on every row.';
   return (
-    <div className={cn('flex flex-col gap-2 rounded-lg border border-transparent bg-surface p-5', className)}>
-      <a href={csvHref} className={cn(buttonVariants({ variant: 'secondary', fullWidth: true }))}>
-        <Icon icon={Download} size="button" />Download CSV
+    <div className={cn(compact
+      // WP-149: above the results on a phone, one row of links; what the file holds is one click away, a cut stays said in full
+      ? 'flex min-w-0 flex-wrap items-center gap-x-5 [&>[data-about]:has(details[open])]:basis-full [&>form]:basis-full [&>p]:basis-full [&>ul]:basis-full'
+      : 'flex flex-col gap-2 rounded-lg border border-transparent bg-surface p-5', className)}>
+      <a href={csvHref} className={compact ? LINK : cn(buttonVariants({ variant: 'secondary', fullWidth: true }))}>
+        <Icon icon={Download} size={compact ? 'inline' : 'button'} />Download CSV
       </a>
-      <p className="m-0 text-small text-ink-muted">The public fields of this result, up to 2,000 rows (1,000 when the status is All), with source, licence and attribution on every row.</p>
+      {compact
+        ? <AboutData summary="What the file holds"><p className="m-0">{holds}</p></AboutData>
+        : <p className="m-0 text-small text-ink-muted">{holds}</p>}
       {cut && (
         <p className="m-0 text-small font-semibold text-ink">
           This result has {atLeast ? 'at least ' : ''}{total.toLocaleString('en-GB')} rows. {tenders

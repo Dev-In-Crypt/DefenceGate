@@ -89,7 +89,7 @@ export function ListPage({
           <FilterNotices notices={notices} />
           {/* Below lg the filters are folded away and the column is one. WP-106 (p09): the tools come before the results, not after
               38,000 px of them on a phone. */}
-          {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref={calendarHref} feedHref={feedHref} className="lg:hidden" total={total} status={exportStatus} atLeast={totalText !== undefined} />}
+          {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref={calendarHref} feedHref={feedHref} className="lg:hidden" compact total={total} status={exportStatus} atLeast={totalText !== undefined} />}
           {subscribe}
           {total > 0 && listNote}
           {total === 0 ? (
