@@ -9,7 +9,7 @@ import { redirect } from 'next/navigation';
 import {
   acceptTerms, authLogout, CADENCES, changePassword, clearCookie, deleteFollow, deleteMe, deleteSearch, deleteShortlist,
   revokeOtherSessions, revokeSession, ROLES, SCOPES, SESSION_COOKIE, SHORTLIST_STATUSES, totpDisable, totpEnable, totpSetup,
-  updateMe, updateSearch, putShortlist, createCheckout, openPortal, type AccountResult,
+  updateMe, updateSearch, putShortlist, createCheckout, openPortal, createApiKey, revokeApiKey, type AccountResult,
 } from '@/lib/account';
 import { followRef, isUuid, numericRef } from '@/lib/refs';
 import type { Cadence, FollowKind, Profile, ProfileScope, Role, ShortlistKind, ShortlistStatus, Track } from '@/lib/types';
@@ -199,6 +199,38 @@ export async function deleteAccount(form: FormData): Promise<void> {
     : r.status === 409 && r.error === 'subscription_active' ? 'subscription_active'
     : r.status >= 400 && r.status < 500 ? 'confirm' : 'error';
   redirect(`/app/settings?n=${code}#delete`);
+}
+
+/* ---- keys of the data API (WP-153) ---- */
+
+export interface KeyState {
+  status: 'idle' | 'created' | 'wrong_password' | 'too_many' | 'closed' | 'invalid' | 'rate_limited' | 'error';
+  /** The key, in the answer to `newApiKey` only: shown once on the page, never stored by the site. */
+  key?: string;
+  name?: string;
+}
+
+export async function newApiKey(_prev: KeyState, form: FormData): Promise<KeyState> {
+  const name = field(form, 'name', 120).trim().slice(0, 60);
+  const scopes = (['tenders', 'archive'] as const).filter((s) => form.getAll('scopes').includes(s));
+  if (!name || scopes.length === 0) return { status: 'invalid', name };
+  const r = await createApiKey(name, [...scopes], field(form, 'password', PASSWORD_MAX));
+  if (r.ok) return { status: 'created', key: r.data.key, name: r.data.meta.name };
+  if (r.status === 401) redirect('/auth/expired');
+  // the name typed comes back to the form (React resets a form after its action); the password never does
+  if (r.status === 403 && r.error === 'wrong_password') return { status: 'wrong_password', name };
+  if (r.status === 403 && r.error === 'api_keys_closed') return { status: 'closed', name };
+  if (r.status === 409) return { status: 'too_many', name };
+  if (r.status === 429) return { status: 'rate_limited', name };
+  return { status: r.status === 422 ? 'invalid' : 'error', name };
+}
+
+export async function endApiKey(form: FormData): Promise<void> {
+  const id = field(form, 'id', 64);
+  if (!isUuid(id)) redirect('/app/keys?n=invalid');
+  const r = await revokeApiKey(id, field(form, 'password', PASSWORD_MAX));
+  if (r.ok) redirect('/app/keys?n=key_revoked');
+  redirect(`/app/keys?n=${securityCode(r)}`);
 }
 
 /* ---- billing (WP-124) ---- */

@@ -915,6 +915,31 @@ export interface Me {
   plan: import('./plans').PlanId;
   /** WP-124: the paid features this account may use (every one while no plan is on sale). */
   features: PaidFeature[];
+  /** WP-153: keys of the data API can be issued (DGATE_API_KEYS_OPEN on the API): the account area shows API keys. */
+  apiKeys: boolean;
+}
+
+/** WP-153: a key of the data API as the account API lists it (never the key itself, except `key` in the answer that made it). */
+export interface ApiKey {
+  id: string;
+  name: string;
+  prefix: string;
+  scopes: ('tenders' | 'archive')[];
+  ratePerMinute: number;
+  dailyQuota: number;
+  createdAt: IsoDateTime;
+  expiresAt: IsoDateTime;
+  lastUsedAt: IsoDateTime | null;
+  revokedAt: IsoDateTime | null;
+  requestsToday: number;
+}
+
+export interface ApiKeys {
+  open: boolean;
+  sources: string[];
+  maxKeys: number;
+  keys: ApiKey[];
+  events: { event: 'created' | 'revoked'; at: IsoDateTime; name: string; prefix: string }[];
 }
 
 /** WP-124: the paid features that exist (backend billing.FEATURES). */

@@ -85,7 +85,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <details className="group rounded-lg border border-transparent bg-surface">
             <summary className="flex min-h-11 cursor-pointer list-none items-center px-6 text-body font-bold [&::-webkit-details-marker]:hidden">Menu</summary>
             <div className="flex flex-col gap-4 px-3 pb-4">
-              <AppNav label="Account menu" />
+              <AppNav label="Account menu" apiKeys={state.user.apiKeys} />
               <SignOut />
             </div>
           </details>
@@ -96,7 +96,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Logo href="/" />
             <ThemeToggle />
           </div>
-          <AppNav />
+          <AppNav apiKeys={state.user.apiKeys} />
           <div className="flex flex-col gap-3 border-t border-line pt-4">
             <p className="m-0 truncate px-2 text-small text-ink-muted" title={email}>{email}</p>
             <SignOut />

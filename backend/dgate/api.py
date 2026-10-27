@@ -255,10 +255,15 @@ class OpportunityOut(BaseModel):
     same_notice: list[dict[str, Any]] = []
 
 
-def _twins(conn, ids: list[int]) -> dict[int, list[dict[str, Any]]]:
+SOURCE_HELP = ("comma-separated source codes (ted, es_placsp, fr_boamp, ...): only notices of these sources, and "
+               "`same_notice` only of these. With an API key it is set to the sources the licence allows")
+
+
+def _twins(conn, ids: list[int], sources: list[str] | None = None) -> dict[int, list[dict[str, Any]]]:
     """For a page of rows, the same notice in the other sources, by TED number. Two rows of one source that name the
     same TED notice are two notices of that source, not copies (WP-138: 245 call-offs of one BWI framework, all linked
-    to the newest TED notice of their procedure, were each other's "same notice")."""
+    to the newest TED notice of their procedure, were each other's "same notice"). `sources`: only twins of these
+    (WP-153: a key reads the licensed sources, and a twin's id, number and link are another source's data)."""
     if not ids:
         return {}
     # WP-135: and a Polish notice in the bulletin and in its mirror, by its BZP number
@@ -281,6 +286,8 @@ def _twins(conn, ids: list[int]) -> dict[int, list[dict[str, Any]]]:
     ).fetchall()
     out: dict[int, list[dict[str, Any]]] = {}
     for r in rows:
+        if sources and r["source"] not in sources:
+            continue
         out.setdefault(r["row_id"], []).append({
             "id": r["id"], "source": r["source"],
             "native_id": r["native_id"], "url": http_url(r["source_url"]),
@@ -485,11 +492,16 @@ def list_opportunities(
                                              "in this result (see `same_notice`)"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0, le=MAX_OFFSET),
+    source: str | None = Query(None, max_length=400, description=SOURCE_HELP),
     conn=Depends(get_conn),
 ):
     where = ["o.is_defence = TRUE", "NOT o.suppressed", f"{EFFECTIVE_STATUS_SQL} = %s",
              SCOPE_SQL[scope]]
     params: list[Any] = [status]
+    sources = _split(source, "source", max_length=32) if source else None
+    if sources:
+        where.append("s.code = ANY(%s)")
+        params.append(sources)
 
     if country:
         codes = _split(country, "country", upper=True, max_length=2)
@@ -530,20 +542,23 @@ def list_opportunities(
         sql = f"SELECT m.* FROM ({matched}) m WHERE TRUE"
     sql += " ORDER BY m.published_at DESC NULLS LAST, m.id DESC LIMIT %s OFFSET %s"
     rows = conn.execute(sql, params + [limit, offset]).fetchall()
-    twins = _twins(conn, [r["id"] for r in rows])
+    twins = _twins(conn, [r["id"] for r in rows], sources)
     return [_row_to_out(r, twins.get(r["id"])) for r in rows]
 
 
 @app.get("/v1/opportunities/{opp_id}", response_model=OpportunityOut)
-def get_opportunity(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)):
+def get_opportunity(opp_id: int = Path(ge=1, le=MAX_BIGINT),
+                    source: str | None = Query(None, max_length=400, description=SOURCE_HELP),
+                    conn=Depends(get_conn)):
     # Defence rows only, as `/v1/tenders/{id}` and the list: 268 notices that are held and
     # not (or no longer) defence were served here with their archive (audit L1, X-8).
     row = conn.execute(BASE_SELECT + " WHERE o.id = %s AND o.is_defence", (opp_id,)).fetchone()
-    if not row:
+    sources = _split(source, "source", max_length=32) if source else None
+    if not row or (sources and row["source_code"] not in sources):
         raise HTTPException(404, "not found")
     if row["suppressed"]:
         raise removed()
-    return _row_to_out(row, _twins(conn, [opp_id]).get(opp_id))
+    return _row_to_out(row, _twins(conn, [opp_id], sources).get(opp_id))
 
 
 # What a version's snapshot may show. An allow-list, because the stored payload
@@ -587,7 +602,8 @@ def main_code_first(snapshot: dict[str, Any], main: str | None) -> bool:
 
 
 @app.get("/v1/opportunities/{opp_id}/versions")
-def get_versions(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)):
+def get_versions(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn),
+                 source: str | None = Query(None, max_length=400, description=SOURCE_HELP)):
     """The archive: full observation timeline for one notice.
 
     Deadline extensions, value revisions and scope amendments, each with the
@@ -595,8 +611,13 @@ def get_versions(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)
     from any upstream source.
     """
     gone = conn.execute("SELECT o.suppressed, o.buyer_withheld, o.cpv_codes[1] AS main, "
-                        "(SELECT b.individual_reason IS NOT NULL FROM organisation b WHERE b.id = o.buyer_org_id) AS person "
+                        "(SELECT b.individual_reason IS NOT NULL FROM organisation b WHERE b.id = o.buyer_org_id) AS person, "
+                        "(SELECT s.code FROM source s WHERE s.id = o.source_id) AS source_code "
                         "FROM opportunity o WHERE o.id = %s AND o.is_defence", (opp_id,)).fetchone()
+    # called directly (tests, `source` left at its Query default) it reads every source
+    sources = _split(source, "source", max_length=32) if isinstance(source, str) and source else None
+    if sources and (not gone or gone["source_code"] not in sources):
+        raise HTTPException(404, "not found")
     if gone and gone["suppressed"]:
         raise removed()
     withheld = bool(gone and gone["buyer_withheld"])
@@ -1115,6 +1136,11 @@ from .billing import webhook_router as _billing_webhook_router  # noqa: E402
 
 app.include_router(_billing_router)
 app.include_router(_billing_webhook_router)
+
+# WP-153: key management of the data API (internal, like the accounts); the keys themselves are checked in hardening.RateLimit.
+from .apikeys import router as _keys_router  # noqa: E402
+
+app.include_router(_keys_router)
 app.add_exception_handler(AccountError, account_error_handler)
 
 # Layer 3, readiness (dgate/readiness): the public requirements catalogue and the stateless

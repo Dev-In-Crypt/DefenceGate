@@ -375,6 +375,13 @@ class Settings:
     # WP-140: the owner's switch. In production accounts stay closed, whatever the relay, the notice and the key
     # say, until DGATE_ACCOUNTS_OPEN=1 (any other value, or none, is closed). Development and tests ignore it.
     accounts_open: bool = field(default_factory=lambda: _env("DGATE_ACCOUNTS_OPEN", "0").strip() == "1")
+    # WP-153: the data API with keys (dgate/apikeys.py), the owner's switch: closed until DGATE_API_KEYS_OPEN=1. Closed,
+    # no key is issued and a request that presents one is refused (401); keys already issued are listed and revocable.
+    api_keys_open: bool = field(default_factory=lambda: _env("DGATE_API_KEYS_OPEN", "0").strip() == "1")
+    # The sources a key-authenticated request may read: the ones docs/research/DATA_LICENCES_2026-10-27.md finds
+    # resellable, decided by the owner. Comma-separated source codes; TED only by default.
+    api_key_sources: tuple[str, ...] = field(default_factory=lambda: tuple(
+        s.strip() for s in _env("DGATE_API_KEY_SOURCES", "ted").split(",") if s.strip()))
     # WP-126: the file the accounts security log is written to (JSON lines), kept to 90 days by
     # dgate.ops.logprune. Unset (development, tests): the log goes to stderr as before.
     security_log: str | None = field(default_factory=lambda: os.environ.get("DGATE_SECURITY_LOG") or None)

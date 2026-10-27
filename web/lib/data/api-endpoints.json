@@ -1,0 +1,38 @@
+{
+  "_note": "WP-153: what an API key may call (backend/dgate/apikeys.py ROUTES), curated from the API's OpenAPI. backend/tests/unit/test_apikeys.py checks that every path, scope and parameter here exists there.",
+  "endpoints": [
+    {
+      "path": "/v1/opportunities",
+      "scope": "tenders",
+      "title": "Defence notices",
+      "summary": "The defence and dual-use procurement notices, newest first, 50 a page (up to 200). Each carries its buyer, country, dates, stated value, CPV codes, the four defence signals, why it is in scope, its version number, a link to the source and the source's credit line.",
+      "params": [
+        { "name": "country", "text": "ISO-2 country codes, comma-separated" },
+        { "name": "cpv", "text": "CPV code prefixes, comma-separated" },
+        { "name": "deadline_after", "text": "deadline on or after this date (YYYY-MM-DD)" },
+        { "name": "deadline_before", "text": "deadline on or before this date" },
+        { "name": "value_min", "text": "stated value at least this amount (in the notice's own currency)" },
+        { "name": "status", "text": "the state as of now, for example open (default), forthcoming, expired or awarded" },
+        { "name": "scope", "text": "core (default): the notice itself is defence; supply: only the buyer is a defence body; all" },
+        { "name": "collapse", "text": "show a national notice once when its TED notice is in the same answer (default true)" },
+        { "name": "source", "text": "source codes, comma-separated; a key reads only the licensed ones" },
+        { "name": "limit", "text": "1 to 200" },
+        { "name": "offset", "text": "up to 10,000" }
+      ]
+    },
+    {
+      "path": "/v1/opportunities/{opp_id}",
+      "scope": "tenders",
+      "title": "One notice",
+      "summary": "One notice by its id, in the same shape as the list, with the same notice as other licensed sources published it.",
+      "params": []
+    },
+    {
+      "path": "/v1/opportunities/{opp_id}/versions",
+      "scope": "archive",
+      "title": "The archive of a notice",
+      "summary": "Every version of the notice we observed since we first saw it: when it was observed, which fields changed (deadline, value, status, codes and more) and the fields of that version. Versions we added when we corrected how a field is read are marked, not hidden.",
+      "params": []
+    }
+  ]
+}

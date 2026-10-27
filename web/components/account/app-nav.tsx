@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bell, Bookmark, CreditCard, LayoutDashboard, Search, Settings } from 'lucide-react';
+import { Bell, Bookmark, CreditCard, KeyRound, LayoutDashboard, Search, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Icon } from '../dg/icon';
 
@@ -15,13 +15,17 @@ const ITEMS = [
   { label: 'Settings', href: '/app/settings', icon: Settings },
 ] as const;
 
+/** WP-153: shown while the API issues keys (`Me.apiKeys`), before Settings. */
+const KEYS = { label: 'API keys', href: '/app/keys', icon: KeyRound } as const;
+
 /** Sidebar on desktop, the list inside the mobile menu below lg. The dashboard matches /app exactly. */
-export function AppNav({ label = 'Account' }: { label?: string }) {
+export function AppNav({ label = 'Account', apiKeys = false }: { label?: string; apiKeys?: boolean }) {
   const pathname = usePathname();
+  const items = apiKeys ? [...ITEMS.slice(0, -1), KEYS, ITEMS[ITEMS.length - 1]] : ITEMS;
   return (
     <nav aria-label={label}>
       <ul className="m-0 flex list-none flex-col gap-1 p-0">
-        {ITEMS.map((i) => {
+        {items.map((i) => {
           const active = i.href === '/app' ? pathname === '/app' : pathname === i.href || pathname.startsWith(`${i.href}/`);
           return (
             <li key={i.href}>

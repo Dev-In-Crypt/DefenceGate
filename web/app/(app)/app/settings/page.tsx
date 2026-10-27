@@ -115,6 +115,7 @@ export default async function SettingsPage({ searchParams }: Props) {
           <li>your e-mail address, your profile, the plan you chose and what we hold about your subscription;</li>
           <li>your saved searches and their alerts, your shortlist with its notes, and what you follow;</li>
           <li>your password, two-step sign-in key and recovery codes, and any confirmation or password link not used yet;</li>
+          {me.apiKeys && <li>your API keys, their history and their daily request counts: a request with one of them is refused from then on;</li>}
           <li>every session: you are signed out everywhere.</li>
         </ul>
         <p className="m-0 max-w-prose text-body text-ink-muted">

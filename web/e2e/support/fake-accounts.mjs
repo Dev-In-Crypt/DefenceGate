@@ -15,6 +15,8 @@ const SESSION = 's'.repeat(43);
 const TICKET = 't'.repeat(43);
 const TOKEN = 'k'.repeat(43);
 const session = () => [200, { session: SESSION, expiresAt: new Date(Date.now() + 30 * 86400e3).toISOString(), isNew: false }];
+const KEYS = [];
+const EVENTS = [];
 const policy = (pw) => (typeof pw === 'string' && pw.length >= 12 ? null : [422, { error: 'password_too_short', message: 'use at least 12 characters' }]);
 
 function route(method, path, headers, body) {
@@ -57,7 +59,30 @@ function route(method, path, headers, body) {
   if (path === '/v1/account/me') {
     if (headers['x-dg-session'] !== SESSION) return [401, { error: 'unauthenticated' }];
     return [200, { id: 'u1', email: 'ann@example.test', createdAt: '2026-10-22T08:00:00Z', profile: { role: 'supplier', tracks: ['tenders'], countries: [], scope: 'core', cadence: 'daily' },
-      onboarded: true, lastVisitAt: null, terms: { current: true }, security: { hasPassword: true, totp: false } }];
+      onboarded: true, lastVisitAt: null, terms: { current: true }, security: { hasPassword: true, totp: false }, features: ['api_keys'] }];
+  }
+  // WP-153 (e2e/wp153.spec.ts): API keys, open. The key is made of the counter so a test can tell one from another.
+  if (path === '/v1/account/keys' || path.startsWith('/v1/account/keys/')) {
+    if (!signedIn) return [401, { error: 'unauthenticated' }];
+    if (method === 'GET') return [200, { open: true, sources: ['ted'], scopes: ['tenders', 'archive'], maxKeys: 50, keys: [...KEYS].reverse(), events: [...EVENTS].reverse() }];
+    if (body.password !== PASSWORD) return [403, { error: 'wrong_password' }];
+    const now = new Date().toISOString();
+    if (method === 'POST' && path === '/v1/account/keys') {
+      const n = KEYS.length + 1;
+      const prefix = String(n).padStart(12, 'a');
+      const meta = { id: `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`, name: body.name, prefix, scopes: body.scopes, ratePerMinute: 60,
+        dailyQuota: 10000, createdAt: now, expiresAt: new Date(Date.now() + 365 * 86400e3).toISOString(), lastUsedAt: null, revokedAt: null, requestsToday: 0 };
+      KEYS.push(meta);
+      EVENTS.push({ event: 'created', at: now, name: meta.name, prefix });
+      return [201, { ...meta, key: `dgk_${prefix}_${'x'.repeat(42)}${n}` }];
+    }
+    const k = KEYS.find((x) => path === `/v1/account/keys/${x.id}/revoke` && !x.revokedAt);
+    if (method === 'POST' && k) {
+      k.revokedAt = now;
+      EVENTS.push({ event: 'revoked', at: now, name: k.name, prefix: k.prefix });
+      return [200, k];
+    }
+    return [404, { error: 'not_found' }];
   }
   // WP-150 (e2e/wp150.spec.ts): a dashboard with an entry in each block that has titles (a saved search, a change, a follow)
   if (path === '/v1/account/dashboard') {
