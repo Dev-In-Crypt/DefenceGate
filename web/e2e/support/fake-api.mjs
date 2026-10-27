@@ -1,7 +1,7 @@
 // A fake of the parts of the API that WP-52b reads, shaped as docs/design/API_CONTRACT.md ("Changes of 19 October 2026") says, with the
 // numbers of the UX audit of 19 October 2026: 1,449 open notices with a deadline (593 in November), 287,634 closed notices that stop at
 // position 10,000, 2,311 changes in 14 days (3,100 for Poland), a digest week of 873 new notices. For e2e/wp52b-api.spec.ts, e2e/wp127-api.spec.ts and
-// e2e/wp132-api.spec.ts (five funding calls, 9001-9005) and e2e/wp145-api.spec.ts (9005, 9006); nothing else uses it.
+// e2e/wp132-api.spec.ts (five funding calls, 9001-9005), e2e/wp145-api.spec.ts (9005, 9006) and e2e/wp152-api.spec.ts (the company report).
 //
 // `npx playwright test` against a local build starts it and a second `next start` that reads it (playwright.config.ts, the
 // fake-api-* projects, WP-128). By hand, against a site of your own:
@@ -153,11 +153,51 @@ const FUNDING = {
     ukraineNoFunding: true, ukraineBasis: { reason: 'call_document_no_funding', evidence: 'Entities established in Ukraine are not eligible to receive funding under this call.' } }),
 };
 
-function route(url) {
+// ---- WP-152 (e2e/wp152-api.spec.ts): a company whose report is open (DGATE_COMPANY_REPORT_OPEN=1), and two accounts: session "a" x 43
+// may open it (`company_report` among its features), session "b" x 43 may not. Invented names and numbers.
+const REPORT_SLUG = '152001-fake-defence-gmbh';
+const REPORT_SESSIONS = { ['a'.repeat(43)]: ['saved_searches', 'email_alerts', 'company_report'], ['b'.repeat(43)]: ['saved_searches', 'email_alerts'] };
+const reportSupplier = () => ({
+  id: '152001', slug: REPORT_SLUG, name: 'Fake Defence GmbH', country: 'DE', awardCount: 12, firstYear: 2024, lastYear: 2026, cpvDivisions: ['35'],
+  values: { byCurrency: [{ currency: 'EUR', amount: 4_500_000, count: 3, lotEstimates: 0 }], of: 12, withoutValue: 9, shared: 2, suspect: 0, frameworks: [], estimates: [], largest: [] },
+  byYear: [{ year: 2026, awards: 5 }, { year: 2025, awards: 7 }], byCpv: [{ division: '35', awards: 12 }],
+  buyers: [{ slug: '5-fake-buyer', name: 'Fake Defence Buyer', country: 'DE', awards: 9 }], notices: [], noticeCount: 12,
+  namesAsStated: ['Fake Defence GmbH'], identifiers: [], attribution: 'Source: TED (Tenders Electronic Daily), © European Union.',
+});
+const reportCompetition = () => ({
+  available: true, asOf: '2026-10-12T06:00:00Z', since: '2023-10-12', contracts: 12, markets: 3, competitorCount: 2,
+  competitors: [
+    { slug: '152002-fake-rival-ag', name: 'Fake Rival AG', country: 'DE', overlap: 7, markets: 2, buyers: 1, ours: 9, sameName: false, sameGroup: null },
+    { slug: '152003-fake-defence-gmbh', name: 'Fake Defence GmbH', country: 'DE', overlap: 2, markets: 1, buyers: 1, ours: 4, sameName: true, sameGroup: null },
+  ],
+  byCountry: [{ key: 'DE', contracts: 10 }, { key: 'PL', contracts: 2 }], byClass: [{ key: '3541', contracts: 8 }, { key: '3530', contracts: 4 }],
+  size: { currency: 'EUR', median: 1_500_000, valued: 3, otherCurrencies: 0 }, withoutValue: 9,
+  shareByClass: [{ key: '3541', contracts: 8, total: 250, currency: 'EUR', value: 4_500_000, valued: 3, valueTotal: 900_000_000, valuedTotal: 70 }],
+  shareByCountry: [{ key: 'DE', contracts: 10, total: 1_900, currency: 'EUR', value: 4_500_000, valued: 3, valueTotal: 2_100_000_000, valuedTotal: 410 }],
+  reportOpen: true,
+});
+const reportPartners = () => ({
+  organisation: { id: '152001', slug: REPORT_SLUG, name: 'Fake Defence GmbH', country: 'DE' }, total: 1, countries: 1, page: 1, pageSize: 20,
+  note: 'Partners are the organisations that were active in a project this organisation was active in.',
+  items: [{ organisation: { id: '152010', slug: '152010-fake-research-institute', name: 'Fake Research Institute', country: 'FR' }, shared: 2, firstYear: 2022, lastYear: 2024,
+    programmes: ['EDF'], projects: [] }],
+});
+const reportMe = (features) => ({ id: 'u152', email: 'ann@example.test', createdAt: '2026-10-22T08:00:00Z',
+  profile: { role: 'consultant', tracks: ['tenders'], countries: [], scope: 'core', cadence: 'daily' }, onboarded: true, lastVisitAt: null,
+  terms: { current: true }, security: { hasPassword: true, totp: false }, plan: { current: 'consultant' }, features });
+
+function route(url, headers = {}) {
   const p = url.pathname;
   const q = url.searchParams;
   stats.requests.push(`${p}?${q}`);
   if (p === '/_requests') return [200, stats.requests];
+  if (p === `/v1/suppliers/${REPORT_SLUG}`) return [200, reportSupplier()];
+  if (p === `/v1/suppliers/${REPORT_SLUG}/competition`) return [200, reportCompetition()];
+  if (p === `/v1/organisations/${REPORT_SLUG}/partners`) return [200, reportPartners()];
+  if (p === '/v1/account/me') {
+    const features = REPORT_SESSIONS[headers['x-dg-session']];
+    return features ? [200, reportMe(features)] : [401, { error: 'unauthenticated' }];
+  }
   if (p === '/v1/tenders/calendar') return [200, calendar()];
   // WP-127: counts that answer after 5 s (a search word the time box cannot count): the page must not wait for them
   if (p === '/v1/tenders/scope-counts' && q.get('q') === 'slowcounts') return [503, { detail: 'the count took too long; narrow the request' }, 5000];
@@ -205,7 +245,7 @@ function route(url) {
 }
 
 createServer((req, res) => {
-  const [status, body, delay = 0, headers = {}] = route(new URL(req.url ?? '/', 'http://x'));
+  const [status, body, delay = 0, headers = {}] = route(new URL(req.url ?? '/', 'http://x'), req.headers);
   setTimeout(() => {
     res.writeHead(status, { 'content-type': 'application/json', ...headers });
     res.end(JSON.stringify(body));

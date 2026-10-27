@@ -14,7 +14,9 @@ matches any code of a notice (before WP-85: the core scope from 2023, the main C
 TED holds only part of European defence spending (a 2025 ECIPE policy brief puts it at about a tenth; not re-checked);
 most defence contracts are awarded outside it, and a supplier absent here is not a supplier that wins
 nothing. Every figure on a profile is a fact from a notice, with its link; nothing is derived from several
-notices into a ranking, a share or a dependency score.
+notices into a ranking or a dependency score. WP-152 (owner request of 27 October 2026): a company's competitors and its
+share of the contracts per CPV class and buyer country are counted over this same set, with the totals they are a share
+of, at /v1/suppliers/{slug}/competition (`competition.py`), not in this module's answers.
 
 The mosaic effect, and what stops it: separate facts that are each public can add up to a picture
 nobody published. The map therefore (1) shows supplier-level detail only as the notices state it
@@ -23,7 +25,7 @@ legal entity, whatever its number of awards, and every group of them (WP-81, own
 2026: the earlier rule that published a group only from `K_MIN` = 3 suppliers, and named a winner only from
 3 awards, is lifted for legal entities; `K_MIN` is now 1), while a natural person or sole trader
 (`individual_reason`) is counted and never named, never listed and never given a sum, (3) states no
-share and no "sole source" or "single point of failure" label (WP-98b, persona round of 23 October 2026: the list
+share here (WP-152: `competition.py` does, with its totals) and no "sole source" or "single point of failure" label (WP-98b, persona round of 23 October 2026: the list
 shows each supplier's contract values and can be ordered by their sum in one currency, an order the visitor
 chooses; the default stays the count of wins), (4) honours a removal request: an organisation or a notice removed on request (`suppression`) is
 out of every answer here, and (5, WP-39) serves at most `MAX_OFFSET` positions of the list, so the table

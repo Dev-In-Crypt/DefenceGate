@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { SUSPECT_NOTE, SUSPECT_VALUE_MAX, VALUE_KIND_LABEL } from '@/lib/value-totals';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { ApiError, getSupplier, isSupplierSlug, REMOVED, whenRemoved } from '@/lib/api';
+import { ApiError, getSupplier, getSupplierCompetition, isSupplierSlug, REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { countryName, cpvDivisionLabel } from '@/lib/taxonomy';
 import { displayName } from '@/lib/display-name';
@@ -20,7 +20,8 @@ import { CountryLabel, FactCell } from '@/components/dg/data-display';
 import { ValueTotalsBlock } from '@/components/dg/value-totals';
 import { Icon } from '@/components/dg/icon';
 import { companyCrumbs } from '@/components/dg/companies-tabs';
-import { Download } from 'lucide-react';
+import { CompetitorsCard, ShareCard, WhereItWins } from '@/components/dg/competition';
+import { Download, FileText } from 'lucide-react';
 
 export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
@@ -56,6 +57,9 @@ export default async function SupplierPage({ params, searchParams }: Props) {
   // an unreadable code list is the API's 422: the page then shows the total alone. WP-112 (p01: the URO page without "N of them under your
   // codes"): any other failure of the read with the codes (a 429 of a shared address, a timeout) is said, not silently dropped
   let underFailed = false;
+  // WP-152: competitors, where it wins, its share, asked beside the profile; the page stands without them (an older API, the stored rows
+  // being renewed)
+  const competitionAsked = getSupplierCompetition(slug).catch(() => null);
   const got = await (under.cpv
     ? getSupplier(slug, under).catch((e: unknown) => {
       if (!(e instanceof ApiError && e.status === 422)) underFailed = true;
@@ -66,6 +70,8 @@ export default async function SupplierPage({ params, searchParams }: Props) {
   if (!got) notFound();
   const s = { ...got, name: displayName(got.name, 'title') };      // the case of the name is for the eye; the stored name is not changed
   if (s.slug !== slug && isSupplierSlug(s.slug)) permanentRedirect(`/suppliers/${s.slug}`);
+  const competition = await competitionAsked;
+  const c = competition?.available ? competition : null;
   return (
     <>
       <PageHeader crumbs={[...companyCrumbs('suppliers'), { label: s.name, href: `/suppliers/${s.slug}` }]} title={s.name}>
@@ -121,8 +127,9 @@ export default async function SupplierPage({ params, searchParams }: Props) {
         <p className="m-0">
           This is what buyers published in TED result notices{fromPlacsp(s) ? " and in the award results of Spain's national procurement portal (PLACSP); an award published in both is counted once and listed under one of them," : ''} of the defence-relevant scope, published in the last three years:
           the same contracts the supplier report counts in “who to approach”. A contract published in several notices is counted once. TED holds only part of European defence
-          spending (about a tenth, by a 2025 ECIPE brief we have not re-checked), so a company can have won far more than is shown here. There is no ranking and no share; a value appears only on a notice that names one
-          winner, and Contract values sums those values per currency. To ask for a removal, see the <Link href="/privacy" className="font-semibold">privacy notice</Link>.
+          spending (about a tenth, by a 2025 ECIPE brief we have not re-checked), so a company can have won far more than is shown here. A value appears only on a notice that names one
+          winner, and Contract values sums those values per currency. Competitors and shares are counted over the same contracts: other companies that won contracts of the same
+          buyers under the same CPV classes, and this company&rsquo;s part of all the contracts there; they describe these notices, not the whole market. To ask for a removal, see the <Link href="/privacy" className="font-semibold">privacy notice</Link>.
         </p>
         </AboutData>
         {s.values && (
@@ -133,6 +140,15 @@ export default async function SupplierPage({ params, searchParams }: Props) {
           />
         )}
       </PageHeader>
+
+      {c && (
+        <CompetitorsCard c={c} name={s.name} action={c.reportOpen && (
+          <Link href={`/suppliers/${s.slug}/report`} className="inline-flex min-h-11 items-center gap-2 text-small font-bold" data-company-report-link>
+            <Icon icon={FileText} size="inline" />Company report
+          </Link>
+        )} />
+      )}
+      {c && <WhereItWins c={c} name={s.name} />}
 
       <AutoGrid min={380}>
         <Card title="Contracts per year" id="by-year" className="self-start">
@@ -162,6 +178,8 @@ export default async function SupplierPage({ params, searchParams }: Props) {
           </DataTable>
         </Card>
       </AutoGrid>
+
+      {c && <ShareCard c={c} name={s.name} />}
 
       {s.buyers.length > 0 && (
         <Card title="Buyers" id="buyers">

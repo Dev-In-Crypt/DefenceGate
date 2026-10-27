@@ -54,6 +54,9 @@ PERIODS = ("monthly", "yearly")
 FEATURES: dict[str, frozenset[str]] = {
     "saved_searches": frozenset(PAID),
     "email_alerts": frozenset(PAID),
+    # WP-152: a supplier's company report (/suppliers/{slug}/report). Exists only with DGATE_COMPANY_REPORT_OPEN=1
+    # (`may`); which plans carry it is the owner's to decide (docs/verification/features/wp152-selfcheck.md).
+    "company_report": frozenset({"consultant"}),
 }
 FOUNDING_CAP = 20
 FOUNDING_HOLD = timedelta(hours=1)        # an open founding checkout holds a place this long
@@ -157,7 +160,10 @@ def allows(plan: str, feature: str) -> bool:
 def may(user: dict[str, Any], feature: str) -> bool:
     """Whether the account may use a paid feature. While no plan is on sale nothing can be bought, so
     nothing is withheld: accounts keep saved searches and alerts as WP-123 built them (owner decision
-    to confirm, docs/verification/accounts/wp124-selfcheck.md). Once the plans exist, the plan decides."""
+    to confirm, docs/verification/accounts/wp124-selfcheck.md). Once the plans exist, the plan decides. WP-152: the
+    company report is nobody's while its switch (DGATE_COMPANY_REPORT_OPEN) is off."""
+    if feature == "company_report" and not settings().company_report_open:
+        return False
     if not plans_on_sale():
         return True
     return allows(plan_of(user), feature)

@@ -375,6 +375,9 @@ class Settings:
     # WP-140: the owner's switch. In production accounts stay closed, whatever the relay, the notice and the key
     # say, until DGATE_ACCOUNTS_OPEN=1 (any other value, or none, is closed). Development and tests ignore it.
     accounts_open: bool = field(default_factory=lambda: _env("DGATE_ACCOUNTS_OPEN", "0").strip() == "1")
+    # WP-152: the company report (a supplier page's print-ready report, a paid feature, `billing.FEATURES`) exists only with
+    # DGATE_COMPANY_REPORT_OPEN=1; off (the default), no account may open it and the supplier page does not offer it.
+    company_report_open: bool = field(default_factory=lambda: _env("DGATE_COMPANY_REPORT_OPEN", "0").strip() == "1")
     # WP-126: the file the accounts security log is written to (JSON lines), kept to 90 days by
     # dgate.ops.logprune. Unset (development, tests): the log goes to stderr as before.
     security_log: str | None = field(default_factory=lambda: os.environ.get("DGATE_SECURITY_LOG") or None)
