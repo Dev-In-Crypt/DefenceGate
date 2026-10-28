@@ -10,3 +10,6 @@ broken pages, wrong data). Everything else is written here and not worked on unt
 | 52 municipality (gmina) names to check against TERYT | cosmetic |
 | 34 rejected merge candidates could be written as REJECT | bookkeeping |
 | Detailed visitor statistics with self-hosted Umami (referrers, paths); owner asked 26 Oct 2026 | new feature; needs a privacy update |
+| IDV Defence Vehicles España (436788) and "IDV Defensa ... (antes Iveco España)" (438966): one company, two rows; no merge tool for a reviewed non-BOAMP pair | one pair; a generic reviewed-merge mode first |
+| Rheinmetall Electronics (3 rows) and Hensoldt Optronics (2 rows) under different numbers; marked "possibly this company" on the page | the owner's rule: different numbers are never merged without proof |
+| Remaining French buyer groups (12) left out of the 27 Oct review: ministry-wide numbers, contradictions | need a person per group |
