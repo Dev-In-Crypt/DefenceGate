@@ -131,6 +131,9 @@ def test_a_winner_country_its_own_name_or_number_contradicts_is_corrected():
     assert stated_country_check("Rheinmetall Expal Munition S.A.", None, "LV", ("LV", "ES")) == ("ES", "legal_form_notice")
     assert stated_country_check("Rheinmetall Expal Munition S.A.", None, "LV") == ("LV", None)   # nothing decides
     assert stated_country_check("Hensoldt Sensors GmbH", "DE811168413", "LT") == ("DE", "identifier")
+    # a parent's VAT number on a subsidiary its name and legal form place elsewhere does not move it (27 Oct 2026)
+    assert stated_country_check("Saab Finland Oy", "SE556036079301", "FI") == ("FI", None)
+    assert stated_country_check("Elbit Systems Sweden AB", None, "IL") == ("SE", "name")
     assert stated_country_check("Thales Nederland B.V.", None, "NL") == ("NL", None)
     assert stated_country_check("Canada Dry Spain S.L.", None, "ES") == ("ES", None)
     assert vat_country("EL094444763") == "GR" and vat_country("HRB 1234") is None

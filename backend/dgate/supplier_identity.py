@@ -119,11 +119,14 @@ def stated_country_check(name: str, identifier: str | None, stated: str | None,
 
     stated = (stated or "").upper() or None
     by_vat = vat_country(identifier)
-    if by_vat and by_vat != stated:
-        return by_vat, "identifier"
     by_name = name_country(name)
     form = legal_form_of(name)
     holders = _FORM_COUNTRIES.get(form or "")
+    # a number its own name or legal form contradicts is another company's (a parent's VAT number on Saab Finland Oy):
+    # it does not move the winner out of the country its name and form agree on
+    other_company = by_name == stated or bool(holders and stated in holders and by_vat not in holders)
+    if by_vat and by_vat != stated and not other_company:
+        return by_vat, "identifier"
     if by_name and by_name != stated and (not holders or by_name in holders):
         return by_name, "name"
     if holders and stated and stated not in holders and not by_vat and not (by_name and by_name == stated):
