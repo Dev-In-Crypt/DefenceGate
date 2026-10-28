@@ -112,3 +112,7 @@ def test_the_public_competitor_list_is_shorter_than_the_full_one():
 def test_a_small_company_is_under_ten_procurements_and_csv_is_a_large_page():
     assert signals.SMALL_BELOW == 10
     assert signals.FREE_ROWS == 10 and signals.PAGE_MAX < signals.MAX_PAGE_SIZE
+
+
+def test_the_mosaic_rule_covers_the_procurement_tabs_not_the_funding_tab():
+    assert signals.MOSAIC_KINDS == ("growing", "markets") and "funding" in signals.KINDS

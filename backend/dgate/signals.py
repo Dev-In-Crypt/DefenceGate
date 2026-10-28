@@ -72,6 +72,7 @@ PAGE_MAX = 100                  # a page of the site (50); more at once is the C
 # Below this many procurements in three years (about three a year) a row's counts and sums are the company's few contracts
 # one by one: its whole public defence business at a glance. Rows of such companies need a sign-in.
 SMALL_BELOW = 10
+MOSAIC_KINDS = ("growing", "markets")    # owner, 28 Oct 2026: the funding tab shows its first rows to everyone
 RANK_SECONDS = 30 * 60
 PROJECTS_PER_ROW = 5
 NOTE = "Facts from public records, not investment advice."
@@ -325,7 +326,8 @@ def answer(conn, kind: str, country: str | None, cpv: str | None, programme: str
         raise HTTPException(404, "no such signal")
     day = today()
     rows = ranked(conn, kind, country, cpv, programme)
-    if public and SMALL_BELOW > 0:          # 0: no company is small (a company with no procurement has no row in not_small)
+    small_below = SMALL_BELOW if kind in MOSAIC_KINDS else 0
+    if public and small_below > 0:          # 0: no company is small (a company with no procurement has no row in not_small)
         large = not_small(conn)
         page = [r for r in rows if r["org"] in large][:limit]
     else:
@@ -335,7 +337,7 @@ def answer(conn, kind: str, country: str | None, cpv: str | None, programme: str
         "priorFrom": (day - 2 * WINDOW).isoformat(), "windowFrom": since(day).isoformat(), "minRecent": MIN_RECENT,
         "items": DETAIL[kind](conn, page, country, cpv, programme, day) if page else [],
         "total": len(rows), "offset": offset, "fullOpen": full_open(), "freeRows": FREE_ROWS,
-        "public": public, "smallBelow": SMALL_BELOW,
+        "public": public, "smallBelow": small_below,
         "note": NOTE, "sources": _sources_of(conn, kind),
     }
 
