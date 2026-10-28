@@ -1,6 +1,7 @@
 """Company signals (WP-154): facts about companies from public procurement and EU defence funding, for investors and analysts.
 
     GET /v1/signals/{kind}               the first FREE_ROWS rows of a signal, with how many there are (public)
+    GET /v1/account/signals/{kind}/first the same first rows with the small companies' (signed in, WP-155)
     GET /v1/account/signals/{kind}       the whole list, a page at a time (signed in; paid part, see below)
 
 The three kinds:
@@ -18,9 +19,14 @@ switch and twins), a company the supplier map's (the live organisation a row res
 date its newest notice's (as the supplier page's years), a participation `network_api`'s (active, through merges). Natural
 persons and organisations removed on request are in no row. Facts with their sources, never a recommendation.
 
-Paid part (owner, 27 October 2026: the split is decided later): the rows beyond the first FREE_ROWS and the CSV the site builds
-from them. Closed unless DGATE_SIGNALS_FULL_OPEN is "true"; open, they need a signed-in account whose plan is in PLANS (while
-no plan is on sale every account may, as `billing.may` decides for the features that exist).
+Paid part (owner, 28 October 2026, WP-155): the rows beyond the first FREE_ROWS (`signals_full`, Pro and up) and the CSV the
+site builds from them (`signals_csv`, Team and Consultant: a page of more than PAGE_MAX rows). Closed unless
+DGATE_SIGNALS_FULL_OPEN is "true"; open, they need a signed-in account whose plan has them (while no plan is on sale every
+account may, as `billing.may` decides).
+
+Mosaic rule (owner, WP-155): a row about a small company is shown only to a signed-in account. Small: fewer than SMALL_BELOW
+awarded procurements in the award set's whole window (three years, every country and code, whatever the filters). The public
+answer's rows are the first FREE_ROWS rows of companies that are not small; its `total` still counts every row.
 """
 
 from __future__ import annotations
@@ -61,7 +67,11 @@ MIN_RECENT = 2                  # "growing" from 2 procurements in the last 12 m
 WINDOW = timedelta(days=365)
 # The EU defence programmes whose participations count (classify.DEFENCE_PROGRAMMES and the EDIP)
 DEFENCE = ("EDF", "EDIDP", "EDIP", "PADR")
-PLANS = frozenset(billing.PAID)
+PLANS = billing.FEATURES["signals_full"]
+PAGE_MAX = 100                  # a page of the site (50); more at once is the CSV (`signals_csv`)
+# Below this many procurements in three years (about three a year) a row's counts and sums are the company's few contracts
+# one by one: its whole public defence business at a glance. Rows of such companies need a sign-in.
+SMALL_BELOW = 10
 RANK_SECONDS = 30 * 60
 PROJECTS_PER_ROW = 5
 NOTE = "Facts from public records, not investment advice."
@@ -77,7 +87,22 @@ def full_open() -> bool:
 
 def may_see_full(user: dict[str, Any]) -> bool:
     """The paid part's gate: the switch, then the plan (every account while no plan is on sale, as `billing.may`)."""
-    return full_open() and (not billing.plans_on_sale() or billing.plan_of(user) in PLANS)
+    return full_open() and billing.may(user, "signals_full")
+
+
+def not_small(conn) -> frozenset[int]:
+    """The companies that are not small: SMALL_BELOW or more procurements of the award set in its window (once per
+    RANK_SECONDS and day)."""
+    day = today()
+
+    def compute() -> frozenset[int]:
+        return frozenset(r["org"] for r in conn.execute(
+            f"SELECT org.id AS org {FROM} WHERE {scope()} GROUP BY org.id HAVING count(DISTINCT {KEY_HASH}) >= %(n)s",
+            {"since": since(day), "n": SMALL_BELOW}).fetchall())
+
+    if not settings().list_cache_seconds:          # 0 turns the list caches off (the test suite)
+        return compute()
+    return stats.cached(("signals-not-small", day, settings().placsp_awards_public), compute, ttl=RANK_SECONDS)
 
 
 def _company(org_id: int, name: str, country: str | None) -> dict[str, Any]:
@@ -294,17 +319,23 @@ def _sources_of(conn, kind: str) -> list[dict[str, Any]]:
 
 
 def answer(conn, kind: str, country: str | None, cpv: str | None, programme: str | None,
-           offset: int, limit: int) -> dict[str, Any]:
+           offset: int, limit: int, public: bool = False) -> dict[str, Any]:
+    """`public`: the anonymous answer, whose rows leave the small companies out (the mosaic rule)."""
     if kind not in KINDS:
         raise HTTPException(404, "no such signal")
     day = today()
     rows = ranked(conn, kind, country, cpv, programme)
-    page = rows[offset:offset + limit]
+    if public and SMALL_BELOW > 0:          # 0: no company is small (a company with no procurement has no row in not_small)
+        large = not_small(conn)
+        page = [r for r in rows if r["org"] in large][:limit]
+    else:
+        page = rows[offset:offset + limit]
     return {
         "kind": kind, "asOf": day.isoformat(), "recentFrom": (day - WINDOW).isoformat(),
         "priorFrom": (day - 2 * WINDOW).isoformat(), "windowFrom": since(day).isoformat(), "minRecent": MIN_RECENT,
         "items": DETAIL[kind](conn, page, country, cpv, programme, day) if page else [],
         "total": len(rows), "offset": offset, "fullOpen": full_open(), "freeRows": FREE_ROWS,
+        "public": public, "smallBelow": SMALL_BELOW,
         "note": NOTE, "sources": _sources_of(conn, kind),
     }
 
@@ -316,7 +347,14 @@ FILTERS = {"country": Query(None, max_length=200), "cpv": Query(None, max_length
 @router.get("/v1/signals/{kind}", dependencies=[Depends(known_params)])
 def public_signal(kind: str, country: str | None = FILTERS["country"], cpv: str | None = FILTERS["cpv"],
                   programme: str | None = FILTERS["programme"], conn=Depends(get_conn)):
-    """The first FREE_ROWS rows of a signal and how many there are."""
+    """The first FREE_ROWS rows of a signal of companies that are not small, and how many rows there are."""
+    return answer(conn, kind, country, cpv, programme, 0, FREE_ROWS, public=True)
+
+
+@account_router.get("/{kind}/first")
+def first_signal(kind: str, country: str | None = FILTERS["country"], cpv: str | None = FILTERS["cpv"],
+                 programme: str | None = FILTERS["programme"], user=Depends(throttled), conn=Depends(get_conn)):
+    """The first FREE_ROWS rows as they rank, the small companies' with them: any signed-in account's (WP-155)."""
     return answer(conn, kind, country, cpv, programme, 0, FREE_ROWS)
 
 
@@ -327,7 +365,8 @@ def full_signal(kind: str, country: str | None = FILTERS["country"], cpv: str | 
     """The paid part: the whole list a page at a time (the site's CSV asks for MAX_PAGE_SIZE rows at once)."""
     if not full_open():
         raise AccountError(404, "not_open", "the full list of signals is not open")
-    if not may_see_full(user):
-        raise AccountError(402, "plan_required", "the full list of signals is part of a paid plan: choose one under Billing")
+    billing.require(user, "signals_full")
+    if pageSize > PAGE_MAX:
+        billing.require(user, "signals_csv")
     return {**answer(conn, kind, country, cpv, programme, (page - 1) * pageSize, pageSize),
-            "page": page, "pageSize": pageSize}
+            "page": page, "pageSize": pageSize, "csv": billing.may(user, "signals_csv")}

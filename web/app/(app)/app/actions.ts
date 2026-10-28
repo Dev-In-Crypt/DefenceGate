@@ -76,6 +76,13 @@ export async function saveSettings(form: FormData): Promise<void> {
   back('/app/settings', await updateMe(p));
 }
 
+/** WP-155: the name on a Consultant's company reports: plain text, at most 80 characters (the API cleans and checks it); empty removes it. */
+export async function saveReportName(form: FormData): Promise<void> {
+  const name = field(form, 'reportName', 200).trim();
+  if (name.length > 80) redirect('/app/settings?n=invalid');
+  back('/app/settings', await updateMe({ reportName: name }));
+}
+
 /* ---- saved searches ---- */
 
 export async function setSearchCadence(form: FormData): Promise<void> {

@@ -382,6 +382,9 @@ class Settings:
     # WP-152: the company report (a supplier page's print-ready report, a paid feature, `billing.FEATURES`) exists only with
     # DGATE_COMPANY_REPORT_OPEN=1; off (the default), no account may open it and the supplier page does not offer it.
     company_report_open: bool = field(default_factory=lambda: _env("DGATE_COMPANY_REPORT_OPEN", "0").strip() == "1")
+    # WP-155: the one company report open to everyone (signed in or not, uncounted), linked from the report's paywall as a
+    # sample. A supplier slug or its id; Indra Sistemas SA by default (a large prime with some 400 contracts on the map).
+    sample_report_slug: str = field(default_factory=lambda: _env("DGATE_SAMPLE_REPORT_SLUG", "406963-indra-sistemas-sa").strip())
     # WP-153: the data API with keys (dgate/apikeys.py), the owner's switch: closed until DGATE_API_KEYS_OPEN=1. Closed,
     # no key is issued and a request that presents one is refused (401); keys already issued are listed and revocable.
     api_keys_open: bool = field(default_factory=lambda: _env("DGATE_API_KEYS_OPEN", "0").strip() == "1")

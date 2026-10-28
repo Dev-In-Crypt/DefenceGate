@@ -27,7 +27,9 @@ export default async function KeysPage({ searchParams }: Props) {
       <Notice code={n} />
 
       <Block id="new" title="Make a key">
-        {state.open ? (
+        {state.open && !state.licensed ? (
+          <p className="m-0 max-w-prose text-body text-ink-muted" data-keys-licence>API keys come with a data licence, agreed with us outside the plans. See <Link href="/api" className="font-semibold">the API page</Link> to ask for one.</p>
+        ) : state.open ? (
           active.length >= state.maxKeys
             ? <p className="m-0 text-body text-ink-muted">This account holds {state.maxKeys} keys, the most it may. Revoke one to make another.</p>
             : <ApiKeyCreate />

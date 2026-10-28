@@ -15,8 +15,9 @@ import { redirect } from 'next/navigation';
 import type {
   AccountSession, ApiKey, ApiKeys, Cadence, Dashboard, DashboardChange, DashboardClosing, DashboardFollowing, DashboardMatch, DashboardPulse,
   Follow, FollowKind, Me, Profile, ProfileScope, Role, SavedSearch, SearchFilters, SearchKind, ShortlistItem, ShortlistKind,
-  ShortlistStatus, StateItem, StateKey, Track, PaidFeature as Feature,
+  ShortlistStatus, StateItem, StateKey, Track, PaidFeature as Feature, SupplierCompetition,
 } from './types';
+import { PAID_FEATURES } from './types';
 import { PLAN_LABELS, readPlanChoice, type Billing, type PlanChoice, type PlanId } from './plans';
 import { signalQuery, type SignalAnswer, type SignalFilters } from './signals';
 
@@ -161,6 +162,7 @@ export function toProfile(raw: unknown): Profile {
     countries: arr<unknown>(p.countries).filter((c): c is string => typeof c === 'string' && /^[A-Z]{2}$/.test(c)),
     scope: oneOf(p.scope, SCOPES) ?? 'core',
     cadence: oneOf(p.cadence, CADENCES) ?? 'daily',
+    reportName: typeof p.reportName === 'string' ? p.reportName.slice(0, 80) : null,
   };
 }
 
@@ -180,7 +182,14 @@ function toMe(raw: unknown): Me {
     plan: isRecord(raw.plan) ? toPlan(raw.plan.current) : 'free',
     features: toFeatures(raw.features),
     apiKeys: arr<unknown>(raw.features).includes('api_keys'),
+    limits: toLimits(raw.limits),
   };
+}
+
+function toLimits(raw: unknown): Me['limits'] {
+  const l = isRecord(raw) ? raw : {};
+  const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.floor(v) : null);
+  return { savedSearches: n(l.savedSearches) ?? 10, reportsPerMonth: n(l.reportsPerMonth) };
 }
 
 function toDashboard(raw: unknown): Dashboard {
@@ -222,10 +231,12 @@ export interface AccountStatus {
   open: boolean; termsVersion: string | null; privacyVersion: string | null;
   /** WP-124: the API has every Creem setting (and accounts are open). The site also needs NEXT_PUBLIC_BILLING_OPEN (lib/plans billingOpen). */
   billing: boolean;
+  /** WP-155: the plans are on sale (every Creem product id set): a paid feature is then the plans'. Until then nobody is refused one. */
+  plansOnSale: boolean;
 }
 
 export async function getAccountStatus(): Promise<AccountStatus> {
-  const closed = { open: false, termsVersion: null, privacyVersion: null, billing: false };
+  const closed = { open: false, termsVersion: null, privacyVersion: null, billing: false, plansOnSale: false };
   if (!API_BASE) return closed;
   try {
     const res = await fetch(`${API_BASE}/v1/account/status`, {
@@ -238,7 +249,7 @@ export async function getAccountStatus(): Promise<AccountStatus> {
     if (!isRecord(body)) return closed;
     const version = (v: unknown) => (typeof v === 'string' && /^[0-9.]{1,20}$/.test(v) ? v : null);
     return { open: body.open === true, termsVersion: version(body.termsVersion), privacyVersion: version(body.privacyVersion),
-      billing: body.open === true && body.billing === true };
+      billing: body.open === true && body.billing === true, plansOnSale: body.plansOnSale === true };
   } catch {
     return closed;
   }
@@ -377,7 +388,7 @@ export const getState = (keys: StateKey[]) =>
 /* ---- billing (WP-124): Creem, merchant of record ---- */
 
 const toPlan = (v: unknown): PlanId => (typeof v === 'string' && Object.hasOwn(PLAN_LABELS, v) ? (v as PlanId) : 'free');
-const toFeatures = (v: unknown): Feature[] => arr<unknown>(v).filter((f): f is Feature => f === 'saved_searches' || f === 'email_alerts' || f === 'company_report');
+const toFeatures = (v: unknown): Feature[] => arr<unknown>(v).filter((f): f is Feature => (PAID_FEATURES as readonly unknown[]).includes(f));
 
 export interface BillingState {
   open: boolean;
@@ -451,6 +462,8 @@ function toApiKeys(raw: unknown): ApiKeys {
   if (!isRecord(raw)) throw new Error('bad keys');
   return {
     open: raw.open === true,
+    // WP-155: keys need the data licence (the operator grants it); an answer without the field is read as licensed
+    licensed: raw.licensed !== false,
     sources: arr<unknown>(raw.sources).filter((s): s is string => typeof s === 'string').map((s) => s.slice(0, 32)),
     maxKeys: count(raw.maxKeys),
     keys: arr<unknown>(raw.keys).map(toApiKey),
@@ -478,7 +491,54 @@ export const getDashboard = () => call<Dashboard>('/dashboard', {}, toDashboard)
 
 /* ---- WP-154: company signals, the paid part (the whole list a page at a time; the CSV asks for CSV_ROWS at once) ---- */
 
+/**
+ * WP-155: the first rows of a signal as they rank, the small companies' with them (the public answer leaves those out): any
+ * signed-in account's.
+ */
+export const getFirstSignal = (f: Omit<SignalFilters, 'page'>) => {
+  const q = signalQuery(f);
+  return call<SignalAnswer>(`/signals/${f.kind}/first${q ? `?${q}` : ''}`, {}, (raw) => {
+    if (!isRecord(raw) || !Array.isArray(raw.items)) throw new Error('bad signals');
+    return raw as unknown as SignalAnswer;
+  });
+};
+
+/* ---- WP-155: a company's whole competitor list, and a company report opened (counted per company and month) ---- */
+
+/** 402 without a plan that has the full list (once plans are on sale), 401 signed out. */
+export const getFullCompetition = (slug: string) =>
+  call<SupplierCompetition>(`/suppliers/${encodeURIComponent(slug)}/competition`, {}, (raw) => {
+    if (!isRecord(raw) || typeof raw.available !== 'boolean') throw new Error('bad competition');
+    return { ...(raw as unknown as SupplierCompetition), competitors: arr(raw.competitors) };
+  });
+
+export interface ReportOpening {
+  sample: boolean;
+  counted: boolean;
+  used: number | null;
+  /** Reports a month on the plan; null: no limit. */
+  limit: number | null;
+  left: number | null;
+  /** The first day of next month (UTC), when the count starts again. */
+  resetsAt: string;
+  /** The account's own name for the report's head (Consultant), plain text. */
+  reportName: string | null;
+}
+
+/** 402 `plan_required` without a plan that has reports, 402 `report_quota` when this month's are used (the message says when they renew). */
+export const openReport = (slug: string) =>
+  call<ReportOpening>(`/suppliers/${encodeURIComponent(slug)}/report`, { method: 'POST' }, (raw) => {
+    if (!isRecord(raw)) throw new Error('bad report');
+    const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+    return {
+      sample: raw.sample === true, counted: raw.counted === true, used: n(raw.used), limit: n(raw.limit), left: n(raw.left),
+      resetsAt: typeof raw.resetsAt === 'string' ? raw.resetsAt.slice(0, 10) : '',
+      reportName: typeof raw.reportName === 'string' ? raw.reportName.slice(0, 80) : null,
+    };
+  });
+
 /** 404 `not_open` while DGATE_SIGNALS_FULL_OPEN is off, 402 without a plan that includes it, 401 signed out (lib/signals fullState). */
+
 export const getFullSignal = (f: Omit<SignalFilters, 'page'>, page: number, pageSize: number) => {
   const q = signalQuery(f);
   return call<SignalAnswer>(`/signals/${f.kind}?${q ? `${q}&` : ''}page=${page}&pageSize=${pageSize}`, {}, (raw) => {

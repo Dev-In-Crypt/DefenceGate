@@ -48,16 +48,31 @@ log = logging.getLogger("accounts")          # the security log of the accounts 
 
 PAID = ("pro", "team", "consultant", "founding")
 PERIODS = ("monthly", "yearly")
-# What each plan allows, of the features that exist (/pricing: saved searches and e-mail alerts are Pro;
-# Team, Consultant and Founding customer include Pro). Everything else on /pricing as Free stays free and
-# is not gated; features marked "Coming" there are not built and so not here.
+# What each plan allows, of the features that exist: the owner's split of 28 October 2026 (WP-155,
+# docs/verification/features/wp155-selfcheck.md). Founding customer is Pro (/pricing: "Everything in Pro"). Features of the
+# split that are not built (the eligibility-check export, the supplier-map export) are not here. The data API is a licence
+# outside the plans (`app_user.api_licensed_at`, dgate/ops/api_licence.py): no plan grants it.
+PRO = frozenset(PAID)                                   # Pro and every plan that includes it
+TEAM = frozenset({"team", "consultant"})
 FEATURES: dict[str, frozenset[str]] = {
-    "saved_searches": frozenset(PAID),
-    "email_alerts": frozenset(PAID),
-    # WP-152: a supplier's company report (/suppliers/{slug}/report). Exists only with DGATE_COMPANY_REPORT_OPEN=1
-    # (`may`); which plans carry it is the owner's to decide (docs/verification/features/wp152-selfcheck.md).
-    "company_report": frozenset({"consultant"}),
+    "saved_searches": PRO,
+    "email_alerts": PRO,
+    # WP-152: a supplier's company report (/suppliers/{slug}/report), so many a month (REPORTS_PER_MONTH). Exists only
+    # with DGATE_COMPANY_REPORT_OPEN=1 (`may`).
+    "company_report": PRO,
+    "competitors_full": PRO,            # a company's whole competitor list (the public answer has FREE_COMPETITORS)
+    "signals_full": PRO,                # every row of a company signal, on the page
+    "signals_csv": TEAM,                # ... and its CSV
+    "consortium_gaps": TEAM,            # /networks/consortium-gaps
+    "branded_reports": frozenset({"consultant"}),   # the account's own name on its company reports
 }
+# How many: None is no plan limit.
+REPORTS_PER_MONTH: dict[str, int | None] = {"pro": 3, "founding": 3, "team": 15, "consultant": None}
+SAVED_SEARCHES: dict[str, int | None] = {"pro": 10, "founding": 10, "team": 50, "consultant": None}
+# ponytail: "unlimited" saved searches stop at a ceiling, since each one is run when the list is shown; raise it when
+# an account reaches it.
+SEARCH_CEILING = 200
+SEARCHES_UNSOLD = 10                    # while no plan is on sale: what every account had before the plans (WP-123)
 FOUNDING_CAP = 20
 FOUNDING_HOLD = timedelta(hours=1)        # an open founding checkout holds a place this long
 CHECKOUTS_PER_HOUR = 5                    # per account: nobody fills Creem's dashboard with checkouts
@@ -161,8 +176,8 @@ def may(user: dict[str, Any], feature: str) -> bool:
     """Whether the account may use a paid feature. While no plan is on sale nothing can be bought, so
     nothing is withheld: accounts keep saved searches and alerts as WP-123 built them (owner decision
     to confirm, docs/verification/accounts/wp124-selfcheck.md). Once the plans exist, the plan decides. WP-152: the
-    company report is nobody's while its switch (DGATE_COMPANY_REPORT_OPEN) is off."""
-    if feature == "company_report" and not settings().company_report_open:
+    company report (and with it the name on reports) is nobody's while its switch (DGATE_COMPANY_REPORT_OPEN) is off."""
+    if feature in ("company_report", "branded_reports") and not settings().company_report_open:
         return False
     if not plans_on_sale():
         return True
@@ -173,10 +188,37 @@ def features(user: dict[str, Any]) -> list[str]:
     return [f for f in FEATURES if may(user, f)]
 
 
+def search_limit(user: dict[str, Any]) -> int:
+    """How many saved searches the account may hold and have run: its plan's, under the ceiling."""
+    if not plans_on_sale():
+        return SEARCHES_UNSOLD
+    n = SAVED_SEARCHES.get(plan_of(user), 0)
+    return SEARCH_CEILING if n is None else min(n, SEARCH_CEILING)
+
+
+def report_limit(user: dict[str, Any]) -> int | None:
+    """Company reports a calendar month (UTC); None: no limit. Nothing is counted against anyone while no plan is on
+    sale (WP-124: nothing is withheld then)."""
+    if not plans_on_sale():
+        return None
+    return REPORTS_PER_MONTH.get(plan_of(user), 0)
+
+
+MESSAGES = {
+    "saved_searches": "saved searches and e-mail alerts are part of Pro: choose a plan under Billing",
+    "email_alerts": "saved searches and e-mail alerts are part of Pro: choose a plan under Billing",
+    "company_report": "company reports are part of Pro: choose a plan under Billing",
+    "competitors_full": "the full list of competitors is part of Pro: choose a plan under Billing",
+    "signals_full": "the full list of signals is part of a paid plan: choose one under Billing",
+    "signals_csv": "the CSV of a signal is part of Team and Consultant: choose a plan under Billing",
+    "consortium_gaps": "the consortium gap analysis is part of Team and Consultant: choose a plan under Billing",
+    "branded_reports": "your own name on reports is part of Consultant: choose a plan under Billing",
+}
+
+
 def require(user: dict[str, Any], feature: str) -> None:
     if not may(user, feature):
-        raise AccountError(402, "plan_required",
-                           "saved searches and e-mail alerts are part of Pro: choose a plan under Billing")
+        raise AccountError(402, "plan_required", MESSAGES[feature])
 
 
 def founding_left(conn, exclude_account: Any = None) -> int:

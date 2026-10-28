@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getSupplier, getSupplierCompetition, isSupplierSlug, REMOVED, whenRemoved } from '@/lib/api';
-import { getUserState } from '@/lib/account';
+import { getFullCompetition, getUserState, openReport, type ReportOpening } from '@/lib/account';
 import { getPartners } from '@/lib/networks-api';
 import type { PartnerPage } from '@/lib/networks-types';
 import { displayName } from '@/lib/display-name';
@@ -26,20 +26,43 @@ import { companyCrumbs } from '@/components/dg/companies-tabs';
  * where it wins, its share and its EU project partners. A paid feature: it exists only with DGATE_COMPANY_REPORT_OPEN=1 (the API's
  * `reportOpen`; off, this address is a 404) and opens for an account the API gives `company_report` (backend billing.may). The data
  * is the public pages' own; the report is their layout for one company.
+ *
+ * WP-155 (owner's plan split): Pro and up, so many a calendar month (UTC), counted by the API when the page opens (POST
+ * /v1/account/suppliers/{slug}/report: one company once a month); a refusal says when the count starts again. One company's report
+ * (DGATE_SAMPLE_REPORT_SLUG) is open to everyone, uncounted, and every paywall links to it. A Consultant's own name (account settings,
+ * plain text) is printed in the head beside our logo.
  */
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Company report', robots: { index: false, follow: false } };
 
 type Props = { params: Promise<{ slug: string }> };
 
-function Gate({ name, slug, children }: { name: string; slug: string; children: React.ReactNode }) {
+function Gate({ name, slug, sample, children }: { name: string; slug: string; sample?: string | null; children: React.ReactNode }) {
   return (
     <>
       <PageHeader crumbs={[...companyCrumbs('suppliers'), { label: name, href: `/suppliers/${slug}` }, { label: 'Company report', href: `/suppliers/${slug}/report` }]}
         title={`Company report: ${name}`} />
-      <Card><div className="flex flex-col gap-3 text-body" data-report-gate>{children}</div></Card>
+      <Card>
+        <div className="flex flex-col gap-3 text-body" data-report-gate>
+          {children}
+          {sample && <p className="m-0"><Link href={`/suppliers/${sample}/report`} prefetch={false} className="font-semibold" data-sample-link>See a sample report</Link></p>}
+        </div>
+      </Card>
     </>
   );
+}
+
+/** The API's refusal ("no company reports left this month: 3 of 3 opened; the count starts again on ..."), as a sentence. */
+function quotaRefusal(message: string | undefined): string {
+  const m = (message ?? 'no company reports left this month').replace(/[.\s]+$/, '');
+  return m.charAt(0).toUpperCase() + m.slice(1);
+}
+
+/** "2 of 3 reports this month; the count starts again on 1 November 2026." */
+function quotaLine(o: ReportOpening): string | null {
+  if (o.sample) return 'A sample report: open to everyone, not counted against any plan.';
+  if (o.limit === null || o.used === null) return null;
+  return `${formatNumber(o.used)} of ${formatNumber(o.limit)} company reports this month opened; the count starts again on ${formatDateUtc(o.resetsAt)}.`;
 }
 
 function Partners({ p }: { p: PartnerPage | null }) {
@@ -79,30 +102,53 @@ export default async function CompanyReportPage({ params }: Props) {
   if (got === REMOVED) return <RemovedOnRequest what="supplier" />;
   if (!got || !c?.reportOpen) notFound();
   const s = { ...got, name: displayName(got.name, 'title') };
-  const state = await getUserState();
-  if (state.kind === 'anonymous' || state.kind === 'unauthorized') {
-    return <Gate name={s.name} slug={s.slug}><p className="m-0">The company report is for signed-in accounts. <Link href="/signin" className="font-semibold">Sign in</Link>, then open this page again.</p></Gate>;
-  }
-  if (state.kind === 'unavailable') {
-    return <Gate name={s.name} slug={s.slug}><p className="m-0">Your account could not be read just now. Try again in a moment.</p></Gate>;
-  }
-  if (!state.user.features.includes('company_report')) {
-    return <Gate name={s.name} slug={s.slug}><p className="m-0" data-report-plan>The company report comes with a paid plan. See <Link href="/app/billing" className="font-semibold">Billing</Link> in your account.</p></Gate>;
-  }
+  const sample = c.isSample ? null : (c.sampleReport ?? null);
+  // before the opening is counted: a report that cannot be shown is not one of the month's
   if (!c.available) {
     return <Gate name={s.name} slug={s.slug}><p className="m-0">The figures of this report are being renewed. Try again in a few minutes.</p></Gate>;
   }
-  const partners = await getPartners(s.slug, { page: 1, pageSize: 20 }).catch(() => null);
+  const state = await getUserState();
+  let opening: ReportOpening = { sample: true, counted: false, used: null, limit: null, left: null, resetsAt: '', reportName: null };
+  if (!c.isSample || state.kind === 'ok') {
+    if (state.kind === 'anonymous' || state.kind === 'unauthorized') {
+      return <Gate name={s.name} slug={s.slug} sample={sample}><p className="m-0">The company report is for signed-in accounts. <Link href={`/signin?next=/suppliers/${s.slug}/report`} className="font-semibold">Sign in</Link>, then open this page again.</p></Gate>;
+    }
+    if (state.kind === 'unavailable') {
+      return <Gate name={s.name} slug={s.slug} sample={sample}><p className="m-0">Your account could not be read just now. Try again in a moment.</p></Gate>;
+    }
+    const r = await openReport(s.slug);
+    if (!r.ok && r.status === 402 && r.error === 'report_quota') {
+      return <Gate name={s.name} slug={s.slug} sample={sample}><p className="m-0" data-report-quota>{quotaRefusal(r.message)}. Reports already opened this month open again; see <Link href="/app/billing" className="font-semibold">Billing</Link> for a plan with more.</p></Gate>;
+    }
+    if (!r.ok && r.status === 402) {
+      return <Gate name={s.name} slug={s.slug} sample={sample}><p className="m-0" data-report-plan>The company report comes with a paid plan (Pro, Team or Consultant). See <Link href="/app/billing" className="font-semibold">Billing</Link> in your account.</p></Gate>;
+    }
+    if (!r.ok && r.status === 404) notFound();
+    if (!r.ok) {
+      return <Gate name={s.name} slug={s.slug} sample={sample}><p className="m-0">Your account could not be read just now. Try again in a moment.</p></Gate>;
+    }
+    opening = r.data;
+  }
+  const quota = quotaLine(opening);
+  const [partners, full] = await Promise.all([getPartners(s.slug, { page: 1, pageSize: 20 }).catch(() => null), state.kind === 'ok' ? getFullCompetition(s.slug) : null]);
+  // WP-155: the whole competitor list when the plan has it (Pro and up), else the public first five
+  const comp = full?.ok && full.data.available ? full.data : c;
   return (
     <>
       <div className="print:hidden">
         <PageHeader crumbs={[...companyCrumbs('suppliers'), { label: s.name, href: `/suppliers/${s.slug}` }, { label: 'Company report', href: `/suppliers/${s.slug}/report` }]}
           title={`Company report: ${s.name}`}>
           <PrintButton className="self-start">Print or save as PDF</PrintButton>
+          {quota && <p className="m-0 text-small text-ink-muted" data-report-quota-line>{quota}</p>}
+          {opening.reportName && <p className="m-0 text-small" data-report-name-screen>Printed with your name: {opening.reportName}</p>}
         </PageHeader>
       </div>
       <header className="hidden flex-col gap-2 print:flex">
-        <Logo />
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <Logo />
+          {opening.reportName && <p className="m-0 text-h3 font-bold" data-report-name>{opening.reportName}</p>}
+        </div>
+
         <p className="m-0 text-small font-bold uppercase tracking-wide">Company report, {formatDateUtc(new Date().toISOString())}</p>
         <h1 className="m-0 text-h1">{s.name}</h1>
       </header>
@@ -115,7 +161,7 @@ export default async function CompanyReportPage({ params }: Props) {
         </FactsGrid>
         {s.values && <ValueTotalsBlock values={s.values} noun="contract" scope={`All ${formatNumber(s.noticeCount)} contracts it won in the award notices behind this report.`} />}
       </section>
-      <CompetitorsCard c={c} name={s.name} />
+      <CompetitorsCard c={comp} name={s.name} />
       <WhereItWins c={c} name={s.name} />
       <ShareCard c={c} name={s.name} />
       {s.buyers.length > 0 && (

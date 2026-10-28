@@ -16,7 +16,11 @@ import { DataTable } from './data-table';
  */
 const cls = (k: string) => classLabel(k, cpvTitle, cpvGroupTitle);
 
-export function CompetitorsCard({ c, name, action }: { c: SupplierCompetition; name: string; action?: React.ReactNode }) {
+/**
+ * WP-155 (mosaic rule): the public answer names the first five; `allHref` is the page of the whole list (signed-in accounts whose plan
+ * has it), linked when there are more.
+ */
+export function CompetitorsCard({ c, name, action, allHref }: { c: SupplierCompetition; name: string; action?: React.ReactNode; allHref?: string }) {
   return (
     <Card title="Competitors" id="competitors" action={action}>
       {c.competitors.length === 0 ? (
@@ -51,6 +55,7 @@ export function CompetitorsCard({ c, name, action }: { c: SupplierCompetition; n
       )}
       <NoteLine data-competitors-note>
         {c.competitorCount > c.competitors.length ? `The ${c.competitors.length} of ${formatNumber(c.competitorCount)} companies with the most contracts in shared markets. ` : ''}
+        {allHref && !c.full && c.competitorCount > c.competitors.length && <><Link href={allHref} prefetch={false} className="font-semibold" data-competitors-all>See the full list</Link> (signed-in accounts). </>}
         A market is one buyer and one CPV class (the first four digits of a code); {name} won contracts in {formatNumber(c.markets)}. Records are never merged: a row
         marked &ldquo;same name&rdquo; may be this company under another registration number.
       </NoteLine>

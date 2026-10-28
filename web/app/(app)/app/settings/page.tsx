@@ -11,7 +11,7 @@ import { Tag } from '@/components/dg/tag';
 import { ProfileFields } from '@/components/account/profile-fields';
 import { TotpSettings } from '@/components/account/totp-settings';
 import { AppHeader, Block, LoadFailed, Notice } from '@/components/account/ui';
-import { changeMyPassword, deleteAccount, endOtherSessions, endSession, saveSettings, signOutEverywhere } from '../actions';
+import { changeMyPassword, deleteAccount, endOtherSessions, endSession, saveReportName, saveSettings, signOutEverywhere } from '../actions';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Settings', robots: { index: false, follow: false } };
@@ -46,6 +46,16 @@ export default async function SettingsPage({ searchParams }: Props) {
         )}
         <p className="m-0 text-small"><Link href="/app/billing" className="font-semibold">Billing</Link>: your plan, its renewal date, invoices and cancelling.</p>
       </Block>
+
+      {me.features.includes('branded_reports') && (
+        <Block id="report-name" title="Name on reports">
+          <form action={saveReportName} className="flex max-w-form flex-col gap-4" data-report-name-form>
+            <TextInput name="reportName" label="Name on reports" defaultValue={me.profile.reportName ?? ''} maxLength={80}
+              hint="Printed in the head of your company reports, beside our logo: your firm's name, for example. Plain text, at most 80 characters; leave empty to print none." />
+            <div><Button type="submit">Save name</Button></div>
+          </form>
+        </Block>
+      )}
 
       <Block id="password" title="Password">
         {me.hasPassword ? (

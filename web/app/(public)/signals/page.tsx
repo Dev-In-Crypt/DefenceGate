@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Download } from 'lucide-react';
 import { ApiError, getSignal } from '@/lib/api';
-import { getFullSignal, readSession } from '@/lib/account';
+import { getFirstSignal, getFullSignal, readSession } from '@/lib/account';
 import { formatDateUtc, formatNumber, plural } from '@/lib/format';
 import { countryName } from '@/lib/taxonomy';
 import { parseCountries } from '@/lib/country-input';
@@ -10,7 +10,7 @@ import { displayName } from '@/lib/display-name';
 import { buildMetadata } from '@/lib/seo';
 import type { SearchParams } from '@/lib/filters';
 import {
-  FULL_PAGE_SIZE, KIND_TITLE, NOT_ADVICE, SIGNAL_KINDS, SIGNAL_PROGRAMMES, comparableLine, fullState, kindLine, parseSignalFilters, signalHref,
+  FULL_PAGE_SIZE, KIND_TITLE, NOT_ADVICE, SIGNAL_KINDS, SIGNAL_PROGRAMMES, comparableLine, firstRowsLine, fullState, kindLine, parseSignalFilters, signalHref,
   type FundingRow, type GrowingRow, type MarketRow, type SignalAnswer, type SignalFilters, type SignalNotice,
 } from '@/lib/signals';
 import { PageHeader } from '@/components/dg/page-header';
@@ -132,17 +132,19 @@ function FullLine({ state, a, f }: { state: ReturnType<typeof fullState>; a: Sig
   const shownTo = a.offset + a.items.length;
   const counted = `${a.total > a.items.length ? `${formatNumber(a.offset + 1)} to ${formatNumber(shownTo)} of` : 'All'} ${formatNumber(a.total)} ${plural(a.total, 'company', 'companies')}.`;
   if (state === 'full') {
+    // WP-155: the full list on the page is Pro and up, its CSV Team and Consultant (`csv` from the API)
     return (
       <div className="flex flex-wrap items-center gap-x-5 text-small text-ink-muted" data-full>
         <span>{counted}</span>
-        <a href={signalHref(f, { page: 1 }, '/signals/export.csv')} className={LINK}><Icon icon={Download} size="inline" />Download CSV</a>
+        {a.csv
+          ? <a href={signalHref(f, { page: 1 }, '/signals/export.csv')} className={LINK}><Icon icon={Download} size="inline" />Download CSV</a>
+          : <span data-csv-plan>The CSV is part of the Team and Consultant plans: <Link href="/app/billing">Billing</Link>.</span>}
       </div>
     );
   }
-  const first = a.total > a.items.length ? `The first ${formatNumber(a.items.length)} of ${formatNumber(a.total)} ${plural(a.total, 'company', 'companies')}.` : counted;
   return (
     <p className="m-0 text-small text-ink-muted" data-full-state={state}>
-      {first}
+      <span data-first-rows>{firstRowsLine(a)}</span>
       {state === 'signin' && a.total > a.items.length && <> The full list and its CSV are part of a paid plan: <Link href="/signin?next=/signals">sign in</Link> or see <Link href="/pricing">pricing</Link>.</>}
       {state === 'plan' && a.total > a.items.length && <> The full list and its CSV are part of a paid plan: <Link href="/app/billing">choose one under Billing</Link>.</>}
     </p>
@@ -166,11 +168,19 @@ export default async function SignalsPage({ searchParams }: Props) {
   }
   // The paid part: asked only when it is open and the visitor has a session; the public answer says whether it is open.
   let state = fullState(Boolean(a?.fullOpen), 0);
-  if (a && a.fullOpen && await readSession()) {
-    const full = await getFullSignal(api, f.page, FULL_PAGE_SIZE);
-    state = fullState(true, full.ok ? 200 : full.status);
-    if (full.ok) a = full.data;
+  if (a && await readSession()) {
+    if (a.fullOpen) {
+      const full = await getFullSignal(api, f.page, FULL_PAGE_SIZE);
+      state = fullState(true, full.ok ? 200 : full.status);
+      if (full.ok) a = full.data;
+    }
+    // WP-155: any signed-in account sees the first rows with the small companies' (the mosaic rule keeps those from anonymous visitors)
+    if (state !== 'full') {
+      const first = await getFirstSignal(api);
+      if (first.ok) a = first.data;
+    }
   }
+
   const latestYear = a?.kind === 'funding' ? (a.items[0] as FundingRow | undefined)?.year : null;
   return (
     <>

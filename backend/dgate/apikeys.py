@@ -1,4 +1,8 @@
-"""Keys of the data API (WP-153): issued to a signed-in account, read-only, for a licensee's own scripts.
+"""Keys of the data API (WP-153): issued to a signed-in account that holds a licence, read-only, for its own scripts.
+
+WP-155 (owner, 28 October 2026): the licence is a contract outside the plans. The operator grants and withdraws it
+(`python -m dgate.ops.api_licence`, `app_user.api_licensed_at`); no plan grants it. Without it no key is issued, and a key
+already issued is refused like a revoked one until the licence is granted again.
 
 Built to docs/SECURITY_REQUIREMENTS.md:
   K1  a key is `dgk_<prefix>_<secret>`: the secret is 256 random bits, the prefix (48 bits, public) finds the row.
@@ -104,8 +108,9 @@ def authenticate(raw: str) -> dict[str, Any] | None:
     cfg = settings()
     with db.bounded_connect(cfg.app_dsn or cfg.dsn, cfg.app_connections, cfg.pool_wait_ms / 1000) as conn:
         row = conn.execute(
-            "SELECT id, key_hash, scopes, rate_per_minute, daily_quota FROM api_key "
-            "WHERE prefix = %s AND revoked_at IS NULL AND expires_at > now()", (m.group(1),)).fetchone()
+            "SELECT k.id, k.key_hash, k.scopes, k.rate_per_minute, k.daily_quota FROM api_key k "
+            "JOIN app_user u ON u.id = k.owner_id AND u.api_licensed_at IS NOT NULL "
+            "WHERE k.prefix = %s AND k.revoked_at IS NULL AND k.expires_at > now()", (m.group(1),)).fetchone()
         if not row or not hmac.compare_digest(bytes(row["key_hash"]), _hash(raw)):
             return None
         conn.execute("UPDATE api_key SET last_used_at = now() WHERE id = %s "
@@ -212,7 +217,7 @@ def list_keys(conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
     events = conn.execute(
         "SELECT e.event, e.at, k.name, k.prefix FROM api_key_event e JOIN api_key k ON k.id = e.key_id "
         "WHERE e.owner_id = %s ORDER BY e.at DESC, e.id DESC LIMIT 20", (user["id"],)).fetchall()
-    return {"open": settings().api_keys_open, "sources": list(settings().api_key_sources), "scopes": list(SCOPES),
+    return {"open": settings().api_keys_open, "licensed": user.get("api_licensed_at") is not None, "sources": list(settings().api_key_sources), "scopes": list(SCOPES),
             "maxKeys": MAX_KEYS, "keys": [_key_out(r) for r in owned_keys(conn, user["id"])],
             "events": [{"event": e["event"], "at": e["at"], "name": e["name"], "prefix": e["prefix"]} for e in events]}
 
@@ -223,6 +228,8 @@ def create_key(body: KeyIn, conn=Depends(get_conn), user=Depends(current),
     """The key, once. It is not stored and cannot be shown again."""
     if not settings().api_keys_open:
         raise AccountError(403, "api_keys_closed", "API keys are not open")
+    if not user.get("api_licensed_at"):
+        raise AccountError(403, "no_licence", "API keys come with a data licence: ask us for one")
     _fresh_sign_in(conn, user, body.password, _client_ip(x_dg_client_ip))
     name = " ".join(body.name.split())
     if not name:

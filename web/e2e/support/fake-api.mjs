@@ -156,9 +156,19 @@ const FUNDING = {
 // ---- WP-152 (e2e/wp152-api.spec.ts): a company whose report is open (DGATE_COMPANY_REPORT_OPEN=1), and two accounts: session "a" x 43
 // may open it (`company_report` among its features), session "b" x 43 may not. Invented names and numbers.
 const REPORT_SLUG = '152001-fake-defence-gmbh';
-const REPORT_SESSIONS = { ['a'.repeat(43)]: ['saved_searches', 'email_alerts', 'company_report'], ['b'.repeat(43)]: ['saved_searches', 'email_alerts'] };
-const reportSupplier = () => ({
-  id: '152001', slug: REPORT_SLUG, name: 'Fake Defence GmbH', country: 'DE', awardCount: 12, firstYear: 2024, lastYear: 2026, cpvDivisions: ['35'],
+// WP-155 (e2e/wp155-api.spec.ts): the owner's plan split, with the plans on sale (`/v1/account/status` plansOnSale). Session "a" x 43 is
+// Pro (reports 1 of 3 this month, the full competitor list and signals, no CSV), "b" x 43 has no plan, "c" x 43 is Consultant (its name on
+// reports, the signals CSV, the gap analysis), "d" x 43 is Pro with this month's reports used. 155001 is a company with eight competitors,
+// five of them public, and the sample report (open to everyone).
+const PRO = ['saved_searches', 'email_alerts', 'company_report', 'competitors_full', 'signals_full'];
+const REPORT_SESSIONS = {
+  ['a'.repeat(43)]: PRO, ['b'.repeat(43)]: ['saved_searches', 'email_alerts'],
+  ['c'.repeat(43)]: [...PRO, 'signals_csv', 'consortium_gaps', 'branded_reports'], ['d'.repeat(43)]: PRO,
+};
+const SAMPLE_SLUG = '155001-fake-prime-sa';
+const PLAN_OF = { ['a'.repeat(43)]: 'pro', ['b'.repeat(43)]: 'free', ['c'.repeat(43)]: 'consultant', ['d'.repeat(43)]: 'pro' };
+const reportSupplier = (slug = REPORT_SLUG, name = 'Fake Defence GmbH') => ({
+  id: slug.split('-')[0], slug, name, country: 'DE', awardCount: 12, firstYear: 2024, lastYear: 2026, cpvDivisions: ['35'],
   values: { byCurrency: [{ currency: 'EUR', amount: 4_500_000, count: 3, lotEstimates: 0 }], of: 12, withoutValue: 9, shared: 2, suspect: 0, frameworks: [], estimates: [], largest: [] },
   byYear: [{ year: 2026, awards: 5 }, { year: 2025, awards: 7 }], byCpv: [{ division: '35', awards: 12 }],
   buyers: [{ slug: '5-fake-buyer', name: 'Fake Defence Buyer', country: 'DE', awards: 9 }], notices: [], noticeCount: 12,
@@ -174,7 +184,20 @@ const reportCompetition = () => ({
   size: { currency: 'EUR', median: 1_500_000, valued: 3, otherCurrencies: 0 }, withoutValue: 9,
   shareByClass: [{ key: '3541', contracts: 8, total: 250, currency: 'EUR', value: 4_500_000, valued: 3, valueTotal: 900_000_000, valuedTotal: 70 }],
   shareByCountry: [{ key: 'DE', contracts: 10, total: 1_900, currency: 'EUR', value: 4_500_000, valued: 3, valueTotal: 2_100_000_000, valuedTotal: 410 }],
-  reportOpen: true,
+  reportOpen: true, sampleReport: SAMPLE_SLUG, isSample: false,
+});
+const rival = (i) => ({ slug: `15510${i}-fake-rival-${i}-ag`, name: `Fake Rival ${i} AG`, country: 'DE', overlap: 10 - i, markets: 1, buyers: 1, ours: 3, sameName: false, sameGroup: null });
+const primeCompetition = (full) => ({
+  ...reportCompetition(), competitorCount: 8, competitors: Array.from({ length: full ? 8 : 5 }, (_, i) => rival(i)), full, isSample: true,
+});
+const signalRow = (i, small) => ({
+  company: { id: String(15520 + i), slug: `${15520 + i}-${small ? 'small' : 'large'}-company-${i}`, name: `${small ? 'Small' : 'Large'} Company ${i}`, country: 'NO' },
+  recent: 3, prior: 0, recentValues: [], priorValues: [], comparable: null, latest: null,
+});
+const signal = (items, over = {}) => ({
+  kind: 'growing', asOf: '2026-10-12', recentFrom: '2025-10-12', priorFrom: '2024-10-12', windowFrom: '2023-10-12', minRecent: 2,
+  items, total: 14, offset: 0, fullOpen: true, freeRows: 10, note: 'Facts from public records, not investment advice.', public: false, smallBelow: 10,
+  sources: [{ code: 'ted', name: 'TED', attribution: 'Source: TED, © European Union.' }], ...over,
 });
 const reportPartners = () => ({
   organisation: { id: '152001', slug: REPORT_SLUG, name: 'Fake Defence GmbH', country: 'DE' }, total: 1, countries: 1, page: 1, pageSize: 20,
@@ -182,11 +205,39 @@ const reportPartners = () => ({
   items: [{ organisation: { id: '152010', slug: '152010-fake-research-institute', name: 'Fake Research Institute', country: 'FR' }, shared: 2, firstYear: 2022, lastYear: 2024,
     programmes: ['EDF'], projects: [] }],
 });
-const reportMe = (features) => ({ id: 'u152', email: 'ann@example.test', createdAt: '2026-10-22T08:00:00Z',
-  profile: { role: 'consultant', tracks: ['tenders'], countries: [], scope: 'core', cadence: 'daily' }, onboarded: true, lastVisitAt: null,
-  terms: { current: true }, security: { hasPassword: true, totp: false }, plan: { current: 'consultant' }, features });
+const reportMe = (features, session) => ({ id: 'u152', email: 'ann@example.test', createdAt: '2026-10-22T08:00:00Z',
+  profile: { role: 'consultant', tracks: ['tenders'], countries: [], scope: 'core', cadence: 'daily', reportName: session === 'c'.repeat(43) ? 'Acme Advisory Ltd' : null },
+  onboarded: true, lastVisitAt: null,
+  terms: { current: true }, security: { hasPassword: true, totp: false }, plan: { current: PLAN_OF[session] ?? 'consultant' }, features });
 
-function route(url, headers = {}) {
+/** WP-155: the account routes of the plan split (the API's competition.py and signals.py), by session. */
+function accountRoute(p, q, session, method) {
+  const features = REPORT_SESSIONS[session];
+  if (!features) return [401, { error: 'unauthenticated' }];
+  const m = /^\/v1\/account\/suppliers\/([^/]+)\/(competition|report)$/.exec(p);
+  if (m && m[2] === 'competition') {
+    if (!features.includes('competitors_full')) return [402, { error: 'plan_required', message: 'the full list of competitors is part of Pro' }];
+    return [200, m[1] === SAMPLE_SLUG ? primeCompetition(true) : { ...reportCompetition(), full: true }];
+  }
+  if (m && method === 'POST') {
+    const out = { resetsAt: '2026-11-01', reportName: features.includes('branded_reports') ? 'Acme Advisory Ltd' : null };
+    if (m[1] === SAMPLE_SLUG) return [200, { ...out, sample: true, counted: false, used: null, limit: null, left: null }];
+    if (!features.includes('company_report')) return [402, { error: 'plan_required', message: 'company reports are part of Pro' }];
+    if (session === 'd'.repeat(43)) return [402, { error: 'report_quota', message: 'no company reports left this month: 3 of 3 opened; the count starts again on 2026-11-01 (UTC)' }];
+    const limit = PLAN_OF[session] === 'pro' ? 3 : null;
+    return [200, { ...out, sample: false, counted: true, used: 1, limit, left: limit === null ? null : limit - 1 }];
+  }
+  if (p === '/v1/account/signals/growing/first') return [200, signal([signalRow(1, true), signalRow(2, true), signalRow(3, false)])];
+  if (p === '/v1/account/signals/growing') {
+    if (!features.includes('signals_full')) return [402, { error: 'plan_required', message: 'the full list of signals is part of a paid plan' }];
+    if (Number(q.get('pageSize') ?? 50) > 100 && !features.includes('signals_csv')) return [402, { error: 'plan_required', message: 'the CSV of a signal is part of Team and Consultant' }];
+    const items = Array.from({ length: 14 }, (_, i) => signalRow(i, i < 13));
+    return [200, { ...signal(items), page: 1, pageSize: Number(q.get('pageSize') ?? 50), csv: features.includes('signals_csv') }];
+  }
+  return [404, { error: 'not_found' }];
+}
+
+function route(url, headers = {}, method = 'GET') {
   const p = url.pathname;
   const q = url.searchParams;
   stats.requests.push(`${p}?${q}`);
@@ -194,10 +245,16 @@ function route(url, headers = {}) {
   if (p === `/v1/suppliers/${REPORT_SLUG}`) return [200, reportSupplier()];
   if (p === `/v1/suppliers/${REPORT_SLUG}/competition`) return [200, reportCompetition()];
   if (p === `/v1/organisations/${REPORT_SLUG}/partners`) return [200, reportPartners()];
+  if (p === `/v1/suppliers/${SAMPLE_SLUG}`) return [200, reportSupplier(SAMPLE_SLUG, 'Fake Prime SA')];
+  if (p === `/v1/suppliers/${SAMPLE_SLUG}/competition`) return [200, primeCompetition(false)];
+  if (p === `/v1/organisations/${SAMPLE_SLUG}/partners`) return [200, { ...reportPartners(), organisation: { id: '155001', slug: SAMPLE_SLUG, name: 'Fake Prime SA', country: 'DE' } }];
+  if (p === '/v1/account/status') return [200, { open: false, billing: false, plansOnSale: true, termsVersion: '2.2', privacyVersion: '1.8' }];
+  if (p === '/v1/signals/growing') return [200, signal([signalRow(3, false)], { public: true })];
   if (p === '/v1/account/me') {
     const features = REPORT_SESSIONS[headers['x-dg-session']];
-    return features ? [200, reportMe(features)] : [401, { error: 'unauthenticated' }];
+    return features ? [200, reportMe(features, headers['x-dg-session'])] : [401, { error: 'unauthenticated' }];
   }
+  if (p.startsWith('/v1/account/')) return accountRoute(p, q, headers['x-dg-session'], method);
   if (p === '/v1/tenders/calendar') return [200, calendar()];
   // WP-127: counts that answer after 5 s (a search word the time box cannot count): the page must not wait for them
   if (p === '/v1/tenders/scope-counts' && q.get('q') === 'slowcounts') return [503, { detail: 'the count took too long; narrow the request' }, 5000];
@@ -245,7 +302,8 @@ function route(url, headers = {}) {
 }
 
 createServer((req, res) => {
-  const [status, body, delay = 0, headers = {}] = route(new URL(req.url ?? '/', 'http://x'), req.headers);
+  const [status, body, delay = 0, headers = {}] = route(new URL(req.url ?? '/', 'http://x'), req.headers, req.method);
+
   setTimeout(() => {
     res.writeHead(status, { 'content-type': 'application/json', ...headers });
     res.end(JSON.stringify(body));

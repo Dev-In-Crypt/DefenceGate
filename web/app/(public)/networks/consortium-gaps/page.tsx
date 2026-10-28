@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ApiError } from '@/lib/api';
+import { getAccountStatus, getUserState } from '@/lib/account';
 import { getConsortiumGaps } from '@/lib/networks-api';
 import { buildMetadata } from '@/lib/seo';
 import { BUYER_COUNTRIES, countryName } from '@/lib/taxonomy';
@@ -46,9 +47,33 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   });
 }
 
+/**
+ * WP-155 (owner's plan split): the consortium gap analysis is part of Team and Consultant. While no plan is on sale it is withheld from
+ * nobody (WP-124), signed in or not; once the plans are on sale, an account whose features include `consortium_gaps` sees it. The
+ * analytics API is not public (Caddy), so this page is where it is served.
+ */
+async function gapGate(): Promise<React.ReactNode> {
+  if (!(await getAccountStatus()).plansOnSale) return null;
+  const state = await getUserState();
+  if (state.kind === 'ok' && state.user.features.includes('consortium_gaps')) return null;
+  if (state.kind === 'ok') return <>The consortium gap analysis is part of the Team and Consultant plans: see <Link href="/app/billing" className="font-semibold">Billing</Link> in your account.</>;
+  if (state.kind === 'unavailable') return <>Your account could not be read just now. Try again in a moment.</>;
+  return <>The consortium gap analysis is part of the Team and Consultant plans: <Link href="/signin?next=/networks/consortium-gaps" className="font-semibold">sign in</Link> or see <Link href="/pricing" className="font-semibold">pricing</Link>.</>;
+}
+
 export default async function ConsortiumGapsPage({ searchParams }: Props) {
   const { unknownProgramme, ...q } = parse(await searchParams);
+  const gate = await gapGate();
+  if (gate) {
+    return (
+      <ContentPage crumbs={partnerCrumbs('Consortium gaps', '/networks/consortium-gaps')} title="Consortium gaps"
+        lead="Organisations funded at least twice in one capability area that never had a partner from the country you choose: a place to look for a partner the established consortia do not have.">
+        <p className="m-0 text-body" data-gaps-gate>{gate}</p>
+      </ContentPage>
+    );
+  }
   let data = null;
+
   let problem: string | null = null;
   try {
     data = await getConsortiumGaps(q);
