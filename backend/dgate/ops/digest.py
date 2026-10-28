@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Any
 
 from ..accounts import _is_new, run_search
-from ..billing import may
+from ..billing import may, search_limit
 from ..config import settings
 from . import mailer
 
@@ -28,6 +28,8 @@ MAX_ITEMS_PER_SEARCH = 8
 DUE_SQL = """
     SELECT s.id, s.owner_id, s.name, s.kind, s.filters, s.cadence, s.created_at,
            s.last_alerted_at, u.email_display,
+           (SELECT count(*) FROM app_saved_search e WHERE e.owner_id = s.owner_id
+               AND (e.created_at, e.id) < (s.created_at, s.id)) AS plan_rank,
            b.plan AS sub_plan, b.status AS sub_status, b.current_period_end AS sub_period_end
       FROM app_saved_search s JOIN app_user u ON u.id = s.owner_id
       LEFT JOIN billing_subscription b ON b.account_id = u.id
@@ -69,6 +71,15 @@ def run_digests(conn) -> dict[str, int]:
             conn.commit()
             result["skipped"] = result.get("skipped", 0) + 1
             continue
+        # WP-155: the searches over the plan's number (kept after a move to a smaller plan) are paused the same way
+        limit = search_limit(searches[0])
+        over = [s["id"] for s in searches if s["plan_rank"] >= limit]
+        if over:
+            conn.execute("UPDATE app_saved_search SET last_alerted_at = now() WHERE id = ANY(%s)", (over,))
+            conn.commit()
+            searches = [s for s in searches if s["plan_rank"] < limit]
+            if not searches:
+                continue
         result["accounts"] += 1
         sections, total = [], 0
         evaluated: list[Any] = []       # only these may move their window on (audit M3)

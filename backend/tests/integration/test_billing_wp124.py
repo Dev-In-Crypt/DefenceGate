@@ -143,7 +143,9 @@ def test_billing_is_closed_by_default_and_no_checkout_is_created(client, sent, c
     state = client.get("/v1/account/billing", headers=H(session)).json()
     assert state["open"] is False and state["foundingLeft"] is None and state["plan"] == "free"
     # nothing is for sale, so nothing is withheld: saved searches and alerts as WP-123 built them
-    assert set(me_of(client, session)["features"]) == {"saved_searches", "email_alerts"}
+    # WP-155: every built feature but the two behind the company report's switch (off here)
+    assert set(me_of(client, session)["features"]) == {"saved_searches", "email_alerts", "competitors_full", "signals_full",
+                                                       "signals_csv", "consortium_gaps"}
     assert client.post("/v1/account/searches", json=search_body(), headers=H(session)).status_code == 201
 
 
@@ -227,7 +229,9 @@ def test_a_verified_checkout_event_opens_the_plan(on, sent, creem, conn):
     end = datetime(2027, 10, 25, 12, 0, tzinfo=timezone.utc)
     assert deliver(on, completed(creem, end=end)).json() == {"ok": True}
     plan = me_plan(on, session)
-    assert plan["current"] == "pro" and set(me_of(on, session)["features"]) == {"saved_searches", "email_alerts"}
+    # WP-155: Pro's features (the company report is behind its switch, off here)
+    assert plan["current"] == "pro" and set(me_of(on, session)["features"]) == {"saved_searches", "email_alerts",
+                                                                                "competitors_full", "signals_full"}
     row = conn.execute("SELECT * FROM billing_subscription").fetchone()
     assert (row["plan"], row["period"], row["status"], row["creem_customer_id"], row["creem_subscription_id"],
             row["current_period_end"]) == ("pro", "yearly", "active", "cust_1", "sub_1", end)

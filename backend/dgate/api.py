@@ -1194,9 +1194,12 @@ from .suppliers import router as _suppliers_router  # noqa: E402
 app.include_router(_suppliers_router)
 
 # WP-152: a company's competitors, where it wins and its share, from the market's stored contract rows (competition.py).
+from .competition import account_router as _competition_account_router  # noqa: E402
 from .competition import router as _competition_router  # noqa: E402
 
 app.include_router(_competition_router)
+# WP-155: the full competitor list and the counted company reports, for a signed-in account (competition.py).
+app.include_router(_competition_account_router)
 
 # The demand map of the supplier report (demand.py, WP-66): stateless, the CPV codes come in the body.
 from .demand import router as _demand_router  # noqa: E402

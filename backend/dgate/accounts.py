@@ -99,7 +99,7 @@ LIMIT_GLOBAL = 120             # in total; beyond it the operator is told
 LOGIN_FREE = 5                 # A8: failed sign-ins per address in an hour before the delay
 LOGIN_FREE_IP = 30             # ... per client IP
 LOGIN_DELAY = 30               # seconds after the first counted failure, doubling each time
-MAX_SEARCHES = 10
+MAX_SEARCHES = 200             # what an export lists: every plan's ceiling (billing.SEARCH_CEILING, equal by test)
 MAX_SHORTLIST = 500
 MAX_FOLLOWS = 100
 MAX_COUNTRIES = 20
@@ -109,6 +109,7 @@ USER_RATE = 30                 # requests a minute per account on searches and t
 MAX_HITS_PER_BATCH = 200       # of the visit counter
 MAX_HIT_COUNT = 10_000         # one key's count in one batch
 NOTE_MAX = 500
+REPORT_NAME_MAX = 80           # WP-155: the name on a consultant's company reports
 SEARCH_RESULTS = 100           # how many newest matches are read to count the new ones
 
 # The texts a registration accepts. Bump one when the published page changes: the forms then
@@ -389,6 +390,8 @@ class ProfilePatch(_Body):
     countries: list[str] | None = Field(None, max_length=MAX_COUNTRIES)
     scope: Literal["core", "all"] | None = None
     cadence: Literal["instant", "daily", "weekly", "off"] | None = None
+    # WP-155: the name printed on the account's company reports (Consultant); "" removes it
+    reportName: str | None = Field(None, max_length=REPORT_NAME_MAX)
 
 
 class DeleteAccount(_Body):
@@ -452,6 +455,9 @@ def _prune(conn) -> None:
     conn.execute("DELETE FROM app_auth_token WHERE expires_at < now() - interval '1 day'")
     conn.execute("DELETE FROM app_user WHERE email_verified_at IS NULL "
                  "AND created_at < now() - %s::interval", (UNVERIFIED_TTL,))
+    # WP-155: the report counts of months before the last one are read by nothing (only the current month counts)
+    conn.execute("DELETE FROM company_report_open WHERE month < date_trunc('month', now() AT TIME ZONE 'UTC') "
+                 "- interval '1 month'")
 
 
 def prune_expired(conn) -> None:
@@ -470,10 +476,12 @@ def status(conn=Depends(get_conn)) -> JSONResponse:
         prune_expired(conn)
     except Exception:  # noqa: BLE001 - the status answer must not depend on housekeeping
         log.warning("status: prune failed")
-    from .billing import billing_problem
+    from .billing import billing_problem, plans_on_sale
 
     is_open = accounts_problem() is None
+    # WP-155: `plansOnSale` tells the site whether a paid feature is the plans' yet (until then it is withheld from nobody)
     return JSONResponse({"open": is_open, "billing": is_open and billing_problem() is None,
+                         "plansOnSale": plans_on_sale(),
                          "termsVersion": TERMS_VERSION,
                          "privacyVersion": PRIVACY_VERSION},
                         headers={"Cache-Control": "public, max-age=60"})
@@ -972,7 +980,7 @@ def _user_out(u: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": str(u["id"]), "email": u["email_display"], "createdAt": u["created_at"],
         "profile": {"role": u["role"], "tracks": list(u["tracks"]), "countries": list(u["countries"]),
-                    "scope": u["scope"], "cadence": u["cadence"]},
+                    "scope": u["scope"], "cadence": u["cadence"], "reportName": u.get("report_name")},
         "onboarded": u["onboarded"], "lastVisitAt": u["last_visit_at"],
         "security": {"hasPassword": u.get("password_hash") is not None,
                      "totp": u.get("totp_enabled_at") is not None},
@@ -985,9 +993,22 @@ def _user_out(u: dict[str, Any]) -> dict[str, Any]:
         # `features` the paid features the account may use (all of them while no plan is on sale).
         "plan": {"current": billing.plan_of(u), "chosen": u.get("plan_choice"),
                  "billing": u.get("billing_choice")},
-        # WP-153: `api_keys` while the data API's keys are open (the account area then shows API keys)
-        "features": billing.features(u) + (["api_keys"] if settings().api_keys_open else []),
+        # WP-153: `api_keys` while the data API's keys are open (the account area then shows API keys); WP-155: and the
+        # account holds a licence (no plan grants it)
+        "features": billing.features(u) + (["api_keys"] if settings().api_keys_open and u.get("api_licensed_at") else []),
+        # WP-155: saved searches the plan allows, company reports a month (None: no limit)
+        "limits": {"savedSearches": billing.search_limit(u), "reportsPerMonth": billing.report_limit(u)},
     }
+
+
+_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f​-‏ -‮⁦-⁩]")
+
+
+def clean_report_name(raw: str) -> str | None:
+    """Plain text on one line: control and direction characters out, spaces collapsed. None when nothing is left.
+    The site prints it as text (escaped); it is never markup."""
+    text = " ".join(_CONTROL.sub(" ", raw).split())
+    return text[:REPORT_NAME_MAX] or None
 
 
 @router.get("/me")
@@ -1020,6 +1041,13 @@ def patch_me(body: ProfilePatch, conn=Depends(get_conn), user=Depends(current)) 
         changes["countries"] = codes
     if "tracks" in changes and changes["tracks"] is not None:
         changes["tracks"] = list(dict.fromkeys(changes["tracks"]))
+    if changes.get("reportName") is not None:
+        from .billing import require
+
+        require(user, "branded_reports")
+        conn.execute("UPDATE app_user SET report_name = %s WHERE id = %s",
+                     (clean_report_name(changes["reportName"]), user["id"]))
+    changes.pop("reportName", None)
     sets, params = [], []
     for key, value in changes.items():
         if value is None and key != "role":
@@ -1029,6 +1057,7 @@ def patch_me(body: ProfilePatch, conn=Depends(get_conn), user=Depends(current)) 
     if sets:
         conn.execute(f"UPDATE app_user SET {', '.join(sets)} WHERE id = %s", params + [user["id"]])
     row = conn.execute("SELECT * FROM app_user WHERE id = %s", (user["id"],)).fetchone()
+    row.update({k: user.get(k) for k in ("sub_plan", "sub_status", "sub_period_end")})   # the plan, as `current` reads it
     done = bool(row["role"]) and bool(row["tracks"])
     if done != row["onboarded"]:
         conn.execute("UPDATE app_user SET onboarded = %s WHERE id = %s", (done, user["id"]))
@@ -1101,6 +1130,11 @@ def export(conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
                          for r in conn.execute("SELECT * FROM billing_subscription WHERE account_id = %s",
                                                (uid,)).fetchall()],
         "apiKeys": _api_keys_export(conn, uid),
+        "apiLicensedAt": user.get("api_licensed_at"),
+        # WP-155: the company reports counted against the plan (company and month)
+        "companyReports": [{"month": r["month"], "organisationId": r["org_id"], "openedAt": r["opened_at"]}
+                           for r in conn.execute("SELECT * FROM company_report_open WHERE account_id = %s "
+                                                 "ORDER BY month, opened_at LIMIT 1000", (uid,)).fetchall()],
         "follows": [{"kind": r["kind"], "ref": r["ref"], "createdAt": r["created_at"]}
                     for r in conn.execute(
                         "SELECT * FROM app_follow WHERE owner_id = %s ORDER BY created_at LIMIT %s",
@@ -1328,12 +1362,22 @@ def _search_row(r: dict[str, Any]) -> dict[str, Any]:
             "cadence": r["cadence"], "createdAt": r["created_at"]}
 
 
+# WP-155: an account's searches with their place, oldest first (0, 1, ...): the first `billing.search_limit` are run, the
+# others (kept after a move to a plan with fewer) are paused, as all of them are without the feature.
+RANKED_SEARCHES = ("(SELECT s.*, row_number() OVER (ORDER BY s.created_at, s.id) - 1 AS plan_rank "
+                   "FROM app_saved_search s WHERE s.owner_id = %s) ranked")
+
+
 def _search_out(conn, r: dict[str, Any], user: dict[str, Any]) -> dict[str, Any]:
-    from .billing import may
+    from .billing import may, search_limit
 
     out = _search_row(r)
+    rank = r.get("plan_rank")
+    if rank is None:
+        rank = conn.execute("SELECT count(*) AS n FROM app_saved_search WHERE owner_id = %s AND (created_at, id) < (%s, %s)",
+                            (user["id"], r["created_at"], r["id"])).fetchone()["n"]
     # WP-124: a search kept after a downgrade is not run (the paid feature stops, the data stays).
-    out["paused"] = not may(user, "saved_searches")
+    out["paused"] = not may(user, "saved_searches") or rank >= search_limit(user)
     if out["paused"]:
         out.update(matchCount=None, newCount=0, lastMatchAt=None)
         return out
@@ -1357,20 +1401,23 @@ def _owned_search(conn, search_id: str, user) -> dict[str, Any]:
 
 @router.get("/searches")
 def list_searches(conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, Any]:
-    rows = conn.execute("SELECT * FROM app_saved_search WHERE owner_id = %s "
-                        "ORDER BY created_at DESC LIMIT %s", (user["id"], MAX_SEARCHES)).fetchall()
-    return {"items": [_search_out(conn, r, user) for r in rows]}
+    from .billing import SEARCH_CEILING, search_limit
+
+    rows = conn.execute(f"SELECT * FROM {RANKED_SEARCHES} ORDER BY created_at DESC LIMIT %s",
+                        (user["id"], SEARCH_CEILING)).fetchall()
+    return {"items": [_search_out(conn, r, user) for r in rows], "limit": search_limit(user)}
 
 
 @router.post("/searches", status_code=201)
 def create_search(body: SearchIn, conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, Any]:
-    from .billing import require
+    from .billing import require, search_limit
 
     require(user, "saved_searches")
     n = conn.execute("SELECT count(*) AS n FROM app_saved_search WHERE owner_id = %s",
                      (user["id"],)).fetchone()["n"]
-    if n >= MAX_SEARCHES:
-        raise AccountError(409, "limit_reached", f"at most {MAX_SEARCHES} saved searches")
+    limit = search_limit(user)
+    if n >= limit:
+        raise AccountError(409, "limit_reached", f"at most {limit} saved searches on your plan")
     filters = clean_filters(body.kind, body.filters)
     run_search(conn, body.kind, filters)             # a filter the list endpoint refuses is refused here
     row = conn.execute(
@@ -1692,11 +1739,11 @@ def dashboard(conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, Any]
     since = _since(user)
     horizon = now + timedelta(days=14)
 
-    from .billing import may
+    from .billing import may, search_limit
 
-    searches = conn.execute(
-        "SELECT * FROM app_saved_search WHERE owner_id = %s ORDER BY created_at DESC LIMIT 6",
-        (user["id"],)).fetchall() if may(user, "saved_searches") else []   # WP-124: kept, not run
+    searches = conn.execute(   # WP-124: kept, not run; WP-155: those over the plan's number neither
+        f"SELECT * FROM {RANKED_SEARCHES} WHERE plan_rank < %s ORDER BY created_at DESC LIMIT 6",
+        (user["id"], search_limit(user))).fetchall() if may(user, "saved_searches") else []
     matches, searched_items = [], []
     for s in searches:
         res = run_search(conn, s["kind"], s["filters"])

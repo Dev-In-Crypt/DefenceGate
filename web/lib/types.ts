@@ -893,6 +893,8 @@ export interface Profile {
   countries: string[];
   scope: ProfileScope;
   cadence: Cadence;
+  /** WP-155: the name printed on the account's company reports (Consultant), plain text, at most 80 characters. */
+  reportName?: string | null;
 }
 
 /** GET /v1/account/me */
@@ -915,8 +917,11 @@ export interface Me {
   plan: import('./plans').PlanId;
   /** WP-124: the paid features this account may use (every one while no plan is on sale). */
   features: PaidFeature[];
-  /** WP-153: keys of the data API can be issued (DGATE_API_KEYS_OPEN on the API): the account area shows API keys. */
+  /** WP-153: keys of the data API can be issued (DGATE_API_KEYS_OPEN on the API): the account area shows API keys. WP-155: and the
+   *  account holds a data licence (granted by the operator; no plan grants it). */
   apiKeys: boolean;
+  /** WP-155: saved searches the plan allows, company reports a month (null: no limit). */
+  limits: { savedSearches: number; reportsPerMonth: number | null };
 }
 
 /** WP-153: a key of the data API as the account API lists it (never the key itself, except `key` in the answer that made it). */
@@ -936,14 +941,17 @@ export interface ApiKey {
 
 export interface ApiKeys {
   open: boolean;
+  /** WP-155: the account holds the data licence (granted by the operator, no plan grants it). */
+  licensed: boolean;
   sources: string[];
   maxKeys: number;
   keys: ApiKey[];
   events: { event: 'created' | 'revoked'; at: IsoDateTime; name: string; prefix: string }[];
 }
 
-/** WP-124: the paid features that exist (backend billing.FEATURES). */
-export type PaidFeature = 'saved_searches' | 'email_alerts' | 'company_report';
+/** WP-124: the paid features that exist (backend billing.FEATURES; WP-155: the owner's plan split). */
+export const PAID_FEATURES = ['saved_searches', 'email_alerts', 'company_report', 'competitors_full', 'signals_full', 'signals_csv', 'consortium_gaps', 'branded_reports'] as const;
+export type PaidFeature = (typeof PAID_FEATURES)[number];
 
 /** GET /v1/account/sessions */
 export interface AccountSession {
@@ -1212,7 +1220,13 @@ export interface SupplierCompetition {
   shareByCountry: CompetitionShare[];
   /** The paid company report exists (DGATE_COMPANY_REPORT_OPEN). */
   reportOpen: boolean;
+  /** WP-155: the slug of the one report open to everyone (while reports are open), and whether this company's is it. */
+  sampleReport?: string | null;
+  isSample?: boolean;
+  /** WP-155: every competitor of the list (the account answer); false: the public answer's first five. */
+  full?: boolean;
 }
+
 /** WP-98b: `sort` value-XXX orders by the contract values in currency XXX; `source` ted lists TED's winners only. */
 export interface SupplierFilters { q?: string; country?: string; buyerCountry?: string; cpv?: string; group?: string; sort?: SupplierSort; source?: 'ted'; page?: number; pageSize?: number }
 export type SupplierSort = 'awards' | 'name' | `value-${string}`;

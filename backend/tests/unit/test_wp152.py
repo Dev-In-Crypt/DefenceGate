@@ -71,7 +71,8 @@ def test_the_company_report_is_nobodys_while_its_switch_is_off(monkeypatch):
     config.reset_cache()
     try:
         assert billing.may(free, "company_report")     # nothing on sale yet: nothing withheld (WP-124)
-        assert billing.allows("consultant", "company_report") and not billing.allows("pro", "company_report")
+        # WP-155: the owner's split, Pro and up (a number a month: test_wp155)
+        assert billing.allows("pro", "company_report") and not billing.allows("free", "company_report")
     finally:
         monkeypatch.delenv("DGATE_COMPANY_REPORT_OPEN")
         config.reset_cache()

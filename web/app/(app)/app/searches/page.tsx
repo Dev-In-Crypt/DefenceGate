@@ -44,7 +44,7 @@ export default async function SearchesPage({ searchParams }: Props) {
                 </ul>
                 {s.paused || s.matchCount === null ? (
                   <p className="m-0 text-small text-ink-muted" data-paused>
-                    Paused: your plan has no saved searches or alerts. The search is kept; it runs again with a plan that has them (<Link href="/app/billing" className="font-semibold">Billing</Link>).
+                    Paused: your plan has no saved searches or alerts. Or it has fewer than you hold, and the oldest run. The search is kept; it runs again with a plan that has room for it (<Link href="/app/billing" className="font-semibold">Billing</Link>).
                   </p>
                 ) : (
                   <p className="m-0 font-mono text-mono text-ink-muted">

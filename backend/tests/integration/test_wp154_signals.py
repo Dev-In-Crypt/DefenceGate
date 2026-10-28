@@ -20,6 +20,13 @@ pytestmark = pytest.mark.integration
 TODAY = date.today()
 
 
+@pytest.fixture(autouse=True)
+def no_mosaic_rule(monkeypatch):
+    """WP-154's rows are a handful of procurements each: read here without WP-155's mosaic rule (every company counts as
+    not small), which test_wp155.py tests on its own."""
+    monkeypatch.setattr(signals, "SMALL_BELOW", 0)
+
+
 def notice(conn, native_id: str, *, days_ago: int, country: str = "DE", buyer: str = "BAAINBw",
            procedure: str | None = None, value: float | None = None, cpv: str = "35400000") -> int:
     opp = Opportunity(source_code="ted", native_id=native_id, buyer_name_raw=buyer, title_original=f"Contract {native_id}",

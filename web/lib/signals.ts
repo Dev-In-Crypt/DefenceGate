@@ -30,6 +30,23 @@ export interface SignalAnswer<R = SignalRow> {
   items: R[]; total: number; offset: number; fullOpen: boolean; freeRows: number; note: string;
   sources: { code: string; name: string; attribution: string | null }[];
   page?: number; pageSize?: number;
+  /** WP-155: the anonymous answer, whose rows leave out the companies with fewer than `smallBelow` procurements (mosaic rule). */
+  public?: boolean; smallBelow?: number;
+  /** WP-155: the account may download the CSV (Team and Consultant, or anyone while no plan is on sale). */
+  csv?: boolean;
+}
+
+/**
+ * WP-155: the line under the first rows (never the full list). The count is the whole list's, whoever looks. Anonymous, the rows
+ * leave out small companies (mosaic rule), so the line says so, and that signing in shows the rest when the full list is open.
+ */
+export function firstRowsLine(a: Pick<SignalAnswer, 'items' | 'total' | 'public' | 'smallBelow' | 'fullOpen'>): string {
+  const total = a.total.toLocaleString('en-GB');
+  const noun = a.total === 1 ? 'company' : 'companies';
+  if (a.items.length >= a.total) return `All ${total} ${noun}.`;
+  if (!a.public) return `The first ${a.items.length} of ${total} ${noun}.`;
+  const rest = a.fullOpen ? '; sign in for the rest' : '';
+  return `${a.items.length} of ${total} ${noun} shown${rest}. Rows of companies with fewer than ${a.smallBelow ?? 10} awarded procurements in three years are shown only after sign-in.`;
 }
 
 export interface SignalFilters { kind: SignalKind; country: string; cpv: string; programme: string; page: number }

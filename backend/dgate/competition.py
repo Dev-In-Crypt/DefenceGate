@@ -27,24 +27,30 @@ of the same curated group (`sameGroup`). A natural person is never in the set, s
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime
+from datetime import date, datetime, timezone
 from statistics import median
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from . import money
+from . import accounts, billing, money
+from .accounts import AccountError, throttled
 from .config import settings
 from .funding import get_conn, make_slug
 from .listcache import cache_list
 from .ops.company_groups import GROUPS
 from .suppliers import _name, _resolve, shown
-from .tenders import _id_of
+from .tenders import _id_of, live_id_of
 
 router = APIRouter()
+account_router = APIRouter(prefix="/v1/account/suppliers",
+                           dependencies=[Depends(accounts.internal_only), Depends(accounts.no_store)])
 
 COMPETITORS = 20
+# WP-155 (owner, mosaic rule): the public answer names the first FREE_COMPETITORS; the rest only to a signed-in account
+# whose plan has `competitors_full` (/v1/account/suppliers/{slug}/competition).
+FREE_COMPETITORS = 5
 TOP = 5               # classes and countries of "its share"
 WHERE_ROWS = 15       # rows of each "where it wins" table
 
@@ -202,18 +208,37 @@ class Competition(BaseModel):
     shareByClass: list[Share] = []
     shareByCountry: list[Share] = []
     reportOpen: bool = False  # the paid company report exists (DGATE_COMPANY_REPORT_OPEN)
+    sampleReport: str | None = None   # WP-155: the slug of the report open to everyone, while reports are open
+    isSample: bool = False            # ... and whether this company's is it
+    full: bool = False                # every competitor of the list (the account answer), not the first FREE_COMPETITORS
+
+
+def is_sample(conn, slug: str) -> bool:
+    """Whether `slug` is the sample report's company (DGATE_SAMPLE_REPORT_SLUG), compared as the live organisation."""
+    sample = settings().sample_report_slug
+    try:
+        return bool(sample) and live_id_of(conn, sample, "supplier") == live_id_of(conn, slug, "supplier")
+    except HTTPException:
+        return False
 
 
 @router.get("/v1/suppliers/{slug}/competition", response_model=Competition)
 @cache_list("supplier_competition", ttl=5 * 60)
 def get_competition(slug: str, conn=Depends(get_conn)):
+    return competition(conn, slug, FREE_COMPETITORS)
+
+
+def competition(conn, slug: str, limit: int) -> dict[str, Any]:
+    """The answer, with the first `limit` competitors named (`competitorCount` is all of them either way)."""
     org, org_id, _base, _p = _resolve(conn, _id_of(slug, "supplier"))
     report = settings().company_report_open
+    sample = {"sampleReport": settings().sample_report_slug or None, "isSample": is_sample(conn, slug)} if report else {}
     got = money.stored(conn)
     # a snapshot stored before WP-152 has no contract keys: unavailable until the worker's next round renews it
     out = analyse(index(got[0], got[1]), org_id) if got and "k" in got[0] else None
     if out is None:
-        return {"available": False, "reportOpen": report}
+        return {"available": False, "reportOpen": report, **sample}
+    out["competitors"] = out["competitors"][:limit]
     ids = [c["org"] for c in out["competitors"]]
     rows = {r["id"]: r for r in conn.execute(
         f"SELECT m.id, m.canonical_name, m.country, {shown()} AS shown FROM organisation m WHERE m.id = ANY(%s)",
@@ -233,4 +258,53 @@ def get_competition(slug: str, conn=Depends(get_conn)):
                             "sameName": ((r["canonical_name"] or "").lower(), r["country"]) == mine,
                             "sameGroup": names.get(g) if g and g == groups.get(org_id) else None})
     return {**out, "available": True, "asOf": got[1], "since": got[0]["since"], "competitors": competitors,
-            "reportOpen": report}
+            "reportOpen": report, "full": limit >= COMPETITORS, **sample}
+
+
+# ------------------------------------------------------------------ the paid part (WP-155)
+
+@account_router.get("/{slug}/competition", response_model=Competition)
+def full_competition(slug: str, conn=Depends(get_conn), user=Depends(throttled)):
+    """Every competitor of the list (COMPETITORS), for an account whose plan has it (every account while none is on sale)."""
+    billing.require(user, "competitors_full")
+    return competition(conn, slug, COMPETITORS)
+
+
+def month_bounds(now: datetime | None = None) -> tuple[date, date]:
+    """The calendar month (UTC) of `now`: its first day and the next month's."""
+    now = now or datetime.now(timezone.utc)
+    first = date(now.year, now.month, 1)
+    return first, date(first.year + first.month // 12, first.month % 12 + 1, 1)
+
+
+@account_router.post("/{slug}/report")
+def open_report(slug: str, conn=Depends(get_conn), aconn=Depends(accounts.get_conn), user=Depends(throttled)):
+    """A company report opened by this account: counted once per company and calendar month (UTC), against its plan's
+    REPORTS_PER_MONTH. The sample report is anyone's and never counted. The answer says what is left and when the count
+    starts again, and the account's own name for the report's head when its plan has `branded_reports`."""
+    if not settings().company_report_open:
+        raise AccountError(404, "not_open", "company reports are not open")
+    _resolve(conn, _id_of(slug, "supplier"))                  # 404 / 410 as the supplier page
+    first, resets = month_bounds()
+    out: dict[str, Any] = {"reportName": user.get("report_name") if billing.may(user, "branded_reports") else None,
+                           "resetsAt": resets.isoformat(), "sample": False, "counted": False}
+    if is_sample(conn, slug):
+        return {**out, "sample": True, "used": None, "limit": None, "left": None}
+    billing.require(user, "company_report")
+    org = live_id_of(conn, slug, "supplier")
+    limit = billing.report_limit(user)
+    # one account's openings one at a time: two tabs cannot both take its last report
+    aconn.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 155))", (str(user["id"]),))
+    rows = aconn.execute("SELECT org_id FROM company_report_open WHERE account_id = %s AND month = %s",
+                         (user["id"], first)).fetchall()
+    seen = {r["org_id"] for r in rows}
+    if org not in seen:
+        if limit is not None and len(seen) >= limit:
+            raise AccountError(402, "report_quota",
+                               f"no company reports left this month: {len(seen)} of {limit} opened; "
+                               f"the count starts again on {resets.isoformat()} (UTC)")
+        aconn.execute("INSERT INTO company_report_open (account_id, month, org_id) VALUES (%s, %s, %s)",
+                      (user["id"], first, org))
+        seen.add(org)
+        out["counted"] = True
+    return {**out, "used": len(seen), "limit": limit, "left": None if limit is None else limit - len(seen)}

@@ -142,8 +142,8 @@ export default async function SupplierPage({ params, searchParams }: Props) {
       </PageHeader>
 
       {c && (
-        <CompetitorsCard c={c} name={s.name} action={c.reportOpen && (
-          <Link href={`/suppliers/${s.slug}/report`} className="inline-flex min-h-11 items-center gap-2 text-small font-bold" data-company-report-link>
+        <CompetitorsCard c={c} name={s.name} allHref={`/suppliers/${s.slug}/competitors`} action={c.reportOpen && (
+          <Link href={`/suppliers/${s.slug}/report`} prefetch={false} className="inline-flex min-h-11 items-center gap-2 text-small font-bold" data-company-report-link>
             <Icon icon={FileText} size="inline" />Company report
           </Link>
         )} />

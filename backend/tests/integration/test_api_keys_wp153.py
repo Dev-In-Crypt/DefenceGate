@@ -12,9 +12,22 @@ import pytest
 
 from dgate import apikeys, config, db
 from dgate.normalise import Opportunity
-from tests.integration.test_accounts import FUTURE, PW, H, client, sent, sign_in  # noqa: F401
+from tests.integration.test_accounts import FUTURE, PW, H, client, sent  # noqa: F401
+from tests.integration.test_accounts import sign_in as _sign_in
 
 pytestmark = pytest.mark.integration
+
+
+def sign_in(client, box, *args, **kwargs):
+    """WP-155: keys need the data licence; every account these tests sign in holds one (test_wp155 tests without)."""
+    import os
+
+    import psycopg
+
+    out = _sign_in(client, box, *args, **kwargs)
+    with psycopg.connect(os.environ["DGATE_DSN"]) as c:
+        c.execute("UPDATE app_user SET api_licensed_at = now() WHERE api_licensed_at IS NULL")
+    return out
 
 KEYS = "/v1/account/keys"
 
