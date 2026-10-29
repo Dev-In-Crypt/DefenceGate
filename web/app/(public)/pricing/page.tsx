@@ -70,7 +70,7 @@ function Choose({ plan }: { plan: Plan }) {
 
 const FAQ = [
   { q: 'Is anything charged now?', a: 'No. No plan is on sale and we ask for no payment details. Nothing is charged until a feature works and its terms are published.' },
-  { q: 'What stays free?', a: 'Browsing tenders, funding calls, buyers and companies, what changed in the last 14 days, the Atom and calendar feeds, the CSV export and the readiness check.' },
+  { q: 'What stays free?', a: 'Browsing tenders, funding calls, buyers and companies, what changed in the last 14 days, the Atom and calendar feeds, the CSV export, the readiness check, and on every company page where it wins, its share and its top 5 competitors.' },
   { q: 'Do the prices include VAT?', a: 'No. Prices are in euros and exclude VAT.' },
   { q: 'How do I get access?', a: BILLING_OPEN
     ? 'Choose a plan above: its button leads to sign-up for that plan and billing period.'

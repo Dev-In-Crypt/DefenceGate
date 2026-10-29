@@ -31,7 +31,7 @@ test('1: what leaves the browser is said in the words made from the request buil
 test('2: pricing says "Opens with sign-in" where /alerts says built, and the free consortium gaps are not "Coming"', async ({ page }) => {
   await visit(page, '/pricing', { title: /Pricing/, h1: 'Pricing' });
   const signin = await page.locator('main li:has(> [data-signin])').evaluateAll((els) => els.map((e) => e.firstChild?.textContent?.trim()));
-  expect(signin).toEqual(['Saved searches', 'E-mail alerts']);
+  expect(signin.slice(0, 2)).toEqual(['Up to 10 saved searches', 'E-mail alerts']);   // WP-155: more built features open with sign-in
   await expect(page.locator('main [data-signin]').first()).toHaveText('Opens with sign-in');
   const gaps = page.locator('main li', { hasText: /^Consortium gap analysis/ });
   await expect(gaps).toContainText('free on the site today');

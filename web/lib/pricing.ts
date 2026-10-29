@@ -20,28 +20,40 @@ export interface Plan {
 }
 
 export const PLANS: Plan[] = [
+  // WP-155 (owner, 28 October 2026): the plan split of the company pages, reports, signals and saved searches
   { id: 'free', name: 'Free', audience: 'For everyone', features: [
     { text: 'Browse tenders, funding calls, buyers and companies' },
     { text: 'What changed in the last 14 days' },
     { text: 'Atom and calendar feeds' },
     { text: 'CSV export of the lists' },
     { text: 'Readiness check (answers saved in your browser, not on our server)' },
+    { text: 'On every company page: where it wins, its share and its top 5 competitors' },
+    { text: 'Company signals: the first 10 rows of each list' },
   ] },
   { id: 'pro', name: 'Pro', audience: 'For one bid manager or a small company', monthly: '€59', yearly: '€590', features: [
-    { text: 'Saved searches', signin: true },
+    { text: 'Up to 10 saved searches', signin: true },
     { text: 'E-mail alerts', signin: true },
+    { text: 'Full competitor lists', signin: true },
+    { text: 'Company signals: the full lists', signin: true },
+    { text: '3 company reports a month', signin: true },
     { text: 'Export of the eligibility check', coming: true },
     { text: '1 user' },
   ] },
   { id: 'team', name: 'Team', audience: 'For a company’s business development team', monthly: '€149', yearly: '€1,490', features: [
+    { text: 'Everything in Pro' },
     { text: 'Up to 5 users' },
     { text: 'Shared workspace', coming: true },
-    { text: 'Consortium gap analysis (free on the site today: Partners, Consortium gaps)' },
+    { text: 'Up to 50 saved searches', signin: true },
+    { text: '15 company reports a month', signin: true },
+    { text: 'Company signals as CSV', signin: true },
+    { text: 'Consortium gap analysis (free on the site today, until plans go on sale)' },
     { text: 'Supplier-map export', coming: true },
   ] },
   { id: 'consultant', name: 'Consultant', audience: 'For grant and tender consultants', monthly: '€299', yearly: '€2,990', features: [
+    { text: 'Everything in Team' },
     { text: 'Up to 15 client profiles', coming: true },
-    { text: 'Branded PDF reports', coming: true },
+    { text: 'Unlimited saved searches', signin: true },
+    { text: 'Unlimited company reports, with your firm’s name on them', signin: true },
   ] },
   { id: 'founding', name: 'Founding customer', audience: 'For the first 20 customers', yearly: '€390', priceNote: 'Price fixed', features: [
     { text: 'Everything in Pro' },
@@ -58,11 +70,15 @@ export const ON_REQUEST: OnRequest[] = [
   { name: 'Cluster or association licence', price: '€4,900–9,900 / year', features: [
     { text: 'Access for members, up to 50 companies', coming: true },
     { text: 'A co-branded digest', coming: true },
+    { text: '3–5 “who to approach” reports a year for members' },
   ] },
   { name: 'White-label, API or data licence', price: 'From €12,000 / year', features: [
     { text: 'White-label', coming: true },
-    { text: 'API (offered only here)', coming: true },
+    { text: 'API with keys, by licence (TED notices today)' },
     { text: 'Data licence' },
+  ] },
+  { name: '“Who to approach” report', price: '€450–900, one-off', features: [
+    { text: 'For one company: which buyers buy its products and which companies win those contracts, in the countries we cover' },
   ] },
 ];
 

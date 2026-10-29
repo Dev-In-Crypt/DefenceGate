@@ -36,8 +36,9 @@ test('/pricing: the lead, and the five plans with the owner’s exact prices', a
 test('/pricing: the on-request items, each "On request, opens soon"', async ({ page }) => {
   await open(page);
   const items = page.getByRole('list', { name: 'On request' }).locator(':scope > li');
-  await expect(items.locator('h3')).toHaveText(['Call & Consortium Brief', 'Cluster or association licence', 'White-label, API or data licence']);
-  for (const [i, price] of ['€450–900, one-off', '€4,900–9,900 / year', 'From €12,000 / year'].entries()) {
+  await expect(items.locator('h3')).toHaveText(['Call & Consortium Brief', 'Cluster or association licence', 'White-label, API or data licence',
+    '“Who to approach” report']);
+  for (const [i, price] of ['€450–900, one-off', '€4,900–9,900 / year', 'From €12,000 / year', '€450–900, one-off'].entries()) {
     await expect(items.nth(i)).toContainText(price);
     await expect(items.nth(i)).toContainText('On request, opens soon');
     await expect(items.nth(i).locator('a')).toHaveCount(0);
@@ -51,13 +52,13 @@ test('/pricing: "Coming" sits only on features that are not live, and Free has n
   const coming = await page.locator('main li:has(> [data-coming])').evaluateAll((els) => els.map((e) => e.firstChild?.textContent?.trim()));
   // WP-131: saved searches and alerts are built and open with sign-in (their own tag); consortium gap analysis is live and free
   expect(coming).toEqual(['Export of the eligibility check', 'Shared workspace',
-    'Supplier-map export', 'Up to 15 client profiles', 'Branded PDF reports', 'Access for members, up to 50 companies', 'A co-branded digest',
-    'White-label', 'API (offered only here)']);
+    'Supplier-map export', 'Up to 15 client profiles', 'Access for members, up to 50 companies', 'A co-branded digest', 'White-label']);
   await expect(page.locator('main [data-coming]').first()).toHaveText('Coming');
   const free = plan(page, 'Free');
   await expect(free.locator('[data-coming]')).toHaveCount(0);
   await expect(free.locator('li')).toHaveText(['Browse tenders, funding calls, buyers and companies', 'What changed in the last 14 days',
-    'Atom and calendar feeds', 'CSV export of the lists', 'Readiness check (answers saved in your browser, not on our server)']);
+    'Atom and calendar feeds', 'CSV export of the lists', 'Readiness check (answers saved in your browser, not on our server)',
+    'On every company page: where it wins, its share and its top 5 competitors', 'Company signals: the first 10 rows of each list']);
 });
 
 test('/pricing with billing off: no button, no sign-up or mail link, "Opens soon" on each paid plan', async ({ page }) => {
