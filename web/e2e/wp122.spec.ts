@@ -51,8 +51,7 @@ test('/pricing: "Coming" sits only on features that are not live, and Free has n
   await open(page);
   const coming = await page.locator('main li:has(> [data-coming])').evaluateAll((els) => els.map((e) => e.firstChild?.textContent?.trim()));
   // WP-131: saved searches and alerts are built and open with sign-in (their own tag); consortium gap analysis is live and free
-  expect(coming).toEqual(['Export of the eligibility check', 'Shared workspace',
-    'Supplier-map export', 'Up to 15 client profiles', 'Access for members, up to 50 companies', 'A co-branded digest', 'White-label']);
+  expect(coming).toEqual(['White-label']);   // WP-156..158: the rest is built
   await expect(page.locator('main [data-coming]').first()).toHaveText('Coming');
   const free = plan(page, 'Free');
   await expect(free.locator('[data-coming]')).toHaveCount(0);

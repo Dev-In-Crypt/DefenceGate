@@ -28,11 +28,13 @@ const coming = [...PLANS, ...ON_REQUEST].flatMap((p) => p.features.filter((f) =>
 // WP-131 (round 7): saved searches and alerts are built and open with sign-in (/alerts says so), so they carry `signin`, not `coming`;
 // consortium gap analysis is live and free (Partners > Consortium gaps), so it is not "coming"
 // WP-155 (owner's plan split, 28 Oct 2026): the API and the named company reports are built (by licence, with sign-in)
-assert.deepEqual(coming, ['Export of the eligibility check', 'Shared workspace',
-  'Supplier-map export', 'Up to 15 client profiles', 'Access for members, up to 50 companies', 'A co-branded digest', 'White-label']);
+// WP-156..158 (30 Oct 2026): the exports, the team workspace, client profiles and the association licence are built
+assert.deepEqual(coming, ['White-label']);
 assert.deepEqual([...PLANS, ...ON_REQUEST].flatMap((p) => p.features.filter((f) => f.signin).map((f) => f.text)), ['Up to 10 saved searches',
-  'E-mail alerts', 'Full competitor lists', 'Company signals: the full lists', '3 company reports a month', 'Up to 50 saved searches',
-  '15 company reports a month', 'Company signals as CSV', 'Unlimited saved searches', 'Unlimited company reports, with your firm’s name on them']);
+  'E-mail alerts', 'Full competitor lists', 'Company signals: the full lists', '3 company reports a month', 'Export of the eligibility check',
+  'Shared workspace: saved searches, shortlist and follows', 'Up to 50 saved searches', '15 company reports a month',
+  'Company signals as CSV', 'Supplier-map export', 'Up to 15 client profiles', 'Unlimited saved searches',
+  'Unlimited company reports, with your firm’s name on them']);
 // Sign-up links: plan id and billing period; billing is off unless the setting says so
 assert.equal(signupHref('pro', 'monthly'), '/signup?plan=pro&billing=monthly');
 assert.equal(signupHref('founding', 'yearly'), '/signup?plan=founding&billing=yearly');
