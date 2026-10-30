@@ -22,7 +22,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: [{ userAgent: AI_AGENTS, disallow: '/' }, {
       userAgent: '*',
       allow: ['/', '/_next/'],
-      disallow: ['/*?', '/app', '/admin', '/v1', '/tenders/export.csv', '/funding/export.csv', '/market/export.csv', '/suppliers/*/contracts.csv'],
+      disallow: ['/*?', '/app', '/admin', '/v1', '/tenders/export.csv', '/funding/export.csv', '/market/export.csv', '/suppliers/*/contracts.csv', '/suppliers/export.csv'],
     }],
     sitemap: `${SITE.url}/sitemap.xml`,
     host: SITE.url,

@@ -49,8 +49,8 @@ log = logging.getLogger("accounts")          # the security log of the accounts 
 PAID = ("pro", "team", "consultant", "founding")
 PERIODS = ("monthly", "yearly")
 # What each plan allows, of the features that exist: the owner's split of 28 October 2026 (WP-155,
-# docs/verification/features/wp155-selfcheck.md). Founding customer is Pro (/pricing: "Everything in Pro"). Features of the
-# split that are not built (the eligibility-check export, the supplier-map export) are not here. The data API is a licence
+# docs/verification/features/wp155-selfcheck.md). Founding customer is Pro (/pricing: "Everything in Pro"). WP-156 built the
+# split's two exports (exports.py). The data API is a licence
 # outside the plans (`app_user.api_licensed_at`, dgate/ops/api_licence.py): no plan grants it.
 PRO = frozenset(PAID)                                   # Pro and every plan that includes it
 TEAM = frozenset({"team", "consultant"})
@@ -65,6 +65,8 @@ FEATURES: dict[str, frozenset[str]] = {
     "signals_csv": TEAM,                # ... and its CSV
     "consortium_gaps": TEAM,            # /networks/consortium-gaps
     "branded_reports": frozenset({"consultant"}),   # the account's own name on its company reports
+    "eligibility_export": PRO,          # WP-156: the eligibility check's results pack (print/PDF and CSV), built in the browser
+    "supplier_map_csv": TEAM,           # WP-156: the supplier map's list as CSV (/v1/account/suppliers/export)
 }
 # How many: None is no plan limit.
 REPORTS_PER_MONTH: dict[str, int | None] = {"pro": 3, "founding": 3, "team": 15, "consultant": None}
@@ -213,6 +215,8 @@ MESSAGES = {
     "signals_csv": "the CSV of a signal is part of Team and Consultant: choose a plan under Billing",
     "consortium_gaps": "the consortium gap analysis is part of Team and Consultant: choose a plan under Billing",
     "branded_reports": "your own name on reports is part of Consultant: choose a plan under Billing",
+    "eligibility_export": "the eligibility check's results pack is part of Pro: choose a plan under Billing",
+    "supplier_map_csv": "the supplier map as CSV is part of Team and Consultant: choose a plan under Billing",
 }
 
 

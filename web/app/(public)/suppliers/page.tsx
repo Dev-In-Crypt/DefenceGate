@@ -2,20 +2,22 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ApiError, getSuppliers, getSupplierSummary } from '@/lib/api';
-import { CURRENCIES, countryName, cpvDivisionLabel } from '@/lib/taxonomy';
+import { countryName, cpvDivisionLabel } from '@/lib/taxonomy';
 import { formatDateTimeUtc, formatDateUtc, formatNumber, plural } from '@/lib/format';
 import { staleNote } from '@/lib/source-status';
-import { MAX_PAGE, ignoredFilters, lastPage, type SearchParams } from '@/lib/filters';
+import { ignoredFilters, lastPage, type SearchParams } from '@/lib/filters';
 import { FilterNotices } from '@/components/dg/filter-notices';
 import { MIN_LIST_ITEMS, NOT_FOUND_META, buildMetadata, listViewTitle } from '@/lib/seo';
 import { cache } from 'react';
-import { cpvForWords } from '@/lib/cpv';
+import { SUPPLIER_CSV_ROWS, VALUE_SORTS, parseSupplierFilters as parse, supplierApiFilters as withProduct } from '@/lib/supplier-filters';
+import { getAccountStatus } from '@/lib/account';
+import { Download } from 'lucide-react';
+import { Icon } from '@/components/dg/icon';
 import { parseCountries } from '@/lib/country-input';
 import { displayName } from '@/lib/display-name';
 import { coverageText, placspCredit, placspNote } from '@/lib/supplier-sources';
 import { groupValueLine, listValueLine } from '@/lib/value-totals';
 import { CoverageNote } from '@/components/dg/coverage-note';
-import type { SupplierSort } from '@/lib/types';
 import { EmptyState, ErrorState } from '@/components/dg/feedback';
 import { PageHeader } from '@/components/dg/page-header';
 import { CompaniesTabs, companyCrumbs } from '@/components/dg/companies-tabs';
@@ -35,28 +37,6 @@ import { cn } from '@/lib/utils';
 export const revalidate = 300;
 
 type Props = { searchParams: Promise<SearchParams> };
-
-const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? '';
-
-function parse(sp: SearchParams) {
-  const q = first(sp.q).slice(0, 100).trim();
-  // A code, a three-letter code or an English name, as typed (lib/country-input.ts reads it); the API is asked with the codes.
-  const country = first(sp.country).replace(/[^\p{L}\p{M}\s,.'’&-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 60);
-  // WP-85: the buyer's country (the notice's), as the supplier report's countries; `country` stays the supplier's
-  const buyerCountry = first(sp.buyerCountry).replace(/[^\p{L}\p{M}\s,.'’&-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 60);
-  const cpv = first(sp.cpv).replace(/[^0-9,]/g, '').slice(0, 40);
-  const product = first(sp.product).replace(/[^\p{L}\p{N}\s-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
-  // WP-98b: or the contract values in one currency, largest first
-  const asked = first(sp.sort);
-  const sort: SupplierSort = asked === 'name' ? 'name' : VALUE_SORTS.some((o) => o.value === asked) ? (asked as SupplierSort) : 'awards';
-  // WP-98b (p07): TED's winners only, so countries can be compared on one source
-  const source = first(sp.source) === 'ted' ? ('ted' as const) : undefined;
-  const n = Number(first(sp.page));
-  const page = Number.isFinite(n) && n >= 1 ? Math.min(Math.floor(n), MAX_PAGE) : 1;
-  // WP-96: a curated company group (`/suppliers?group=rheinmetall`), its key as the API knows it
-  const group = first(sp.group).toLowerCase().replace(/[^a-z]/g, '').slice(0, 40);
-  return { q, country, buyerCountry, cpv, product, sort, source, page, group };
-}
 
 function href(f: ReturnType<typeof parse>, page: number): string {
   const p = new URLSearchParams();
@@ -96,24 +76,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   });
 }
 
-/**
- * The filters as the API takes them. A product word is turned into CPV prefixes from the finder's vocabulary and replaces the CPV
- * codes typed; a product that matches no code gives no prefixes and an empty answer, never the unfiltered list.
- */
-function withProduct(f: ReturnType<typeof parse>) {
-  const match = f.product ? cpvForWords(f.product) : null;
-  // A product word takes the place of the typed codes (the page says so): an intersection of two lists of prefixes is not what anyone means.
-  const cpv = match ? match.prefixes.join(',') : f.cpv;
-  // A country that is none of the three forms is an answer ("not a country"), never a 404 page and never the unfiltered list.
-  const { codes, unknown: u1 } = parseCountries(f.country);
-  const { codes: buyerCodes, unknown: u2 } = parseCountries(f.buyerCountry);
-  const unknown = [...u1, ...u2];
-  return { match, unknown, none: (match !== null && match.prefixes.length === 0) || unknown.length > 0, api: { ...f, cpv, country: codes.join(','), buyerCountry: buyerCodes.join(',') } };
-}
-
 const INPUT = 'min-h-11 rounded-md border border-input-edge bg-surface px-3 font-normal';
-/** WP-98b: one order per currency the site shows amounts in; a sum in one currency is never set against another's. */
-const VALUE_SORTS = CURRENCIES.map((c) => ({ value: `value-${c}`, label: `Contract values in ${c}, largest first` }));
 
 export default async function SuppliersPage({ searchParams }: Props) {
   const sp = await searchParams;
@@ -154,6 +117,9 @@ export default async function SuppliersPage({ searchParams }: Props) {
     }
     throw e;
   }
+  // WP-156: the CSV of this list is a plan's (`supplier_map_csv`); its link is shown once anyone can have it (accounts open or plans on sale)
+  const status = await getAccountStatus();
+  const csv = status.open || status.plansOnSale ? { href: href(f, 1).replace(/^\/suppliers/, '/suppliers/export.csv'), plans: status.plansOnSale } : null;
   const summary = f.page === 1 && !filtered ? full : null;
   const placsp = placspNote(full?.sources);
   // WP-112 (p03, p04, p06): the credit under the list is for the sources of the companies on this page: PLACSP's only when one of their wins
@@ -328,6 +294,14 @@ export default async function SuppliersPage({ searchParams }: Props) {
           </p>
         )}
         <Pagination page={result.page} total={reachable} pageSize={result.pageSize} hrefFor={(p) => href(f, p)} />
+        {csv && result.total > 0 && (
+          <p className="m-0 flex max-w-prose flex-wrap items-center gap-x-2 text-small text-ink-muted" data-supplier-csv>
+            <a href={csv.href} className="inline-flex min-h-11 items-center gap-2 font-bold"><Icon icon={Download} size="inline" />Download this list as CSV</a>
+            <span>
+              (up to {formatNumber(SUPPLIER_CSV_ROWS)} companies{csv.plans ? <>; part of the Team and Consultant plans: <Link href="/pricing" className="font-semibold">pricing</Link></> : '; signed-in accounts'})
+            </span>
+          </p>
+        )}
         {/* WP-88: the attribution the sources' terms ask for stays on screen, never only in a collapsed block. */}
         <p className="m-0 max-w-prose text-small text-ink-muted" data-attribution>Source: TED, © European Union.{pageCredit ? ` ${placspCredit(pageCredit, formatDateUtc)}` : ''}</p>
         </ResultsRegion>

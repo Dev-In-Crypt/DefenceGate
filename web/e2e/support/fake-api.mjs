@@ -160,10 +160,28 @@ const REPORT_SLUG = '152001-fake-defence-gmbh';
 // Pro (reports 1 of 3 this month, the full competitor list and signals, no CSV), "b" x 43 has no plan, "c" x 43 is Consultant (its name on
 // reports, the signals CSV, the gap analysis), "d" x 43 is Pro with this month's reports used. 155001 is a company with eight competitors,
 // five of them public, and the sample report (open to everyone).
-const PRO = ['saved_searches', 'email_alerts', 'company_report', 'competitors_full', 'signals_full'];
+// WP-156: Pro has the eligibility pack, Consultant the supplier map's CSV as well
+const PRO = ['saved_searches', 'email_alerts', 'company_report', 'competitors_full', 'signals_full', 'eligibility_export'];
 const REPORT_SESSIONS = {
   ['a'.repeat(43)]: PRO, ['b'.repeat(43)]: ['saved_searches', 'email_alerts'],
-  ['c'.repeat(43)]: [...PRO, 'signals_csv', 'consortium_gaps', 'branded_reports'], ['d'.repeat(43)]: PRO,
+  ['c'.repeat(43)]: [...PRO, 'signals_csv', 'consortium_gaps', 'branded_reports', 'supplier_map_csv'], ['d'.repeat(43)]: PRO,
+};
+// ---- WP-156 (e2e/wp156-api.spec.ts): the supplier map's list and its export, and the open calls of the eligibility pack. Invented names.
+const mapSupplier = (id, name, values = []) => ({ id: String(id), slug: `${id}-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, name, country: 'DE',
+  awardCount: 3, firstYear: 2024, lastYear: 2026, cpvDivisions: ['35'], contractValues: values });
+const MAP = [mapSupplier(156001, 'Fake Map GmbH', [{ currency: 'EUR', amount: 1_250_000.4, count: 2, lotEstimates: 0 }]), mapSupplier(156002, '=Fake Formula AG')];
+const packFact = (value, quote) => ({ value, note: null, quote, scope: 'call_document' });
+const packCall = (id, title, facts, deadline = '2026-11-20T17:00:00Z') => ({
+  id: String(id), slug: `${id}-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, title, programme: 'HORIZON', programmeName: 'Horizon Europe',
+  topicId: `HORIZON-CL3-2026-${id}`, deadline, deadlineIsDate: false, rolling: false, sourceUrl: `https://ec.europa.eu/info/funding-tenders/opportunities/portal/${id}`,
+  sourceName: 'EU Funding & Tenders Portal', fit: facts ? { state: 'read', programme: 'HORIZON', topic: `HORIZON-CL3-2026-${id}`, facts } : { state: 'not_read', programme: 'HORIZON', topic: `HORIZON-CL3-2026-${id}`, facts: {} },
+});
+const OPEN_FACTS = { eligible_countries: packFact('Legal entities established in EU Member States', 'Applicants must be established in an EU Member State.'),
+  consortium_required: packFact(false, 'A single applicant may apply.'), sme_only: packFact(false, 'Open to all.'), ownership_control_restriction: packFact(false, 'No restriction applies.') };
+const PACK = {
+  items: [packCall(156101, 'Border sensing pilot', OPEN_FACTS), packCall(156102, 'SME cyber resilience', { ...OPEN_FACTS, sme_only: packFact(true, 'Only SMEs may apply.') }, '2026-12-01T17:00:00Z'),
+    packCall(156103, 'Unread call', null, '2026-12-15T17:00:00Z')],
+  total: 3, cap: 1000, asOf: '2026-10-12T08:00:00Z',
 };
 const SAMPLE_SLUG = '155001-fake-prime-sa';
 const PLAN_OF = { ['a'.repeat(43)]: 'pro', ['b'.repeat(43)]: 'free', ['c'.repeat(43)]: 'consultant', ['d'.repeat(43)]: 'pro' };
@@ -227,6 +245,14 @@ function accountRoute(p, q, session, method) {
     const limit = PLAN_OF[session] === 'pro' ? 3 : null;
     return [200, { ...out, sample: false, counted: true, used: 1, limit, left: limit === null ? null : limit - 1 }];
   }
+  if (p === '/v1/account/suppliers/export') {
+    if (!features.includes('supplier_map_csv')) return [402, { error: 'plan_required', message: 'the supplier map as CSV is part of Team and Consultant' }];
+    return [200, { items: MAP, total: 6200, cap: 5000, placsp: false, asOf: '2026-10-12' }];
+  }
+  if (p === '/v1/account/eligibility/calls') {
+    if (!features.includes('eligibility_export')) return [402, { error: 'plan_required', message: "the eligibility check's results pack is part of Pro" }];
+    return [200, PACK];
+  }
   if (p === '/v1/account/signals/growing/first') return [200, signal([signalRow(1, true), signalRow(2, true), signalRow(3, false)])];
   if (p === '/v1/account/signals/growing') {
     if (!features.includes('signals_full')) return [402, { error: 'plan_required', message: 'the full list of signals is part of a paid plan' }];
@@ -242,6 +268,7 @@ function route(url, headers = {}, method = 'GET') {
   const q = url.searchParams;
   stats.requests.push(`${p}?${q}`);
   if (p === '/_requests') return [200, stats.requests];
+  if (p === '/v1/suppliers') return [200, { items: MAP, total: 6200, page: 1, pageSize: Number(q.get('pageSize') ?? 20), maxOffset: 500, withheld: false, placsp: false }];
   if (p === `/v1/suppliers/${REPORT_SLUG}`) return [200, reportSupplier()];
   if (p === `/v1/suppliers/${REPORT_SLUG}/competition`) return [200, reportCompetition()];
   if (p === `/v1/organisations/${REPORT_SLUG}/partners`) return [200, reportPartners()];

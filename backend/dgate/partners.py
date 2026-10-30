@@ -414,6 +414,11 @@ def fit_facts(ids: str = Query(..., min_length=1, max_length=1200, pattern=r"^[0
     wanted = list(dict.fromkeys(int(i) for i in ids.split(",")))
     if len(wanted) > MAX_FIT_IDS:
         raise HTTPException(422, f"at most {MAX_FIT_IDS} calls at a time")
+    return {"items": facts_of(conn, wanted)}
+
+
+def facts_of(conn, wanted: list[int]) -> dict[str, Any]:
+    """The badge's facts of the calls `wanted`, by id (`fit_facts`; WP-156: the eligibility pack's, every open call at once)."""
     rows = conn.execute(
         """SELECT c.id, c.topic_code, c.type_of_action, c.conditions_raw, c.eligibility_text, pr.code AS programme_code,
                   s.code AS source_code, s.commercial_ok, c.open_to_ukraine_reason, c.open_to_ukraine_evidence
@@ -439,4 +444,4 @@ def fit_facts(ids: str = Query(..., min_length=1, max_length=1200, pattern=r"^[0
             "facts": {k: {"value": f["value"], "note": redact_emails(f.get("note")), "quote": redact_emails(f.get("quote")) or "", "scope": f["scope"]}
                       for k, f in got["facts"].items() if k in FIT_FACTS},
         }
-    return {"items": items}
+    return items

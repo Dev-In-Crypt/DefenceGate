@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bell, Bookmark, CreditCard, KeyRound, LayoutDashboard, Search, Settings } from 'lucide-react';
+import { Bell, Bookmark, CreditCard, FileCheck, KeyRound, LayoutDashboard, Search, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Icon } from '../dg/icon';
 
@@ -18,10 +18,14 @@ const ITEMS = [
 /** WP-153: shown while the API issues keys (`Me.apiKeys`), before Settings. */
 const KEYS = { label: 'API keys', href: '/app/keys', icon: KeyRound } as const;
 
+/** WP-156: shown when the account's features include `eligibility_export`, after Following. */
+const PACK = { label: 'Eligibility pack', href: '/app/eligibility', icon: FileCheck } as const;
+
 /** Sidebar on desktop, the list inside the mobile menu below lg. The dashboard matches /app exactly. */
-export function AppNav({ label = 'Account', apiKeys = false }: { label?: string; apiKeys?: boolean }) {
+export function AppNav({ label = 'Account', apiKeys = false, eligibility = false }: { label?: string; apiKeys?: boolean; eligibility?: boolean }) {
   const pathname = usePathname();
-  const items = apiKeys ? [...ITEMS.slice(0, -1), KEYS, ITEMS[ITEMS.length - 1]] : ITEMS;
+  const base = eligibility ? [...ITEMS.slice(0, 4), PACK, ...ITEMS.slice(4)] : [...ITEMS];
+  const items = apiKeys ? [...base.slice(0, -1), KEYS, base[base.length - 1]] : base;
   return (
     <nav aria-label={label}>
       <ul className="m-0 flex list-none flex-col gap-1 p-0">

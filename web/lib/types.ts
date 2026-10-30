@@ -950,7 +950,8 @@ export interface ApiKeys {
 }
 
 /** WP-124: the paid features that exist (backend billing.FEATURES; WP-155: the owner's plan split). */
-export const PAID_FEATURES = ['saved_searches', 'email_alerts', 'company_report', 'competitors_full', 'signals_full', 'signals_csv', 'consortium_gaps', 'branded_reports'] as const;
+export const PAID_FEATURES = ['saved_searches', 'email_alerts', 'company_report', 'competitors_full', 'signals_full', 'signals_csv', 'consortium_gaps', 'branded_reports',
+  'eligibility_export', 'supplier_map_csv'] as const;   // WP-156: the two exports
 export type PaidFeature = (typeof PAID_FEATURES)[number];
 
 /** GET /v1/account/sessions */

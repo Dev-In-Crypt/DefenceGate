@@ -19,7 +19,7 @@ assert.equal(firstRowsLine({ items: rows(1), total: 1, public: true, fullOpen: t
 assert.equal(firstRowsLine({ items: rows(3), total: 3, public: false, fullOpen: false }), 'All 3 companies.');
 
 // the owner's split: every gate the backend has (billing.FEATURES), and none of them is "api_keys" (a licence, not a plan)
-assert.deepEqual([...PAID_FEATURES].sort(), ['branded_reports', 'company_report', 'competitors_full', 'consortium_gaps', 'email_alerts', 'saved_searches', 'signals_csv', 'signals_full']);
+assert.deepEqual([...PAID_FEATURES].sort(), ['branded_reports', 'company_report', 'competitors_full', 'consortium_gaps', 'eligibility_export', 'email_alerts', 'saved_searches', 'signals_csv', 'signals_full', 'supplier_map_csv']);   // WP-156: the two exports
 assert.ok(!(PAID_FEATURES as readonly string[]).includes('api_keys'));
 
 console.log('wp155 checks ok');

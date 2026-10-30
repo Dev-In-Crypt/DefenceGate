@@ -681,6 +681,14 @@ def list_suppliers(
     if offset >= MAX_OFFSET:
         raise HTTPException(422, f"page: the list serves the first {MAX_OFFSET} suppliers only; search by name, "
                                  "country or product group")
+    return {**supplier_rows(conn, q, country, cpv, buyerCountry, group, sort, source, min(pageSize, MAX_OFFSET - offset), offset),
+            "page": page, "pageSize": pageSize}
+
+
+def supplier_rows(conn, q: str | None, country: str | None, cpv: str | None, buyerCountry: str | None, group: str | None,
+                  sort: str, source: str | None, limit: int, offset: int) -> dict[str, Any]:
+    """The list's rows `offset` to `offset + limit` under its filters and order: the public list (`list_suppliers`, which holds
+    the position to MAX_OFFSET) and WP-156's export of a plan that has `supplier_map_csv` (exports.py, its own cap)."""
     # WP-81: a country or product-group filter lists every supplier it selects, however few (the WP-39 "withheld"
     # answer for a group of fewer than 3 is lifted by the owner; `withheld` stays in the answer, always false)
     where, params = _filters(q, country, cpv, buyerCountry, group if isinstance(group, str) else None)
@@ -722,9 +730,9 @@ def list_suppliers(
                     FROM base {"LEFT JOIN vx ON vx.org = base.id" if by_value else ""} ORDER BY {order}
                   LIMIT %(limit)s OFFSET %(offset)s)
             SELECT m.*, {shown()} AS shown FROM m ORDER BY {order}""",
-        {**params, "limit": min(pageSize, MAX_OFFSET - offset), "offset": offset}).fetchall()
+        {**params, "limit": limit, "offset": offset}).fetchall()
     total = rows[0]["total_rows"] if rows else 0
-    if not rows and page > 1:
+    if not rows and offset > 0:
         total = conn.execute(
             f"SELECT count(DISTINCT org.id) AS n {FROM} WHERE {cond}", params).fetchone()["n"]
     # The values of the page's suppliers, under the same filters as their count
@@ -747,7 +755,7 @@ def list_suppliers(
                  GROUP BY cv.vc ORDER BY sum(cv.n) DESC, cv.vc""", params).fetchall()]
     return {"groupTotals": group_totals, "items": [{**_item(r), "contractValues": sorted(values.get(r["id"], []), key=lambda s: (-s["count"], s["currency"]))}
                       for r in rows],
-            "total": total, "page": page, "pageSize": pageSize, "maxOffset": MAX_OFFSET, "withheld": False,
+            "total": total, "maxOffset": MAX_OFFSET, "withheld": False,
             # WP-98c: the time of a stored order, and whether an award load finished after it
             "valuesAsOf": as_of, "valuesBehind": values_behind(conn, as_of), "placsp": bool(placsp_rows)}
 
