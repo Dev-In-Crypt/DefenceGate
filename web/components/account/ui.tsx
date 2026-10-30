@@ -56,6 +56,24 @@ const NOTICES: Record<string, { text: string; error?: true }> = {
   already_subscribed: { text: 'This account already has a plan. Manage it below.', error: true },
   billing_closed: { text: 'Payment opens soon. Nothing was charged.', error: true },
   payment_error: { text: 'The payment service did not answer. Nothing was charged. Try again in a moment.', error: true },
+  // WP-157
+  workspace_made: { text: 'Your team workspace is ready. Invite your colleagues below.' },
+  invited: { text: 'Invitation sent. It works once and expires in 7 days.' },
+  joined: { text: 'You joined the team. Your saved searches, shortlist and follows are shared with it now.' },
+  left: { text: 'You left the team. Your own searches, shortlist and follows stay with you.' },
+  workspace_ended: { text: 'The workspace is ended. Everyone keeps their own searches, shortlist and follows.' },
+  confirm_end: { text: 'Tick the box to confirm. Nothing was changed.', error: true },
+  seats_full: { text: 'The workspace has no place left (members and open invitations together). Withdraw an invitation or remove a member first.', error: true },
+  plan_required: { text: 'This is not part of the plan in force. See Billing.', error: true },
+  in_workspace: { text: 'This account is in a team workspace already. Leave it first.', error: true },
+  wrong_account: { text: 'This invitation is for another e-mail address. Sign in with the address it was sent to.', error: true },
+  invalid_or_expired: { text: 'This invitation is not valid any more. Ask for a new one.', error: true },
+  already_member: { text: 'That address is a member already.', error: true },
+  invalid_email: { text: 'Check the e-mail address: it is not one we can send to, or it is your own.', error: true },
+  limit_reached: { text: 'Your plan holds no more of these. Remove one first.', error: true },
+  not_open: { text: 'Invitations open with sign-up. Nothing was sent.', error: true },
+  owner_only: { text: 'Only the owner of the workspace can do this.', error: true },
+  owner_cannot_leave: { text: 'The owner cannot leave the workspace. End it instead.', error: true },
 };
 
 /** Result of the last action, from `?n=`. Only codes in the table above are ever shown. */

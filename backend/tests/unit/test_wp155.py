@@ -24,6 +24,9 @@ TABLE = {
     # WP-156 built the split's two exports
     "eligibility_export": {"pro", "team", "consultant", "founding"},
     "supplier_map_csv": {"team", "consultant"},
+    # WP-157: the team workspace (Team, and Consultant as "Everything in Team") and the client profiles
+    "team_workspace": {"team", "consultant"},
+    "client_profiles": {"consultant"},
 }
 
 

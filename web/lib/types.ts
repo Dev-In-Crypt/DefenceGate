@@ -924,6 +924,8 @@ export interface Me {
   association: boolean;
   /** WP-155: saved searches the plan allows, company reports a month (null: no limit). */
   limits: { savedSearches: number; reportsPerMonth: number | null };
+  /** WP-157: the team workspace the account is in (null: none); `active` while the plan in force has the workspace (sharing works). */
+  workspace?: { role: 'owner' | 'member'; active: boolean } | null;
 }
 
 /** WP-158: GET /v1/account/association, the account's own membership. `seats` (counted, never named) for the admin only. */
@@ -965,7 +967,8 @@ export interface ApiKeys {
 
 /** WP-124: the paid features that exist (backend billing.FEATURES; WP-155: the owner's plan split). */
 export const PAID_FEATURES = ['saved_searches', 'email_alerts', 'company_report', 'competitors_full', 'signals_full', 'signals_csv', 'consortium_gaps', 'branded_reports',
-  'eligibility_export', 'supplier_map_csv'] as const;   // WP-156: the two exports
+  'eligibility_export', 'supplier_map_csv',   // WP-156: the two exports
+  'team_workspace', 'client_profiles'] as const;   // WP-157: the team workspace and client profiles
 export type PaidFeature = (typeof PAID_FEATURES)[number];
 
 /** GET /v1/account/sessions */
@@ -994,6 +997,9 @@ export interface SavedSearch {
   lastMatchAt: IsoDateTime | null;
   /** WP-124: kept after a downgrade but not run, and no alerts, until the account has a plan with saved searches again. */
   paused?: boolean;
+  /** WP-157: the client profile it belongs to (Consultant), and whether this account made it (a teammate's search is shown, not changed). */
+  clientId?: string | null;
+  mine?: boolean;
 }
 
 export type ShortlistStatus = 'watching' | 'evaluating' | 'bidding' | 'submitted' | 'dropped';
@@ -1009,6 +1015,8 @@ export interface ShortlistItem {
   updatedAt: IsoDateTime;
   /** The public object; null when it no longer exists. */
   item: Tender | Call | null;
+  /** WP-157: the client profile it belongs to (Consultant). */
+  clientId?: string | null;
 }
 
 export type FollowKind = 'buyer' | 'programme';

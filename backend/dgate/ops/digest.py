@@ -15,7 +15,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
-from ..accounts import ASSOC_PLAN_SQL, _is_new, run_search
+from ..accounts import ASSOC_PLAN_SQL, WS_JOIN_SQL, WS_PLAN_SQL, _is_new, run_search
 from ..billing import may, search_limit
 from ..config import settings
 from . import mailer
@@ -30,9 +30,12 @@ DUE_SQL = f"""
            s.last_alerted_at, u.email_display,
            (SELECT count(*) FROM app_saved_search e WHERE e.owner_id = s.owner_id
                AND (e.created_at, e.id) < (s.created_at, s.id)) AS plan_rank,
-           b.plan AS sub_plan, b.status AS sub_status, b.current_period_end AS sub_period_end, {ASSOC_PLAN_SQL}
+           b.plan AS sub_plan, b.status AS sub_status, b.current_period_end AS sub_period_end, {ASSOC_PLAN_SQL},
+           {WS_PLAN_SQL}
       FROM app_saved_search s JOIN app_user u ON u.id = s.owner_id
       LEFT JOIN billing_subscription b ON b.account_id = u.id
+      -- WP-157: a workspace member has its owner's plan (billing.plan_of)
+      {WS_JOIN_SQL}
      WHERE s.cadence <> 'off'
        AND COALESCE(s.last_alerted_at, s.created_at) <= now() - (CASE s.cadence
               WHEN 'instant' THEN interval '50 minutes'

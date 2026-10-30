@@ -67,6 +67,9 @@ FEATURES: dict[str, frozenset[str]] = {
     "branded_reports": frozenset({"consultant"}),   # the account's own name on its company reports
     "eligibility_export": PRO,          # WP-156: the eligibility check's results pack (print/PDF and CSV), built in the browser
     "supplier_map_csv": TEAM,           # WP-156: the supplier map's list as CSV (/v1/account/suppliers/export)
+    # WP-157: a workspace of up to SEATS users sharing the owner's plan, searches, shortlist and follows (workspace.py)
+    "team_workspace": TEAM,
+    "client_profiles": frozenset({"consultant"}),   # up to CLIENTS client profiles in the workspace
 }
 # How many: None is no plan limit.
 REPORTS_PER_MONTH: dict[str, int | None] = {"pro": 3, "founding": 3, "team": 15, "consultant": None}
@@ -74,7 +77,11 @@ SAVED_SEARCHES: dict[str, int | None] = {"pro": 10, "founding": 10, "team": 50, 
 # ponytail: "unlimited" saved searches stop at a ceiling, since each one is run when the list is shown; raise it when
 # an account reaches it.
 SEARCH_CEILING = 200
-SEARCHES_UNSOLD = 10                    # while no plan is on sale: what every account had before the plans (WP-123)
+# WP-157: users of a workspace (the owner included) and client profiles; while no plan is on sale, the Team and Consultant
+# numbers (nobody is refused the feature then, WP-124).
+SEATS: dict[str, int] = {"team": 5, "consultant": 5}
+CLIENTS: dict[str, int] = {"consultant": 15}
+SEARCHES_UNSOLD = 10                   # while no plan is on sale: what every account had before the plans (WP-123)
 FOUNDING_CAP = 20
 FOUNDING_HOLD = timedelta(hours=1)        # an open founding checkout holds a place this long
 CHECKOUTS_PER_HOUR = 5                    # per account: nobody fills Creem's dashboard with checkouts
@@ -157,24 +164,32 @@ _RANK = {"free": 0, "pro": 1, "founding": 1, "team": 2, "consultant": 3}
 
 
 def plan_in_force(plan: str | None, status: str | None, period_end: datetime | None,
-                  now: datetime | None = None, association: str | None = None) -> str:
-    """The plan a subscription row allows now: the one function every gate goes through. WP-158: `association` is the plan
-    an association's licence gives the account (associations.PLAN_SQL: pro for a member, team for its admin); the larger
-    of the two is in force."""
+                  now: datetime | None = None, association: str | None = None, workspace: str | None = None) -> str:
+    """The plan a subscription row allows now: the one function every gate goes through. The largest of:
+      - the subscription's plan (WP-124);
+      - WP-158: `association`, the plan an association's licence gives the account (associations.PLAN_SQL: pro for a
+        member, team for its admin);
+      - WP-157: `workspace`, the plan in force of the owner of the account's workspace, when that plan has the workspace."""
     sub = "free"
     if plan and status in ENTITLING:
         sub = plan
     elif plan and status == "scheduled_cancel":
         now = now or datetime.now(timezone.utc)
         sub = plan if period_end is None or period_end > now else "free"
-    return association if association in _RANK and _RANK[association] > _RANK.get(sub, 0) else sub
+    best = sub
+    for other in (association, workspace if workspace in FEATURES["team_workspace"] else None):
+        if other in _RANK and _RANK[other] > _RANK.get(best, 0):
+            best = other
+    return best
 
 
 def plan_of(user: dict[str, Any]) -> str:
-    """The plan of an account row as `accounts.current` reads it (with the subscription joined, and WP-158 the
-    association's plan as `assoc_plan`)."""
+    """The plan of an account row as `accounts.current` reads it (`accounts.PLAN_KEYS`): its subscription, its association's
+    plan (`assoc_plan`, WP-158) and its workspace owner's subscription and association plan (`ws_*`, WP-157)."""
+    owner = plan_in_force(user.get("ws_plan"), user.get("ws_status"), user.get("ws_period_end"),
+                          association=user.get("ws_assoc_plan"))
     return plan_in_force(user.get("sub_plan"), user.get("sub_status"), user.get("sub_period_end"),
-                         association=user.get("assoc_plan"))
+                         association=user.get("assoc_plan"), workspace=owner)
 
 
 def allows(plan: str, feature: str) -> bool:
@@ -206,6 +221,16 @@ def search_limit(user: dict[str, Any]) -> int:
     return SEARCH_CEILING if n is None else min(n, SEARCH_CEILING)
 
 
+def seat_limit(user: dict[str, Any]) -> int:
+    """WP-157: users a workspace owned by this account may hold, the owner included."""
+    return SEATS["team"] if not plans_on_sale() else SEATS.get(plan_of(user), 0)
+
+
+def client_limit(user: dict[str, Any]) -> int:
+    """WP-157: client profiles the account's workspace may hold."""
+    return CLIENTS["consultant"] if not plans_on_sale() else CLIENTS.get(plan_of(user), 0)
+
+
 def report_limit(user: dict[str, Any]) -> int | None:
     """Company reports a calendar month (UTC); None: no limit. Nothing is counted against anyone while no plan is on
     sale (WP-124: nothing is withheld then)."""
@@ -225,6 +250,8 @@ MESSAGES = {
     "branded_reports": "your own name on reports is part of Consultant: choose a plan under Billing",
     "eligibility_export": "the eligibility check's results pack is part of Pro: choose a plan under Billing",
     "supplier_map_csv": "the supplier map as CSV is part of Team and Consultant: choose a plan under Billing",
+    "team_workspace": "the team workspace is part of Team and Consultant: choose a plan under Billing",
+    "client_profiles": "client profiles are part of Consultant: choose a plan under Billing",
 }
 
 

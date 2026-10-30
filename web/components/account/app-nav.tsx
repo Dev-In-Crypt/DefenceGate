@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bell, Bookmark, CreditCard, FileCheck, KeyRound, LayoutDashboard, Search, Settings, Users } from 'lucide-react';
+import { Bell, Bookmark, Briefcase, CreditCard, FileCheck, KeyRound, LayoutDashboard, Search, Settings, Users, UsersRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Icon } from '../dg/icon';
 
@@ -17,6 +17,9 @@ const ITEMS = [
 
 /** WP-153: shown while the API issues keys (`Me.apiKeys`), before Settings. */
 const KEYS = { label: 'API keys', href: '/app/keys', icon: KeyRound } as const;
+/** WP-157: shown when the plan has the team workspace or the account is in one (`team`), and with client profiles (`clients`), after Following. */
+const TEAM = { label: 'Team', href: '/app/team', icon: UsersRound } as const;
+const CLIENTS = { label: 'Clients', href: '/app/clients', icon: Briefcase } as const;
 
 /** WP-156: shown when the account's features include `eligibility_export`, after Following. */
 const PACK = { label: 'Eligibility pack', href: '/app/eligibility', icon: FileCheck } as const;
@@ -25,10 +28,12 @@ const PACK = { label: 'Eligibility pack', href: '/app/eligibility', icon: FileCh
 const ASSOCIATION = { label: 'Association', href: '/app/association', icon: Users } as const;
 
 /** Sidebar on desktop, the list inside the mobile menu below lg. The dashboard matches /app exactly. */
-export function AppNav({ label = 'Account', apiKeys = false, eligibility = false, association = false }:
-  { label?: string; apiKeys?: boolean; eligibility?: boolean; association?: boolean }) {
+export function AppNav({ label = 'Account', apiKeys = false, eligibility = false, association = false, team = false, clients = false }:
+  { label?: string; apiKeys?: boolean; eligibility?: boolean; association?: boolean; team?: boolean; clients?: boolean }) {
   const pathname = usePathname();
-  const base = eligibility ? [...ITEMS.slice(0, 4), PACK, ...ITEMS.slice(4)] : [...ITEMS];
+  // after Following: Eligibility pack (WP-156), Team and Clients (WP-157); before Settings: Association (WP-158), API keys (WP-153)
+  const middle = [...(eligibility ? [PACK] : []), ...(team ? [TEAM] : []), ...(clients ? [CLIENTS] : [])];
+  const base = [...ITEMS.slice(0, 4), ...middle, ...ITEMS.slice(4)];
   const extra = [...(association ? [ASSOCIATION] : []), ...(apiKeys ? [KEYS] : [])];
   const items = [...base.slice(0, -1), ...extra, base[base.length - 1]];
   return (

@@ -59,6 +59,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   const { email, termsCurrent, plan, planChoice } = state.user;
+  // WP-157: Team while the plan has the workspace or the account is in one (to leave it); Clients with client profiles
+  const nav = { apiKeys: state.user.apiKeys, eligibility: state.user.features.includes('eligibility_export'), association: state.user.association,
+    team: state.user.features.includes('team_workspace') || !!state.user.workspace,
+    clients: state.user.features.includes('client_profiles') };
   // WP-124: a paid plan chosen on the pricing page and not paid yet: the next step is payment, said on every account page.
   const toPay = plan === 'free' && planChoice && planChoice.plan !== 'free' && BILLING_OPEN;
   // A new version of the terms or the privacy notice: asked again here, as the sign-in form does.
@@ -85,7 +89,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <details className="group rounded-lg border border-transparent bg-surface">
             <summary className="flex min-h-11 cursor-pointer list-none items-center px-6 text-body font-bold [&::-webkit-details-marker]:hidden">Menu</summary>
             <div className="flex flex-col gap-4 px-3 pb-4">
-              <AppNav label="Account menu" apiKeys={state.user.apiKeys} eligibility={state.user.features.includes('eligibility_export')} association={state.user.association} />
+              <AppNav label="Account menu" {...nav} />
               <SignOut />
             </div>
           </details>
@@ -96,7 +100,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Logo href="/" />
             <ThemeToggle />
           </div>
-          <AppNav apiKeys={state.user.apiKeys} eligibility={state.user.features.includes('eligibility_export')} association={state.user.association} />
+          <AppNav {...nav} />
           <div className="flex flex-col gap-3 border-t border-line pt-4">
             <p className="m-0 truncate px-2 text-small text-ink-muted" title={email}>{email}</p>
             <SignOut />

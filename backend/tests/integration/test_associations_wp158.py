@@ -82,8 +82,9 @@ def test_the_seat_cap_holds_and_an_account_is_in_one_association(cluster, client
 # ---------------------------------------------------------------- the plan, in both states
 
 def test_on_sale_the_member_has_pro_the_admin_team_and_others_free(cluster, client, on_sale):
+    # merge of WP-156 into this: the eligibility pack is Pro's, so a member has it (the list on 5370fac missed it)
     assert plan(client, cluster["bob"]) == ("pro", ["saved_searches", "email_alerts", "competitors_full", "signals_full",
-                                                    "association"])
+                                                    "eligibility_export", "association"])
     p, f = plan(client, cluster["ann"])
     assert p == "team" and {"signals_csv", "consortium_gaps", "association"} <= set(f) and "branded_reports" not in f
     assert plan(client, cluster["carl"]) == ("free", [])
