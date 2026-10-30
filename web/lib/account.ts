@@ -15,11 +15,12 @@ import { redirect } from 'next/navigation';
 import type {
   AccountSession, ApiKey, ApiKeys, Cadence, Dashboard, DashboardChange, DashboardClosing, DashboardFollowing, DashboardMatch, DashboardPulse,
   Follow, FollowKind, Me, Profile, ProfileScope, Role, SavedSearch, SearchFilters, SearchKind, ShortlistItem, ShortlistKind,
-  ShortlistStatus, StateItem, StateKey, Track, PaidFeature as Feature, SupplierCompetition,
+  ShortlistStatus, StateItem, StateKey, Track, PaidFeature as Feature, SupplierCompetition, SupplierFilters, SupplierItem,
 } from './types';
 import { PAID_FEATURES } from './types';
 import { PLAN_LABELS, readPlanChoice, type Billing, type PlanChoice, type PlanId } from './plans';
 import { signalQuery, type SignalAnswer, type SignalFilters } from './signals';
+import type { PackAnswer } from './eligibility-pack';
 
 const API_BASE = process.env.DG_API_URL;
 const INTERNAL_SECRET = process.env.DG_INTERNAL_SECRET;
@@ -73,6 +74,8 @@ export interface AccountInit {
   json?: unknown;
   /** false for calls that carry no session (status, registration, sign-in, verify, reset). Default true. */
   session?: boolean;
+  /** WP-156: how long to wait for the answer; 10 s by default, longer for an export of thousands of rows. */
+  timeoutMs?: number;
 }
 
 /** First address of X-Forwarded-For, as Caddy sets it. Anything that is not an address is dropped. */
@@ -113,7 +116,7 @@ export async function accountFetch(path: string, init: AccountInit = {}): Promis
     headers: h,
     body,
     cache: 'no-store',
-    signal: AbortSignal.timeout(10_000),
+    signal: AbortSignal.timeout(init.timeoutMs ?? 10_000),
   });
 }
 
@@ -546,3 +549,25 @@ export const getFullSignal = (f: Omit<SignalFilters, 'page'>, page: number, page
     return raw as unknown as SignalAnswer;
   });
 };
+
+/* ---- WP-156: the two exports (backend exports.py); 402 `plan_required` without the feature, 401 signed out ---- */
+
+export interface SupplierExport { items: SupplierItem[]; total: number; cap: number; placsp: boolean; asOf: string }
+
+/** The supplier map's list under its filters (the API's own names and values, as getSuppliers sends them), up to `cap` rows. */
+export const getSupplierExport = (f: SupplierFilters) => {
+  const p = new URLSearchParams();
+  for (const k of ['q', 'country', 'buyerCountry', 'cpv', 'group', 'source'] as const) if (f[k]) p.set(k, String(f[k]));
+  if (f.sort && f.sort !== 'awards') p.set('sort', f.sort);
+  return call<SupplierExport>(`/suppliers/export${p.size ? `?${p.toString()}` : ''}`, { timeoutMs: 60_000 }, (raw) => {
+    if (!isRecord(raw) || !Array.isArray(raw.items) || typeof raw.total !== 'number') throw new Error('bad export');
+    return raw as unknown as SupplierExport;
+  });
+};
+
+/** Every open call with the facts the eligibility check compares: the same for every account; the profile never leaves the browser. */
+export const getEligibilityCalls = () =>
+  call<PackAnswer>('/eligibility/calls', { timeoutMs: 30_000 }, (raw) => {
+    if (!isRecord(raw) || !Array.isArray(raw.items) || typeof raw.total !== 'number') throw new Error('bad calls');
+    return raw as unknown as PackAnswer;
+  });

@@ -1218,6 +1218,11 @@ from .signals import router as _signals_router  # noqa: E402
 app.include_router(_signals_router)
 app.include_router(_signals_account_router)
 
+# WP-156: the supplier map's CSV and the eligibility pack's open calls, for a signed-in account whose plan has them (exports.py).
+from .exports import account_router as _exports_account_router  # noqa: E402
+
+app.include_router(_exports_account_router)
+
 
 @app.exception_handler(RequestValidationError)
 async def _validation_error(request: Request, exc: RequestValidationError):

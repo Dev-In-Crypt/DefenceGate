@@ -21,6 +21,9 @@ TABLE = {
     "signals_csv": {"team", "consultant"},
     "consortium_gaps": {"team", "consultant"},
     "branded_reports": {"consultant"},
+    # WP-156 built the split's two exports
+    "eligibility_export": {"pro", "team", "consultant", "founding"},
+    "supplier_map_csv": {"team", "consultant"},
 }
 
 

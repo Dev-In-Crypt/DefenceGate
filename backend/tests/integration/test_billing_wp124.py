@@ -145,7 +145,7 @@ def test_billing_is_closed_by_default_and_no_checkout_is_created(client, sent, c
     # nothing is for sale, so nothing is withheld: saved searches and alerts as WP-123 built them
     # WP-155: every built feature but the two behind the company report's switch (off here)
     assert set(me_of(client, session)["features"]) == {"saved_searches", "email_alerts", "competitors_full", "signals_full",
-                                                       "signals_csv", "consortium_gaps"}
+                                                       "signals_csv", "consortium_gaps", "eligibility_export", "supplier_map_csv"}   # WP-156
     assert client.post("/v1/account/searches", json=search_body(), headers=H(session)).status_code == 201
 
 
@@ -231,7 +231,7 @@ def test_a_verified_checkout_event_opens_the_plan(on, sent, creem, conn):
     plan = me_plan(on, session)
     # WP-155: Pro's features (the company report is behind its switch, off here)
     assert plan["current"] == "pro" and set(me_of(on, session)["features"]) == {"saved_searches", "email_alerts",
-                                                                                "competitors_full", "signals_full"}
+                                                                                "competitors_full", "signals_full", "eligibility_export"}
     row = conn.execute("SELECT * FROM billing_subscription").fetchone()
     assert (row["plan"], row["period"], row["status"], row["creem_customer_id"], row["creem_subscription_id"],
             row["current_period_end"]) == ("pro", "yearly", "active", "cust_1", "sub_1", end)
