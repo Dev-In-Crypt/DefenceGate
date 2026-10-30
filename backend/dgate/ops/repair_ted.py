@@ -78,12 +78,13 @@ REMAPPED = (
     "status", "status_native", "country", "procedure_type", "notice_subtype",
     "procedure_identifier", "lot_count", "value_amount", "value_currency", "value_kind",
     "published_at", "deadline_at", "buyer_identifier",
+    *db.CONTRACT_PERIOD_COLUMNS,        # WP-159: what a refetch with the period fields brings
 )
 
 # Columns of the serving row that are attributes, not versioned facts. A change
 # here writes no version; `append_version` sets them whenever it writes one.
 DIRECT_COLUMNS = ("status_native", "notice_subtype", "procedure_identifier", "lot_count",
-                  "value_kind", "buyer_identifier")
+                  "value_kind", "buyer_identifier", *db.CONTRACT_PERIOD_COLUMNS)
 
 # What the serving row holds that a version payload may not: derived signals and
 # links. Carried over unchanged, so a repair never reclassifies.
@@ -98,6 +99,8 @@ CARRIED_COLUMNS = (
     "sig_clearance", "subcontracting_signal", "security_clearance_required",
     "title_en", "summary_en", "ted_ref",
     "sig_cpv_military", "sig_cpv_adjacent", "sig_linked_defence", "dual_use", "buyer_class",
+    # WP-159: a period written without a version is on the serving row only, not in the payload
+    *db.CONTRACT_PERIOD_COLUMNS,
 )
 
 # Facts a repair never replaces by an absent one: a notice TED now returns without a
@@ -106,6 +109,7 @@ CARRIED_COLUMNS = (
 PRESERVE = (
     "value_amount", "value_currency", "value_kind", "published_at", "deadline_at", "country",
     "lot_count", "notice_subtype", "procedure_identifier", "buyer_identifier",
+    *db.CONTRACT_PERIOD_COLUMNS,
 )
 
 

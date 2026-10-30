@@ -36,7 +36,8 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-from ..normalise import PLACEHOLDER_AMOUNT_MAX, Opportunity, tz_from_offset
+from ..normalise import CONTRACT_PERIOD_FIELDS, PLACEHOLDER_AMOUNT_MAX, Opportunity, tz_from_offset
+from ..normalise import contract_period as _contract_period
 from . import USER_AGENT, ResponseTooLarge, new_client, request_with_retry
 
 SPAIN_TZ = ZoneInfo("Europe/Madrid")
@@ -529,6 +530,34 @@ def _folder(entry: ET.Element) -> ET.Element | None:
     return cfs
 
 
+# A ContractExtension whose only text says there is none ("No", "Sin prórrogas").
+_NO_EXTENSION = re.compile(r"^\s*(no|n/?a|0|ninguna?|sin pr[oó]rrogas?|no se prev[eé]n?( pr[oó]rrogas?)?)\s*\.?\s*$",
+                           re.IGNORECASE)
+
+
+def contract_period(cfs: ET.Element) -> dict:
+    """WP-159: the contract period the folder states, as Opportunity fields (`normalise.contract_period`), from
+    `cac:PlannedPeriod` (StartDate, EndDate, DurationMeasure with a UN/ECE unit: MON, ANN, DAY) of the folder's
+    `cac:ProcurementProject` and of each lot's, and `cac:ContractExtension` (options and extensions stated)."""
+    projects = [p for p in [_find(cfs, "cac:ProcurementProject"),
+                            *_findall(cfs, "cac:ProcurementProjectLot/cac:ProcurementProject")] if p is not None]
+    f: dict[str, list] = {k: [] for k in CONTRACT_PERIOD_FIELDS}
+    for project in projects:
+        for period in _findall(project, "cac:PlannedPeriod"):
+            measure = _find(period, "cbc:DurationMeasure")
+            if measure is not None and (measure.text or "").strip():
+                f["duration-period-value-lot"].append((measure.text or "").strip())
+                f["duration-period-unit-lot"].append(measure.get("unitCode"))
+            f["contract-duration-start-date-lot"].append(_text(period, "cbc:StartDate"))
+            f["contract-duration-end-date-lot"].append(_text(period, "cbc:EndDate"))
+        for ext in _findall(project, "cac:ContractExtension"):
+            f["renewal-maximum-lot"] += _findall_text(ext, "cbc:MaximumNumberNumeric")
+            said = [t.strip() for t in ext.itertext() if t.strip()]
+            if said and not all(_NO_EXTENSION.match(t) for t in said):
+                f["renewal-description-lot"].append("stated")
+    return _contract_period(f.get)
+
+
 def parse_entry(entry: ET.Element, source_code: str = "es_placsp") -> Opportunity | None:
     """Map one ATOM entry containing a CODICE ContractFolderStatus."""
     cfs = _folder(entry)
@@ -609,6 +638,7 @@ def parse_entry(entry: ET.Element, source_code: str = "es_placsp") -> Opportunit
         status_native=status_native,
         procedure_identifier=_procedure_uuid(cfs),
         lot_count=lots,
+        **contract_period(cfs),
     )
 
 

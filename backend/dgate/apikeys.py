@@ -18,7 +18,7 @@ An audit log of the keys (`api_key_event`: created, revoked) and a count of requ
 (`api_key_usage`) are kept with the account and deleted with it.
 
 What a key reads (`ROUTES`): the defence notices, one notice and its archive (`/v1/opportunities*`), and of those only
-the sources the licence table allows (`settings().api_key_sources`, TED by default; docs/research/
+the sources the licence table allows (`settings().api_key_sources`, TED and TenderNed by default; docs/research/
 DATA_LICENCES_2026-10-27.md). The source filter is written into the request as the routes' own `source` parameter, so
 the list cache keys on it and a key's answer is never an anonymous one or the other way round.
 

@@ -3,10 +3,10 @@
 Endpoint:  GET https://oeffentlichevergabe.de/api/notice-exports?pubDay=YYYY-MM-DD&format=eforms.zip
 Auth:      none
 Operator:  Beschaffungsamt des BMI (BeschA), Datenservice Oeffentlicher Einkauf
-Licence:   NOT VERIFIED. The interface is open; the licence text could not be read. The
-           source row is seeded inactive and with `commercial_ok` NULL (migration 0050)
-           until the owner has the answer; see docs/sources/de_national.md and
-           docs/legal/OPEN_ITEMS_FOR_LAWYER.md.
+Licence:   CC0, the operator's Open-Data-Richtlinie section 4 (read 27 October 2026,
+           docs/research/DATA_LICENCES_2026-10-27.md; `source.licence` since migration 0151).
+           The source row stays inactive with `commercial_ok` NULL (migration 0050) until the
+           owner decides: the GDPR items of docs/legal/OPEN_ITEMS_FOR_LAWYER.md are open.
 
 What a day file is: one zip with one eForms UBL XML per notice version, named
 `<notice-id>-<version>.xml`, the same schema as TED. 500 to 1,050 files, 3 to 5 MB. The
@@ -353,5 +353,24 @@ def ted_fields(xml: str) -> dict[str, Any]:
             out["csecurity-clearance-description-lot"] = (
                 _first_text(_kids(term, "Description")) or "required")
             break
+    # WP-159: the contract period per lot (BT-36, BT-536, BT-537, BT-57/58), in TED's field names, so that
+    # `normalise.contract_period` reads Germany as it reads TED. A PIN's parts are not lots.
+    values, units, starts, ends, renewals, renewal_text = [], [], [], [], [], []
+    for lot in lots:
+        if any(i.get("schemeName") == "Part" for i in _kids(lot, "ID")):
+            continue
+        for period in _path(lot, "ProcurementProject", "PlannedPeriod"):
+            for m in _kids(period, "DurationMeasure"):
+                if _t(m):
+                    values.append(_t(m))
+                    units.append(m.get("unitCode"))
+            starts += [_t(e) for e in _kids(period, "StartDate") if _t(e)]
+            ends += [_t(e) for e in _kids(period, "EndDate") if _t(e)]
+        for ext in _path(lot, "ProcurementProject", "ContractExtension"):
+            renewals += [_t(e) for e in _kids(ext, "MaximumNumberNumeric") if _t(e)]
+            renewal_text += ["stated" for _ in _kids(ext, "Renewal")]
+    out["duration-period-value-lot"], out["duration-period-unit-lot"] = values, units
+    out["contract-duration-start-date-lot"], out["contract-duration-end-date-lot"] = starts, ends
+    out["renewal-maximum-lot"], out["renewal-description-lot"] = renewals, renewal_text
     out["_lots"] = len(lots)
     return out

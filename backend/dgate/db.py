@@ -167,6 +167,14 @@ def _jsonable(value: Any) -> Any:
     return value
 
 
+# WP-159 (migration 0151): the contract period the notice states. Attributes of the serving row, never versioned: a
+# record that states one is written without a version when nothing versioned moved, and one that does not state it
+# leaves the held period alone (`KEPT_WHEN_ABSENT`).
+CONTRACT_PERIOD_COLUMNS = ("contract_start", "contract_end", "contract_duration", "contract_duration_unit",
+                           "contract_renewal", "contract_renewals_max")
+_PERIOD_SETS = ", ".join(f"{c} = COALESCE(%s, {c})" for c in CONTRACT_PERIOD_COLUMNS)
+
+
 # Migration 0029's derived fields are absent from a payload while empty, so the hash
 # taken before classification (PLACSP hashes the payload) does not move for a record
 # that has none. `buyer_identifier` is handled where the TED mapper's own fields are.
@@ -198,7 +206,8 @@ def opportunity_payload(opp: Opportunity) -> dict[str, Any]:
     # Same rule for the attributes only some sources set (TED's, migration 0030,
     # and the buyer's registration number): absent while empty, so no hash moves.
     for name in ("buyer_identifier", "notice_subtype", "procedure_identifier",
-                 "lot_count", "value_kind", "notice_date", "notice_kind", "documents_url"):
+                 "lot_count", "value_kind", "notice_date", "notice_kind", "documents_url",
+                 *CONTRACT_PERIOD_COLUMNS):                  # WP-159, the same rule
         if payload.get(name) is None:
             payload.pop(name, None)
     if not payload.get("other_buyers"):              # WP-95, the same rule
@@ -208,7 +217,7 @@ def opportunity_payload(opp: Opportunity) -> dict[str, Any]:
 
 # Fields that come back out of a payload as strings and have to become dates
 # and datetimes again. Everything else round-trips as itself.
-_DATE_FIELDS = {"published_at", "notice_date"}
+_DATE_FIELDS = {"published_at", "notice_date", "contract_start", "contract_end"}
 _DATETIME_FIELDS = {"deadline_at", "source_updated_at"}
 
 
@@ -1002,6 +1011,7 @@ def _serving_columns(opp: Opportunity) -> dict[str, Any]:
         buyer_identifier=opp.buyer_identifier,
         notice_date=opp.notice_date, notice_kind=opp.notice_kind,
         other_buyers=opp.other_buyers,
+        **{c: getattr(opp, c) for c in CONTRACT_PERIOD_COLUMNS},
     )
 
 
@@ -1042,6 +1052,7 @@ def refresh_classification(conn: psycopg.Connection, opp_id: int, opp: Opportuni
 KEPT_WHEN_ABSENT = frozenset({
     "ted_ref", "procedure_identifier", "related_native_id", "buyer_identifier",
     "lot_count", "notice_subtype", "value_kind", "other_buyers",
+    *CONTRACT_PERIOD_COLUMNS,
 })
 
 # What a PLACSP re-reading can move without the publisher having said anything: the
@@ -1343,11 +1354,12 @@ def upsert_opportunity(
                       notice_date = CASE WHEN %s::date IS NOT NULL AND %s THEN %s
                                          ELSE notice_date END,
                       notice_kind = CASE WHEN %s::date IS NOT NULL AND %s THEN %s
-                                         ELSE notice_kind END
+                                         ELSE notice_kind END,
+                      """ + _PERIOD_SETS + """
                 WHERE id = %s""",
             (opp.lot_count, opp.ted_ref, opp.related_native_id, opp.procedure_identifier,
              opp.notice_date, newer, opp.notice_date, opp.notice_date, newer, opp.notice_kind,
-             opp_id))
+             *(getattr(opp, c) for c in CONTRACT_PERIOD_COLUMNS), opp_id))
         return opp_id, "unchanged"
 
     version = append_version(conn, opp_id, opp, raw_hash, changed,

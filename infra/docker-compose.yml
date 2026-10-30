@@ -182,6 +182,9 @@ services:
       DGATE_ACCOUNTS_OPEN: ${DGATE_ACCOUNTS_OPEN:-0}
       # WP-152: the company report (a paid feature) exists only when this is 1.
       DGATE_COMPANY_REPORT_OPEN: ${DGATE_COMPANY_REPORT_OPEN:-0}
+      # WP-153/159: the data API with keys, closed until 1; the sources a key reads (the licence reading's list).
+      DGATE_API_KEYS_OPEN: ${DGATE_API_KEYS_OPEN:-0}
+      DGATE_API_KEY_SOURCES: ${DGATE_API_KEY_SOURCES:-ted,nl_tenderned}
       DGATE_ENV: production
       # Only the key of the sign-in throttle counters when DGATE_INTERNAL_SECRET is unset.
       DGATE_APP_PASSWORD: ${DGATE_APP_PASSWORD}
