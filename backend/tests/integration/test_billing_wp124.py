@@ -145,7 +145,8 @@ def test_billing_is_closed_by_default_and_no_checkout_is_created(client, sent, c
     # nothing is for sale, so nothing is withheld: saved searches and alerts as WP-123 built them
     # WP-155: every built feature but the two behind the company report's switch (off here)
     assert set(me_of(client, session)["features"]) == {"saved_searches", "email_alerts", "competitors_full", "signals_full",
-                                                       "signals_csv", "consortium_gaps"}
+                                                       "signals_csv", "consortium_gaps",
+                                                       "team_workspace", "client_profiles"}            # WP-157
     assert client.post("/v1/account/searches", json=search_body(), headers=H(session)).status_code == 201
 
 

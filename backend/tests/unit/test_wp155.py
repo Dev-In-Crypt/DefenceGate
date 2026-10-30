@@ -21,6 +21,9 @@ TABLE = {
     "signals_csv": {"team", "consultant"},
     "consortium_gaps": {"team", "consultant"},
     "branded_reports": {"consultant"},
+    # WP-157: the team workspace (Team, and Consultant as "Everything in Team") and the client profiles
+    "team_workspace": {"team", "consultant"},
+    "client_profiles": {"consultant"},
 }
 
 

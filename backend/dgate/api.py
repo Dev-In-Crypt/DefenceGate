@@ -1141,6 +1141,11 @@ app.include_router(_billing_webhook_router)
 from .apikeys import router as _keys_router  # noqa: E402
 
 app.include_router(_keys_router)
+
+# WP-157: the team workspace and the client profiles (internal, like the accounts).
+from .workspace import router as _workspace_router  # noqa: E402
+
+app.include_router(_workspace_router)
 app.add_exception_handler(AccountError, account_error_handler)
 
 # Layer 3, readiness (dgate/readiness): the public requirements catalogue and the stateless

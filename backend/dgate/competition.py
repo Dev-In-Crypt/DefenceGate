@@ -278,16 +278,23 @@ def month_bounds(now: datetime | None = None) -> tuple[date, date]:
 
 
 @account_router.post("/{slug}/report")
-def open_report(slug: str, conn=Depends(get_conn), aconn=Depends(accounts.get_conn), user=Depends(throttled)):
+def open_report(slug: str, client: str | None = None, conn=Depends(get_conn), aconn=Depends(accounts.get_conn),
+                user=Depends(throttled)):
     """A company report opened by this account: counted once per company and calendar month (UTC), against its plan's
     REPORTS_PER_MONTH. The sample report is anyone's and never counted. The answer says what is left and when the count
-    starts again, and the account's own name for the report's head when its plan has `branded_reports`."""
+    starts again, and the account's own name for the report's head when its plan has `branded_reports`. WP-157: with
+    `?client=` (a client profile of the account's workspace, Consultant) the client's name for the head as well."""
     if not settings().company_report_open:
         raise AccountError(404, "not_open", "company reports are not open")
     _resolve(conn, _id_of(slug, "supplier"))                  # 404 / 410 as the supplier page
     first, resets = month_bounds()
     out: dict[str, Any] = {"reportName": user.get("report_name") if billing.may(user, "branded_reports") else None,
-                           "resetsAt": resets.isoformat(), "sample": False, "counted": False}
+                           "resetsAt": resets.isoformat(), "sample": False, "counted": False, "clientName": None}
+    if client is not None:
+        from .workspace import client_id
+
+        out["clientName"] = aconn.execute("SELECT name FROM app_client WHERE id = %s",
+                                          (client_id(aconn, user, client),)).fetchone()["name"]
     if is_sample(conn, slug):
         return {**out, "sample": True, "used": None, "limit": None, "left": None}
     billing.require(user, "company_report")

@@ -30,9 +30,14 @@ DUE_SQL = """
            s.last_alerted_at, u.email_display,
            (SELECT count(*) FROM app_saved_search e WHERE e.owner_id = s.owner_id
                AND (e.created_at, e.id) < (s.created_at, s.id)) AS plan_rank,
-           b.plan AS sub_plan, b.status AS sub_status, b.current_period_end AS sub_period_end
+           b.plan AS sub_plan, b.status AS sub_status, b.current_period_end AS sub_period_end,
+           wb.plan AS ws_plan, wb.status AS ws_status, wb.current_period_end AS ws_period_end
       FROM app_saved_search s JOIN app_user u ON u.id = s.owner_id
       LEFT JOIN billing_subscription b ON b.account_id = u.id
+      -- WP-157: a workspace member has its owner's plan (billing.plan_of)
+      LEFT JOIN workspace_member m ON m.user_id = u.id
+      LEFT JOIN workspace w ON w.id = m.workspace_id
+      LEFT JOIN billing_subscription wb ON wb.account_id = w.owner_id
      WHERE s.cadence <> 'off'
        AND COALESCE(s.last_alerted_at, s.created_at) <= now() - (CASE s.cadence
               WHEN 'instant' THEN interval '50 minutes'

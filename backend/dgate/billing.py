@@ -65,6 +65,9 @@ FEATURES: dict[str, frozenset[str]] = {
     "signals_csv": TEAM,                # ... and its CSV
     "consortium_gaps": TEAM,            # /networks/consortium-gaps
     "branded_reports": frozenset({"consultant"}),   # the account's own name on its company reports
+    # WP-157: a workspace of up to SEATS users sharing the owner's plan, searches, shortlist and follows (workspace.py)
+    "team_workspace": TEAM,
+    "client_profiles": frozenset({"consultant"}),   # up to CLIENTS client profiles in the workspace
 }
 # How many: None is no plan limit.
 REPORTS_PER_MONTH: dict[str, int | None] = {"pro": 3, "founding": 3, "team": 15, "consultant": None}
@@ -72,7 +75,11 @@ SAVED_SEARCHES: dict[str, int | None] = {"pro": 10, "founding": 10, "team": 50, 
 # ponytail: "unlimited" saved searches stop at a ceiling, since each one is run when the list is shown; raise it when
 # an account reaches it.
 SEARCH_CEILING = 200
-SEARCHES_UNSOLD = 10                    # while no plan is on sale: what every account had before the plans (WP-123)
+# WP-157: users of a workspace (the owner included) and client profiles; while no plan is on sale, the Team and Consultant
+# numbers (nobody is refused the feature then, WP-124).
+SEATS: dict[str, int] = {"team": 5, "consultant": 5}
+CLIENTS: dict[str, int] = {"consultant": 15}
+SEARCHES_UNSOLD = 10                   # while no plan is on sale: what every account had before the plans (WP-123)
 FOUNDING_CAP = 20
 FOUNDING_HOLD = timedelta(hours=1)        # an open founding checkout holds a place this long
 CHECKOUTS_PER_HOUR = 5                    # per account: nobody fills Creem's dashboard with checkouts
@@ -163,9 +170,15 @@ def plan_in_force(plan: str | None, status: str | None, period_end: datetime | N
     return "free"
 
 
+_RANK = {"free": 0, "pro": 1, "founding": 1, "team": 2, "consultant": 3}
+
+
 def plan_of(user: dict[str, Any]) -> str:
-    """The plan of an account row as `accounts.current` reads it (with the subscription joined)."""
-    return plan_in_force(user.get("sub_plan"), user.get("sub_status"), user.get("sub_period_end"))
+    """The plan of an account row as `accounts.current` reads it (with the subscription joined). WP-157: a workspace member
+    has the workspace owner's plan (`ws_*`: the owner's subscription) when that plan has the workspace and is above its own."""
+    own = plan_in_force(user.get("sub_plan"), user.get("sub_status"), user.get("sub_period_end"))
+    shared = plan_in_force(user.get("ws_plan"), user.get("ws_status"), user.get("ws_period_end"))
+    return shared if shared in FEATURES["team_workspace"] and _RANK[shared] > _RANK[own] else own
 
 
 def allows(plan: str, feature: str) -> bool:
@@ -196,6 +209,16 @@ def search_limit(user: dict[str, Any]) -> int:
     return SEARCH_CEILING if n is None else min(n, SEARCH_CEILING)
 
 
+def seat_limit(user: dict[str, Any]) -> int:
+    """WP-157: users a workspace owned by this account may hold, the owner included."""
+    return SEATS["team"] if not plans_on_sale() else SEATS.get(plan_of(user), 0)
+
+
+def client_limit(user: dict[str, Any]) -> int:
+    """WP-157: client profiles the account's workspace may hold."""
+    return CLIENTS["consultant"] if not plans_on_sale() else CLIENTS.get(plan_of(user), 0)
+
+
 def report_limit(user: dict[str, Any]) -> int | None:
     """Company reports a calendar month (UTC); None: no limit. Nothing is counted against anyone while no plan is on
     sale (WP-124: nothing is withheld then)."""
@@ -213,6 +236,8 @@ MESSAGES = {
     "signals_csv": "the CSV of a signal is part of Team and Consultant: choose a plan under Billing",
     "consortium_gaps": "the consortium gap analysis is part of Team and Consultant: choose a plan under Billing",
     "branded_reports": "your own name on reports is part of Consultant: choose a plan under Billing",
+    "team_workspace": "the team workspace is part of Team and Consultant: choose a plan under Billing",
+    "client_profiles": "client profiles are part of Consultant: choose a plan under Billing",
 }
 
 

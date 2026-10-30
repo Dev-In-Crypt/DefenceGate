@@ -119,7 +119,8 @@ export async function accountFetch(path: string, init: AccountInit = {}): Promis
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-async function call<T>(path: string, init: AccountInit = {}, parse?: (raw: unknown) => T): Promise<AccountResult<T>> {
+/** WP-157: exported for lib/workspace.ts (the workspace and client profile calls). */
+export async function call<T>(path: string, init: AccountInit = {}, parse?: (raw: unknown) => T): Promise<AccountResult<T>> {
   let res: Response;
   try {
     res = await accountFetch(path, init);
@@ -183,6 +184,7 @@ function toMe(raw: unknown): Me {
     features: toFeatures(raw.features),
     apiKeys: arr<unknown>(raw.features).includes('api_keys'),
     limits: toLimits(raw.limits),
+    workspace: isRecord(raw.workspace) ? { role: raw.workspace.role === 'owner' ? 'owner' : 'member', active: raw.workspace.active === true } : null,
   };
 }
 
@@ -360,18 +362,23 @@ export const revokeOtherSessions = () => call<void>('/sessions', { method: 'DELE
 
 /* ---- saved searches ---- */
 
-export const listSearches = () => call<SavedSearch[]>('/searches', {}, (raw) => items<SavedSearch>(raw));
+/** WP-157: `client`, only the searches of that client profile. */
+export const listSearches = (client?: string | null) =>
+  call<SavedSearch[]>(`/searches${client ? `?client=${encodeURIComponent(client)}` : ''}`, {}, (raw) => items<SavedSearch>(raw));
 export const createSearch = (s: { name: string; kind: SearchKind; filters: SearchFilters; cadence?: Cadence }) =>
   call<SavedSearch>('/searches', { method: 'POST', json: s });
-export const updateSearch = (id: string, patch: { name?: string; cadence?: Cadence }) =>
+export const updateSearch = (id: string, patch: { name?: string; cadence?: Cadence; clientId?: string | null }) =>
   call<SavedSearch>(`/searches/${encodeURIComponent(id)}`, { method: 'PATCH', json: patch });
 export const deleteSearch = (id: string) => call<void>(`/searches/${encodeURIComponent(id)}`, { method: 'DELETE' });
 
 /* ---- shortlist and follows ---- */
 
-export const listShortlist = () => call<ShortlistItem[]>('/shortlist', {}, (raw) => items<ShortlistItem>(raw));
-export const putShortlist = (kind: ShortlistKind, ref: string, status: ShortlistStatus, note: string) =>
-  call<ShortlistItem | null>(`/shortlist/${kind}/${encodeURIComponent(ref)}`, { method: 'PUT', json: { status, note } });
+export const listShortlist = (client?: string | null) =>
+  call<ShortlistItem[]>(`/shortlist${client ? `?client=${encodeURIComponent(client)}` : ''}`, {}, (raw) => items<ShortlistItem>(raw));
+/** WP-157: `clientId` left out keeps the entry's client profile, null takes it off. */
+export const putShortlist = (kind: ShortlistKind, ref: string, status: ShortlistStatus, note: string, clientId?: string | null) =>
+  call<ShortlistItem | null>(`/shortlist/${kind}/${encodeURIComponent(ref)}`,
+    { method: 'PUT', json: clientId === undefined ? { status, note } : { status, note, clientId } });
 export const deleteShortlist = (kind: ShortlistKind, ref: string) =>
   call<void>(`/shortlist/${kind}/${encodeURIComponent(ref)}`, { method: 'DELETE' });
 
@@ -523,17 +530,20 @@ export interface ReportOpening {
   resetsAt: string;
   /** The account's own name for the report's head (Consultant), plain text. */
   reportName: string | null;
+  /** WP-157: the client profile's name for the report's head (Consultant, asked with `client`), plain text. */
+  clientName?: string | null;
 }
 
 /** 402 `plan_required` without a plan that has reports, 402 `report_quota` when this month's are used (the message says when they renew). */
-export const openReport = (slug: string) =>
-  call<ReportOpening>(`/suppliers/${encodeURIComponent(slug)}/report`, { method: 'POST' }, (raw) => {
+export const openReport = (slug: string, client?: string | null) =>
+  call<ReportOpening>(`/suppliers/${encodeURIComponent(slug)}/report${client ? `?client=${encodeURIComponent(client)}` : ''}`, { method: 'POST' }, (raw) => {
     if (!isRecord(raw)) throw new Error('bad report');
     const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
     return {
       sample: raw.sample === true, counted: raw.counted === true, used: n(raw.used), limit: n(raw.limit), left: n(raw.left),
       resetsAt: typeof raw.resetsAt === 'string' ? raw.resetsAt.slice(0, 10) : '',
       reportName: typeof raw.reportName === 'string' ? raw.reportName.slice(0, 80) : null,
+      clientName: typeof raw.clientName === 'string' ? raw.clientName.slice(0, 120) : null,
     };
   });
 

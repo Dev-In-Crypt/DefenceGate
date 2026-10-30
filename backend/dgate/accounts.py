@@ -294,14 +294,19 @@ internal_router = APIRouter(dependencies=[Depends(internal_only)])
 def current(request: Request, conn=Depends(get_conn),
             x_dg_session: str | None = Header(None)) -> dict[str, Any]:
     """The authenticated account and the session it came with, or 401. With the subscription
-    (WP-124), so every gate reads the plan in force through `billing.plan_of`."""
+    (WP-124), so every gate reads the plan in force through `billing.plan_of`; WP-157: and the workspace the account is in,
+    with its owner's subscription (`ws_*`, PLAN_KEYS)."""
     if not x_dg_session or not _SESSION.match(x_dg_session):
         raise AccountError(401, "unauthenticated", "sign in required")
     row = conn.execute(
         """SELECT s.public_id AS session_id, s.id_hash, u.*, b.plan AS sub_plan, b.status AS sub_status,
-                  b.current_period_end AS sub_period_end
+                  b.current_period_end AS sub_period_end, m.workspace_id AS ws_id, m.role AS ws_role,
+                  wb.plan AS ws_plan, wb.status AS ws_status, wb.current_period_end AS ws_period_end
              FROM app_session s JOIN app_user u ON u.id = s.user_id
              LEFT JOIN billing_subscription b ON b.account_id = u.id
+             LEFT JOIN workspace_member m ON m.user_id = u.id
+             LEFT JOIN workspace w ON w.id = m.workspace_id
+             LEFT JOIN billing_subscription wb ON wb.account_id = w.owner_id
             WHERE s.id_hash = %s AND s.expires_at > now()
               AND s.last_seen_at > now() - %s::interval""",
         (_hash(x_dg_session), SESSION_IDLE)).fetchone()
@@ -311,6 +316,20 @@ def current(request: Request, conn=Depends(get_conn),
                  "WHERE id_hash = %s AND last_seen_at < now() - interval '1 minute'",
                  (row["id_hash"],))
     return row
+
+
+# The columns `current` adds to the account row for the plan gates (billing.plan_of) and the workspace (WP-157).
+PLAN_KEYS = ("sub_plan", "sub_status", "sub_period_end", "ws_id", "ws_role", "ws_plan", "ws_status", "ws_period_end")
+
+
+def shared_scope(user: dict[str, Any]) -> tuple[str, tuple[Any, ...]]:
+    """O1 with WP-157: the SQL condition (and its parameters) of the rows an account sees in app_saved_search, app_shortlist
+    and app_follow: its own, and its workspace's while its plan has the workspace (the rows stay when it has not; the
+    sharing stops). One helper for every such query."""
+    from .billing import may
+
+    ws = user.get("ws_id") if user.get("ws_id") and may(user, "team_workspace") else None
+    return "(owner_id = %s OR workspace_id = %s::uuid)", (user["id"], ws)
 
 
 _user_buckets = TokenBuckets(capacity=USER_RATE, refill=USER_RATE / 60)
@@ -406,17 +425,20 @@ class SearchIn(_Body):
     kind: Literal["tender", "call"]
     filters: dict[str, Any] = Field(default_factory=dict)
     cadence: Literal["instant", "daily", "weekly", "off"] = "daily"
+    clientId: str | None = Field(None, max_length=36)       # WP-157: a client profile of the workspace
 
 
 class SearchPatch(_Body):
     name: str | None = Field(None, min_length=1, max_length=80)
     filters: dict[str, Any] | None = None
     cadence: Literal["instant", "daily", "weekly", "off"] | None = None
+    clientId: str | None = Field(None, max_length=36)       # WP-157: null (sent) takes the search off its client
 
 
 class ShortlistIn(_Body):
     status: Literal["watching", "evaluating", "bidding", "submitted", "dropped"] = "watching"
     note: str = Field("", max_length=NOTE_MAX)
+    clientId: str | None = Field(None, max_length=36)       # WP-157: left out keeps the entry's client, null clears it
 
 
 class StateKey(_Body):
@@ -998,6 +1020,8 @@ def _user_out(u: dict[str, Any]) -> dict[str, Any]:
         "features": billing.features(u) + (["api_keys"] if settings().api_keys_open and u.get("api_licensed_at") else []),
         # WP-155: saved searches the plan allows, company reports a month (None: no limit)
         "limits": {"savedSearches": billing.search_limit(u), "reportsPerMonth": billing.report_limit(u)},
+        # WP-157: the workspace the account is in (None: none), and whether its sharing works under the plan in force
+        "workspace": {"role": u["ws_role"], "active": billing.may(u, "team_workspace")} if u.get("ws_id") else None,
     }
 
 
@@ -1057,7 +1081,7 @@ def patch_me(body: ProfilePatch, conn=Depends(get_conn), user=Depends(current)) 
     if sets:
         conn.execute(f"UPDATE app_user SET {', '.join(sets)} WHERE id = %s", params + [user["id"]])
     row = conn.execute("SELECT * FROM app_user WHERE id = %s", (user["id"],)).fetchone()
-    row.update({k: user.get(k) for k in ("sub_plan", "sub_status", "sub_period_end")})   # the plan, as `current` reads it
+    row.update({k: user.get(k) for k in PLAN_KEYS})   # the plan, as `current` reads it
     done = bool(row["role"]) and bool(row["tracks"])
     if done != row["onboarded"]:
         conn.execute("UPDATE app_user SET onboarded = %s WHERE id = %s", (done, user["id"]))
@@ -1130,6 +1154,7 @@ def export(conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
                          for r in conn.execute("SELECT * FROM billing_subscription WHERE account_id = %s",
                                                (uid,)).fetchall()],
         "apiKeys": _api_keys_export(conn, uid),
+        "workspace": _workspace_export(conn, user),        # WP-157
         "apiLicensedAt": user.get("api_licensed_at"),
         # WP-155: the company reports counted against the plan (company and month)
         "companyReports": [{"month": r["month"], "organisationId": r["org_id"], "openedAt": r["opened_at"]}
@@ -1147,6 +1172,13 @@ def _api_keys_export(conn, uid) -> list[dict[str, Any]]:
     from .apikeys import export_rows
 
     return export_rows(conn, uid)
+
+
+def _workspace_export(conn, user: dict[str, Any]) -> dict[str, Any] | None:
+    """WP-157: the membership, and for the owner the invitations it sent and the client profiles."""
+    from .workspace import export_rows
+
+    return export_rows(conn, user)
 
 
 @router.get("/sessions")
@@ -1359,7 +1391,8 @@ def _since(user: dict[str, Any]) -> datetime:
 
 def _search_row(r: dict[str, Any]) -> dict[str, Any]:
     return {"id": str(r["id"]), "name": r["name"], "kind": r["kind"], "filters": r["filters"],
-            "cadence": r["cadence"], "createdAt": r["created_at"]}
+            "cadence": r["cadence"], "createdAt": r["created_at"],
+            "clientId": str(r["client_id"]) if r.get("client_id") else None}
 
 
 # WP-155: an account's searches with their place, oldest first (0, 1, ...): the first `billing.search_limit` are run, the
@@ -1372,10 +1405,11 @@ def _search_out(conn, r: dict[str, Any], user: dict[str, Any]) -> dict[str, Any]
     from .billing import may, search_limit
 
     out = _search_row(r)
+    out["mine"] = r["owner_id"] == user["id"]     # WP-157: a teammate's search is shown, changed only by its author
     rank = r.get("plan_rank")
     if rank is None:
         rank = conn.execute("SELECT count(*) AS n FROM app_saved_search WHERE owner_id = %s AND (created_at, id) < (%s, %s)",
-                            (user["id"], r["created_at"], r["id"])).fetchone()["n"]
+                            (r["owner_id"], r["created_at"], r["id"])).fetchone()["n"]
     # WP-124: a search kept after a downgrade is not run (the paid feature stops, the data stays).
     out["paused"] = not may(user, "saved_searches") or rank >= search_limit(user)
     if out["paused"]:
@@ -1399,20 +1433,36 @@ def _owned_search(conn, search_id: str, user) -> dict[str, Any]:
     return row
 
 
+def _client_filter(conn, user: dict[str, Any], client: str | None) -> tuple[str, tuple[Any, ...]]:
+    """WP-157: `?client=` of a list: only the rows of that client profile of the account's workspace (404 otherwise)."""
+    if client is None:
+        return "", ()
+    from .workspace import client_id
+
+    return " AND client_id = %s", (client_id(conn, user, client),)
+
+
 @router.get("/searches")
-def list_searches(conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, Any]:
+def list_searches(client: str | None = None, conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, Any]:
     from .billing import SEARCH_CEILING, search_limit
 
-    rows = conn.execute(f"SELECT * FROM {RANKED_SEARCHES} ORDER BY created_at DESC LIMIT %s",
-                        (user["id"], SEARCH_CEILING)).fetchall()
+    where, params = shared_scope(user)
+    extra, extra_params = _client_filter(conn, user, client)
+    # WP-157: the workspace's searches too, each ranked among its author's (the plan's number counts per author)
+    rows = conn.execute(
+        "SELECT * FROM (SELECT s.*, row_number() OVER (PARTITION BY s.owner_id ORDER BY s.created_at, s.id) - 1 AS plan_rank "
+        f"FROM app_saved_search s WHERE {where}) ranked WHERE true{extra} ORDER BY created_at DESC LIMIT %s",
+        (*params, *extra_params, SEARCH_CEILING)).fetchall()
     return {"items": [_search_out(conn, r, user) for r in rows], "limit": search_limit(user)}
 
 
 @router.post("/searches", status_code=201)
 def create_search(body: SearchIn, conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, Any]:
     from .billing import require, search_limit
+    from .workspace import client_id
 
     require(user, "saved_searches")
+    client = client_id(conn, user, body.clientId) if body.clientId is not None else None
     n = conn.execute("SELECT count(*) AS n FROM app_saved_search WHERE owner_id = %s",
                      (user["id"],)).fetchone()["n"]
     limit = search_limit(user)
@@ -1421,9 +1471,10 @@ def create_search(body: SearchIn, conn=Depends(get_conn), user=Depends(throttled
     filters = clean_filters(body.kind, body.filters)
     run_search(conn, body.kind, filters)             # a filter the list endpoint refuses is refused here
     row = conn.execute(
-        "INSERT INTO app_saved_search (owner_id, name, kind, filters, cadence) "
-        "VALUES (%s, %s, %s, %s, %s) RETURNING *",
-        (user["id"], body.name.strip(), body.kind, json.dumps(filters), body.cadence)).fetchone()
+        "INSERT INTO app_saved_search (owner_id, name, kind, filters, cadence, workspace_id, client_id) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING *",
+        (user["id"], body.name.strip(), body.kind, json.dumps(filters), body.cadence, user.get("ws_id"),
+         client)).fetchone()
     return _search_out(conn, row, user)
 
 
@@ -1440,10 +1491,15 @@ def patch_search(search_id: str, body: SearchPatch, conn=Depends(get_conn),
     if body.filters is not None:
         filters = clean_filters(row["kind"], body.filters)
         run_search(conn, row["kind"], filters)
+    client = row["client_id"]
+    if "clientId" in body.model_fields_set:              # WP-157
+        from .workspace import client_id
+
+        client = client_id(conn, user, body.clientId) if body.clientId is not None else None
     row = conn.execute(
-        "UPDATE app_saved_search SET name = %s, cadence = %s, filters = %s "
+        "UPDATE app_saved_search SET name = %s, cadence = %s, filters = %s, client_id = %s "
         "WHERE id = %s AND owner_id = %s RETURNING *",
-        (name, cadence, json.dumps(filters), search_id, user["id"])).fetchone()
+        (name, cadence, json.dumps(filters), client, search_id, user["id"])).fetchone()
     return _search_out(conn, row, user)
 
 
@@ -1528,7 +1584,8 @@ def _hydrate_shortlist(conn, rows: list[dict[str, Any]]) -> list[dict[str, Any]]
     for r in rows:
         item = (tenders if r["kind"] == "tender" else calls).get(r["ref"])
         out.append({"kind": r["kind"], "ref": r["ref"], "status": r["status"], "note": r["note"],
-                    "createdAt": r["created_at"], "updatedAt": r["updated_at"], "item": item})
+                    "createdAt": r["created_at"], "updatedAt": r["updated_at"], "item": item,
+                    "clientId": str(r["client_id"]) if r.get("client_id") else None})
     return out
 
 
@@ -1559,9 +1616,11 @@ def _check_ref(conn, kind: str, ref: str) -> str:
 
 
 @router.get("/shortlist")
-def get_shortlist(conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
-    rows = conn.execute("SELECT * FROM app_shortlist WHERE owner_id = %s "
-                        "ORDER BY updated_at DESC LIMIT %s", (user["id"], MAX_SHORTLIST)).fetchall()
+def get_shortlist(client: str | None = None, conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
+    where, params = shared_scope(user)
+    extra, extra_params = _client_filter(conn, user, client)
+    rows = conn.execute(f"SELECT * FROM app_shortlist WHERE {where}{extra} "
+                        "ORDER BY updated_at DESC LIMIT %s", (*params, *extra_params, MAX_SHORTLIST)).fetchall()
     return {"items": _hydrate_shortlist(conn, rows)}
 
 
@@ -1569,27 +1628,37 @@ def get_shortlist(conn=Depends(get_conn), user=Depends(current)) -> dict[str, An
 def put_shortlist(kind: str, ref: str, body: ShortlistIn, conn=Depends(get_conn),
                   user=Depends(current)) -> dict[str, Any]:
     ref = _check_ref(conn, kind, ref)
-    exists = conn.execute("SELECT 1 FROM app_shortlist WHERE owner_id = %s AND kind = %s AND ref = %s",
-                          (user["id"], kind, ref)).fetchone()
+    where, params = shared_scope(user)
+    # WP-157: one entry per item in a workspace: a teammate's entry is the one changed (status, note, client)
+    exists = conn.execute(f"SELECT owner_id, client_id FROM app_shortlist WHERE {where} AND kind = %s AND ref = %s "
+                          "ORDER BY owner_id = %s DESC LIMIT 1", (*params, kind, ref, user["id"])).fetchone()
     if not exists:
         n = conn.execute("SELECT count(*) AS n FROM app_shortlist WHERE owner_id = %s",
                          (user["id"],)).fetchone()["n"]
         if n >= MAX_SHORTLIST:
             raise AccountError(409, "limit_reached", f"at most {MAX_SHORTLIST} shortlisted items")
+    client = exists["client_id"] if exists else None
+    if "clientId" in body.model_fields_set:
+        from .workspace import client_id
+
+        client = client_id(conn, user, body.clientId) if body.clientId is not None else None
+    owner = exists["owner_id"] if exists else user["id"]
     note = body.note.replace("\x00", "").strip()
     row = conn.execute(
-        """INSERT INTO app_shortlist (owner_id, kind, ref, status, note) VALUES (%s, %s, %s, %s, %s)
+        """INSERT INTO app_shortlist (owner_id, kind, ref, status, note, workspace_id, client_id)
+           VALUES (%s, %s, %s, %s, %s, %s, %s)
            ON CONFLICT (owner_id, kind, ref)
-           DO UPDATE SET status = EXCLUDED.status, note = EXCLUDED.note, updated_at = now()
-           RETURNING *""", (user["id"], kind, ref, body.status, note)).fetchone()
+           DO UPDATE SET status = EXCLUDED.status, note = EXCLUDED.note, client_id = EXCLUDED.client_id, updated_at = now()
+           RETURNING *""", (owner, kind, ref, body.status, note, user.get("ws_id"), client)).fetchone()
     return _hydrate_shortlist(conn, [row])[0]
 
 
 @router.delete("/shortlist/{kind}/{ref}", status_code=204)
 def delete_shortlist(kind: str, ref: str, conn=Depends(get_conn), user=Depends(current)) -> Response:
     ref = _norm_ref(ref) or ""
-    gone = conn.execute("DELETE FROM app_shortlist WHERE owner_id = %s AND kind = %s AND ref = %s "
-                        "RETURNING 1", (user["id"], kind, ref)).fetchone()
+    where, params = shared_scope(user)
+    gone = conn.execute(f"DELETE FROM app_shortlist WHERE {where} AND kind = %s AND ref = %s "
+                        "RETURNING 1", (*params, kind, ref)).fetchone()
     if not gone:
         raise AccountError(404, "not_found", "not on your shortlist")
     return Response(status_code=204)
@@ -1624,25 +1693,29 @@ def _hydrate_follows(conn, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 @router.get("/follows")
 def get_follows(conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
-    rows = conn.execute("SELECT * FROM app_follow WHERE owner_id = %s ORDER BY created_at DESC LIMIT %s",
-                        (user["id"], MAX_FOLLOWS)).fetchall()
+    where, params = shared_scope(user)
+    rows = conn.execute(f"SELECT * FROM app_follow WHERE {where} ORDER BY created_at DESC LIMIT %s",
+                        (*params, MAX_FOLLOWS)).fetchall()
     return {"items": _hydrate_follows(conn, rows)}
 
 
 @router.put("/follows/{kind}/{ref}")
 def put_follow(kind: str, ref: str, conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
     ref = _check_follow(conn, kind, ref)
-    exists = conn.execute("SELECT 1 FROM app_follow WHERE owner_id = %s AND kind = %s AND ref = %s",
-                          (user["id"], kind, ref)).fetchone()
-    if not exists:
-        n = conn.execute("SELECT count(*) AS n FROM app_follow WHERE owner_id = %s",
-                         (user["id"],)).fetchone()["n"]
-        if n >= MAX_FOLLOWS:
-            raise AccountError(409, "limit_reached", f"at most {MAX_FOLLOWS} follows")
+    where, params = shared_scope(user)
+    # WP-157: followed by a teammate already: that follow is the workspace's, nothing new
+    exists = conn.execute(f"SELECT * FROM app_follow WHERE {where} AND kind = %s AND ref = %s "
+                          "ORDER BY owner_id = %s DESC LIMIT 1", (*params, kind, ref, user["id"])).fetchone()
+    if exists:
+        return _hydrate_follows(conn, [exists])[0]
+    n = conn.execute("SELECT count(*) AS n FROM app_follow WHERE owner_id = %s",
+                     (user["id"],)).fetchone()["n"]
+    if n >= MAX_FOLLOWS:
+        raise AccountError(409, "limit_reached", f"at most {MAX_FOLLOWS} follows")
     row = conn.execute(
-        "INSERT INTO app_follow (owner_id, kind, ref) VALUES (%s, %s, %s) "
+        "INSERT INTO app_follow (owner_id, kind, ref, workspace_id) VALUES (%s, %s, %s, %s) "
         "ON CONFLICT (owner_id, kind, ref) DO UPDATE SET kind = EXCLUDED.kind RETURNING *",
-        (user["id"], kind, ref)).fetchone()
+        (user["id"], kind, ref, user.get("ws_id"))).fetchone()
     return _hydrate_follows(conn, [row])[0]
 
 
@@ -1650,8 +1723,9 @@ def put_follow(kind: str, ref: str, conn=Depends(get_conn), user=Depends(current
 def delete_follow(kind: str, ref: str, conn=Depends(get_conn), user=Depends(current)) -> Response:
     if kind != "programme":
         ref = _norm_ref(ref) or ""
-    gone = conn.execute("DELETE FROM app_follow WHERE owner_id = %s AND kind = %s AND ref = %s "
-                        "RETURNING 1", (user["id"], kind, ref)).fetchone()
+    where, params = shared_scope(user)
+    gone = conn.execute(f"DELETE FROM app_follow WHERE {where} AND kind = %s AND ref = %s "
+                        "RETURNING 1", (*params, kind, ref)).fetchone()
     if not gone:
         raise AccountError(404, "not_found", "not followed")
     return Response(status_code=204)
@@ -1660,13 +1734,14 @@ def delete_follow(kind: str, ref: str, conn=Depends(get_conn), user=Depends(curr
 @router.post("/state")
 def state(body: StateIn, conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
     items: list[dict[str, Any]] = []
+    where, params = shared_scope(user)
     for key in body.keys:
         table = "app_shortlist" if key.type == "shortlist" else "app_follow"
         extra = ", status" if key.type == "shortlist" else ""
         ref = key.ref if key.kind == "programme" else (_norm_ref(key.ref) or "")
         row = conn.execute(
-            f"SELECT 1 AS saved{extra} FROM {table} WHERE owner_id = %s AND kind = %s AND ref = %s",
-            (user["id"], key.kind, ref)).fetchone()
+            f"SELECT 1 AS saved{extra} FROM {table} WHERE {where} AND kind = %s AND ref = %s "
+            "ORDER BY owner_id = %s DESC LIMIT 1", (*params, key.kind, ref, user["id"])).fetchone()
         entry: dict[str, Any] = {"type": key.type, "kind": key.kind, "ref": key.ref, "saved": row is not None}
         if row and key.type == "shortlist":
             entry["status"] = row["status"]
@@ -1753,9 +1828,10 @@ def dashboard(conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, Any]
                         "items": (fresh or res["items"])[:5]})
         searched_items += [(s["kind"], i) for i in res["items"]]
 
+    where, params = shared_scope(user)          # WP-157: the workspace's shortlist and follows
     shortlist_rows = conn.execute(
-        "SELECT * FROM app_shortlist WHERE owner_id = %s ORDER BY updated_at DESC LIMIT %s",
-        (user["id"], MAX_SHORTLIST)).fetchall()
+        f"SELECT * FROM app_shortlist WHERE {where} ORDER BY updated_at DESC LIMIT %s",
+        (*params, MAX_SHORTLIST)).fetchall()
     shortlist = _hydrate_shortlist(conn, shortlist_rows)
     counts: dict[str, int] = {s: 0 for s in STATUSES}
     for r in shortlist_rows:
@@ -1776,8 +1852,8 @@ def dashboard(conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, Any]
     closing.sort(key=lambda c: _deadline(c["item"]) or horizon)
 
     follow_rows = conn.execute(
-        "SELECT * FROM app_follow WHERE owner_id = %s ORDER BY created_at DESC LIMIT %s",
-        (user["id"], MAX_FOLLOWS)).fetchall()
+        f"SELECT * FROM app_follow WHERE {where} ORDER BY created_at DESC LIMIT %s",
+        (*params, MAX_FOLLOWS)).fetchall()
     followed = _hydrate_follows(conn, follow_rows)
     following = []
     for f in followed:

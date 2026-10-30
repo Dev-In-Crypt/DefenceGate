@@ -19,7 +19,7 @@ const KEYS = [];
 const EVENTS = [];
 const policy = (pw) => (typeof pw === 'string' && pw.length >= 12 ? null : [422, { error: 'password_too_short', message: 'use at least 12 characters' }]);
 
-function route(method, path, headers, body) {
+function route(method, path, headers, body, query) {
   if (path === '/v1/sources') return [200, { generatedAt: '2026-10-12T08:00:00Z', sources: [] }];   // read by the public layout
   if (path === '/v1/account/status') return [200, { open: true, termsVersion: '2.0', privacyVersion: '1.7' }];
   if (method === 'POST' && path === '/v1/account/auth/register') {
@@ -28,6 +28,8 @@ function route(method, path, headers, body) {
   }
   if (method === 'POST' && path === '/v1/account/auth/login') {
     if (body.password !== PASSWORD) return [401, { error: 'invalid_credentials', message: 'the e-mail address or the password is wrong' }];
+    // WP-157: an address starting with "team" is a Consultant account in a workspace (e2e/wp157.spec.ts)
+    if (String(body.email).startsWith('team')) return [200, { ...session()[1], session: TEAM_SESSION }];
     return String(body.email).startsWith('totp') ? [200, { secondStep: true, ticket: TICKET }] : session();
   }
   if (method === 'POST' && path === '/v1/account/auth/login/second') {
@@ -40,6 +42,7 @@ function route(method, path, headers, body) {
     if (body.token !== TOKEN) return [400, { error: 'invalid_or_expired' }];
     return policy(body.password) ?? [200, { ok: true }];
   }
+  if (headers['x-dg-session'] === TEAM_SESSION) return team(method, path, body, query);
   const signedIn = headers['x-dg-session'] === SESSION;
   if (method === 'POST' && path === '/v1/account/me/totp/setup') {
     if (!signedIn) return [401, { error: 'unauthenticated' }];
@@ -105,13 +108,84 @@ function route(method, path, headers, body) {
   return [404, { detail: 'not here' }];
 }
 
+// WP-157 (e2e/wp157.spec.ts): the team workspace and client profiles of a Consultant account, kept in memory. Names and addresses
+// are the tests' own (unique per project), so the desktop and mobile runs do not step on each other.
+const TEAM_SESSION = 'T'.repeat(43);
+const JOIN_TOKEN = 'j'.repeat(43);
+const WS = { members: [{ id: '00000000-0000-4000-8000-0000000000a1', email: 'team@example.test', role: 'owner', joinedAt: '2026-10-29T08:00:00Z', me: true }],
+  invites: [], clients: [] };
+let wsMade = false;
+let n = 0;
+const uuid = () => `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`;
+const TENDER = { id: '102', slug: '102-sample-notice', noticeId: '102-2026', title: 'Maintenance of logistics vehicles (sample)', buyerName: 'Sample Ministry of Defence',
+  country: 'PL', cpv: '35800000', cpvCodes: ['35800000'], deadline: '2026-11-23T12:00:00Z', publishedAt: '2026-10-01T00:00:00Z', status: 'open', scope: 'core', source: {} };
+
+function team(method, path, body, query) {
+  const client = query.get('client');
+  if (path === '/v1/account/me') {
+    return [200, { id: 'u2', email: 'team@example.test', createdAt: '2026-10-22T08:00:00Z', profile: { role: 'consultant', tracks: ['tenders'], countries: [], scope: 'core', cadence: 'daily' },
+      onboarded: true, lastVisitAt: null, terms: { current: true }, security: { hasPassword: true, totp: false }, plan: { current: 'consultant' },
+      features: ['saved_searches', 'email_alerts', 'team_workspace', 'client_profiles'], limits: { savedSearches: 200, reportsPerMonth: null },
+      workspace: wsMade ? { role: 'owner', active: true } : null }];
+  }
+  if (path === '/v1/account/workspace') {
+    if (method === 'POST') { wsMade = true; return [201, { id: 'w1' }]; }
+    if (method === 'DELETE') { wsMade = false; return [204, null]; }
+    return [200, wsMade ? { workspace: { id: 'w1', role: 'owner', active: true, seats: 5, members: WS.members, invites: WS.invites }, canCreate: false, seats: 5 }
+      : { workspace: null, canCreate: true, seats: 5 }];
+  }
+  if (method === 'POST' && path === '/v1/account/workspace/invites') {
+    if (String(body.email).startsWith('full')) return [409, { error: 'seats_full' }];
+    WS.invites.push({ id: uuid(), email: body.email, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 7 * 86400e3).toISOString() });
+    return [201, WS.invites.at(-1)];
+  }
+  if (method === 'DELETE' && path.startsWith('/v1/account/workspace/invites/')) {
+    const i = WS.invites.findIndex((x) => path.endsWith(x.id));
+    if (i < 0) return [404, { error: 'not_found' }];
+    WS.invites.splice(i, 1);
+    return [204, null];
+  }
+  if (method === 'POST' && path === '/v1/account/workspace/join') return body.token === JOIN_TOKEN ? [200, { ok: true }] : [400, { error: 'invalid_or_expired' }];
+  if (path === '/v1/account/clients') {
+    if (method === 'POST') {
+      wsMade = true;                                       // as the API: the first client profile makes the workspace
+      WS.clients.push({ id: uuid(), name: body.name, country: body.country, cpvCodes: body.cpvCodes, note: body.note, createdAt: '', updatedAt: '' });
+      return [201, WS.clients.at(-1)];
+    }
+    return [200, { items: WS.clients, limit: 15, allowed: true }];
+  }
+  if (path.startsWith('/v1/account/clients/')) {
+    const c = WS.clients.find((x) => path.endsWith(x.id));
+    if (!c) return [404, { error: 'not_found' }];
+    if (method === 'DELETE') { WS.clients.splice(WS.clients.indexOf(c), 1); return [204, null]; }
+    Object.assign(c, body);
+    return [200, c];
+  }
+  if (path === '/v1/account/searches') {
+    const items = [{ id: '00000000-0000-4000-8000-0000000000b1', name: 'Vehicles for a client', kind: 'tender', filters: { q: 'vehicles' }, cadence: 'daily',
+      createdAt: '2026-10-20T08:00:00Z', matchCount: 3, newCount: 0, lastMatchAt: null, paused: false, clientId: client ?? WS.clients[0]?.id ?? null, mine: true },
+    { id: '00000000-0000-4000-8000-0000000000b2', name: 'A colleague\'s search', kind: 'tender', filters: {}, cadence: 'weekly',
+      createdAt: '2026-10-21T08:00:00Z', matchCount: 9, newCount: 1, lastMatchAt: null, paused: false, clientId: null, mine: false }];
+    return [200, { items: client ? items.filter((s) => s.clientId === client) : items, limit: 200 }];
+  }
+  if (method === 'PATCH' && path.startsWith('/v1/account/searches/')) return [200, {}];
+  if (path === '/v1/account/shortlist') {
+    const items = [{ kind: 'tender', ref: '102', status: 'bidding', note: 'Team note', createdAt: '2026-10-04T08:00:00Z', updatedAt: '2026-10-10T08:00:00Z',
+      item: TENDER, clientId: client ?? WS.clients[0]?.id ?? null }];   // the entry is the picked client's (the run's own)
+    return [200, { items }];
+  }
+  if (method === 'PUT' && path.startsWith('/v1/account/shortlist/')) return [200, {}];
+  return [404, { detail: 'not here' }];
+}
+
 createServer((req, res) => {
   let raw = '';
   req.on('data', (c) => { raw += c; });
   req.on('end', () => {
     let body = {};
     try { body = raw ? JSON.parse(raw) : {}; } catch { /* not JSON */ }
-    const [status, out] = route(req.method, new URL(req.url ?? '/', 'http://x').pathname, req.headers, body);
+    const url = new URL(req.url ?? '/', 'http://x');
+    const [status, out] = route(req.method, url.pathname, req.headers, body, url.searchParams);
     res.writeHead(status, { 'content-type': 'application/json' });
     res.end(JSON.stringify(out));
   });

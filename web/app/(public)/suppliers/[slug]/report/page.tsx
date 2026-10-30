@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getSupplier, getSupplierCompetition, isSupplierSlug, REMOVED, whenRemoved } from '@/lib/api';
 import { getFullCompetition, getUserState, openReport, type ReportOpening } from '@/lib/account';
+import { clientContext } from '@/lib/workspace';
 import { getPartners } from '@/lib/networks-api';
 import type { PartnerPage } from '@/lib/networks-types';
 import { displayName } from '@/lib/display-name';
@@ -116,7 +117,10 @@ export default async function CompanyReportPage({ params }: Props) {
     if (state.kind === 'unavailable') {
       return <Gate name={s.name} slug={s.slug} sample={sample}><p className="m-0">Your account could not be read just now. Try again in a moment.</p></Gate>;
     }
-    const r = await openReport(s.slug);
+    // WP-157: the client profile worked on (Consultant) goes on the report's head; a stale choice is asked again without it
+    const { active } = await clientContext(state.user.features);
+    let r = await openReport(s.slug, active?.id);
+    if (active && !r.ok && r.status === 404) r = await openReport(s.slug);
     if (!r.ok && r.status === 402 && r.error === 'report_quota') {
       return <Gate name={s.name} slug={s.slug} sample={sample}><p className="m-0" data-report-quota>{quotaRefusal(r.message)}. Reports already opened this month open again; see <Link href="/app/billing" className="font-semibold">Billing</Link> for a plan with more.</p></Gate>;
     }
@@ -141,6 +145,7 @@ export default async function CompanyReportPage({ params }: Props) {
           <PrintButton className="self-start">Print or save as PDF</PrintButton>
           {quota && <p className="m-0 text-small text-ink-muted" data-report-quota-line>{quota}</p>}
           {opening.reportName && <p className="m-0 text-small" data-report-name-screen>Printed with your name: {opening.reportName}</p>}
+          {opening.clientName && <p className="m-0 text-small" data-report-client-screen>Prepared for: {opening.clientName} (change it under <Link href="/app/clients" className="font-semibold">Clients</Link>)</p>}
         </PageHeader>
       </div>
       <header className="hidden flex-col gap-2 print:flex">
@@ -148,6 +153,7 @@ export default async function CompanyReportPage({ params }: Props) {
           <Logo />
           {opening.reportName && <p className="m-0 text-h3 font-bold" data-report-name>{opening.reportName}</p>}
         </div>
+        {opening.clientName && <p className="m-0 text-body" data-report-client>Prepared for {opening.clientName}</p>}
 
         <p className="m-0 text-small font-bold uppercase tracking-wide">Company report, {formatDateUtc(new Date().toISOString())}</p>
         <h1 className="m-0 text-h1">{s.name}</h1>
