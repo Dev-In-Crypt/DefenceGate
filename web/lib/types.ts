@@ -920,8 +920,22 @@ export interface Me {
   /** WP-153: keys of the data API can be issued (DGATE_API_KEYS_OPEN on the API): the account area shows API keys. WP-155: and the
    *  account holds a data licence (granted by the operator; no plan grants it). */
   apiKeys: boolean;
+  /** WP-158: a member of a licensed association (the cluster licence): the account area shows its page. */
+  association: boolean;
   /** WP-155: saved searches the plan allows, company reports a month (null: no limit). */
   limits: { savedSearches: number; reportsPerMonth: number | null };
+}
+
+/** WP-158: GET /v1/account/association, the account's own membership. `seats` (counted, never named) for the admin only. */
+export interface AssociationView {
+  name: string;
+  role: 'admin' | 'member';
+  plan: 'pro' | 'team';
+  memberSince: IsoDateTime;
+  /** The licence ends by itself at this moment (the start of the day after its last day, UTC). */
+  licensedUntil: IsoDateTime | null;
+  digest: { on: boolean; country: string | null; cpv: string[]; lastWeek: string | null };
+  seats: { used: number; cap: number } | null;
 }
 
 /** WP-153: a key of the data API as the account API lists it (never the key itself, except `key` in the answer that made it). */

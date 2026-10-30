@@ -25,7 +25,9 @@ def _fresh_settings():
 def test_the_api_gets_the_switch_closed_by_default_and_nobody_else_does():
     text = COMPOSE.read_text(encoding="utf-8")
     assert re.search(r"^\s+DGATE_ACCOUNTS_OPEN: \$\{DGATE_ACCOUNTS_OPEN:-0\}$", _service(text, "api"), re.M)
-    for other in ("web", "worker", "caddy"):
+    # WP-158: the worker reads the same switch (closed by default) to send the associations' digest only while accounts are open
+    assert re.search(r"^\s+DGATE_ACCOUNTS_OPEN: \$\{DGATE_ACCOUNTS_OPEN:-0\}$", _service(text, "worker"), re.M)
+    for other in ("web", "caddy"):
         assert "ACCOUNTS_OPEN" not in _service(text, other), other
 
 

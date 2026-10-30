@@ -150,22 +150,29 @@ def api_base() -> str:
 
 
 # ------------------------------------------------------------------ entitlement
+# WP-158: a plan's rank, to keep the larger of a subscription and an association's licence (Founding customer is Pro).
+_RANK = {"free": 0, "pro": 1, "founding": 1, "team": 2, "consultant": 3}
+
+
 def plan_in_force(plan: str | None, status: str | None, period_end: datetime | None,
-                  now: datetime | None = None) -> str:
-    """The plan a subscription row allows now: the one function every gate goes through."""
-    if not plan or not status:
-        return "free"
-    if status in ENTITLING:
-        return plan
-    if status == "scheduled_cancel":
+                  now: datetime | None = None, association: str | None = None) -> str:
+    """The plan a subscription row allows now: the one function every gate goes through. WP-158: `association` is the plan
+    an association's licence gives the account (associations.PLAN_SQL: pro for a member, team for its admin); the larger
+    of the two is in force."""
+    sub = "free"
+    if plan and status in ENTITLING:
+        sub = plan
+    elif plan and status == "scheduled_cancel":
         now = now or datetime.now(timezone.utc)
-        return plan if period_end is None or period_end > now else "free"
-    return "free"
+        sub = plan if period_end is None or period_end > now else "free"
+    return association if association in _RANK and _RANK[association] > _RANK.get(sub, 0) else sub
 
 
 def plan_of(user: dict[str, Any]) -> str:
-    """The plan of an account row as `accounts.current` reads it (with the subscription joined)."""
-    return plan_in_force(user.get("sub_plan"), user.get("sub_status"), user.get("sub_period_end"))
+    """The plan of an account row as `accounts.current` reads it (with the subscription joined, and WP-158 the
+    association's plan as `assoc_plan`)."""
+    return plan_in_force(user.get("sub_plan"), user.get("sub_status"), user.get("sub_period_end"),
+                         association=user.get("assoc_plan"))
 
 
 def allows(plan: str, feature: str) -> bool:
@@ -185,7 +192,8 @@ def may(user: dict[str, Any], feature: str) -> bool:
 
 
 def features(user: dict[str, Any]) -> list[str]:
-    return [f for f in FEATURES if may(user, f)]
+    # WP-158: "association" marks a member of a licensed association (the account area shows its page); no plan grants it
+    return [f for f in FEATURES if may(user, f)] + (["association"] if user.get("assoc_plan") else [])
 
 
 def search_limit(user: dict[str, Any]) -> int:

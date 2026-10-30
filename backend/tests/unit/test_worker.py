@@ -128,7 +128,8 @@ def test_every_job_is_reachable_from_the_cli():
                                 "alerts", "backup-freshness", "link-twins", "requalify", "controls",
                                 "buyer-families", "warm-lists", "cascade-flags", "digest",
                                 "cordis", "edf", "consortium-snapshot", "placsp-awards-catchup",
-                                "ted-awards"}   # WP-103
+                                "ted-awards",   # WP-103
+                                "association-digest"}   # WP-158
 
 
 def test_the_ted_award_load_is_daily_bounded_and_away_from_the_heavy_jobs(monkeypatch):

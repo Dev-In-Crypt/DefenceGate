@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { dataOrNull, getAccountStatus, getBilling, getCurrentUser } from '@/lib/account';
 import { foundingLine, offers, periodLine, planName, STATUS_LABEL } from '@/lib/billing';
-import { billingOpen, readPlanChoice } from '@/lib/plans';
+import { billingOpen, PLAN_LABELS, readPlanChoice } from '@/lib/plans';
 import { BILLING_OPEN } from '@/lib/pricing';
 import { Button } from '@/components/dg/button';
 import { AppHeader, Block, LoadFailed, Notice } from '@/components/account/ui';
@@ -44,7 +44,10 @@ export default async function BillingPage({ searchParams }: Props) {
 
       <Block id="plan" title="Your plan">
         <p className="m-0 text-body" data-current-plan>
-          Your plan is {sub && state.plan !== 'free' ? planName(sub.plan, sub.period) : 'Free'}.
+          {/* WP-158: a plan with no subscription comes from an association's licence */}
+          {!sub && state.plan !== 'free' && me.association
+            ? <>Your plan is {PLAN_LABELS[state.plan]}, through your association&apos;s licence (<Link href="/app/association" className="font-semibold">Association</Link>).</>
+            : <>Your plan is {sub && state.plan !== 'free' ? planName(sub.plan, sub.period) : 'Free'}.</>}
           {sub && <> Status: <span data-status={sub.status}>{STATUS_LABEL[sub.status] ?? sub.status}</span>.</>}
           {sub && periodLine(sub) && <> {periodLine(sub)}</>}
         </p>

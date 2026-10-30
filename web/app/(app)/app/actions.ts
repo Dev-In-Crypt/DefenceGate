@@ -9,7 +9,7 @@ import { redirect } from 'next/navigation';
 import {
   acceptTerms, authLogout, CADENCES, changePassword, clearCookie, deleteFollow, deleteMe, deleteSearch, deleteShortlist,
   revokeOtherSessions, revokeSession, ROLES, SCOPES, SESSION_COOKIE, SHORTLIST_STATUSES, totpDisable, totpEnable, totpSetup,
-  updateMe, updateSearch, putShortlist, createCheckout, openPortal, createApiKey, revokeApiKey, type AccountResult,
+  updateMe, updateSearch, putShortlist, createCheckout, openPortal, createApiKey, revokeApiKey, setAssociationDigest, type AccountResult,
 } from '@/lib/account';
 import { followRef, isUuid, numericRef } from '@/lib/refs';
 import type { Cadence, FollowKind, Profile, ProfileScope, Role, ShortlistKind, ShortlistStatus, Track } from '@/lib/types';
@@ -81,6 +81,17 @@ export async function saveReportName(form: FormData): Promise<void> {
   const name = field(form, 'reportName', 200).trim();
   if (name.length > 80) redirect('/app/settings?n=invalid');
   back('/app/settings', await updateMe({ reportName: name }));
+}
+
+/* ---- the association's weekly digest (WP-158) ---- */
+
+/** The member's choice: on or off, one country (or all), CPV codes or their leading digits (the API reads and checks them). */
+export async function saveAssociationDigest(form: FormData): Promise<void> {
+  const on = field(form, 'on', 4);
+  const country = field(form, 'country', 4);
+  const cpv = field(form, 'cpv', 400).split(/[\s,;]+/).filter(Boolean);
+  if ((on !== 'on' && on !== 'off') || (country && !COUNTRY_RE.test(country)) || cpv.length > 20 /* the API's CPV_MAX */) redirect('/app/association?n=invalid');
+  back('/app/association', await setAssociationDigest({ on: on === 'on', country: country || null, cpv }));
 }
 
 /* ---- saved searches ---- */

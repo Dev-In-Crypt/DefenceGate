@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bell, Bookmark, CreditCard, KeyRound, LayoutDashboard, Search, Settings } from 'lucide-react';
+import { Bell, Bookmark, CreditCard, KeyRound, LayoutDashboard, Search, Settings, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Icon } from '../dg/icon';
 
@@ -18,10 +18,14 @@ const ITEMS = [
 /** WP-153: shown while the API issues keys (`Me.apiKeys`), before Settings. */
 const KEYS = { label: 'API keys', href: '/app/keys', icon: KeyRound } as const;
 
+/** WP-158: shown to a member of a licensed association (`Me.association`), before Settings. */
+const ASSOCIATION = { label: 'Association', href: '/app/association', icon: Users } as const;
+
 /** Sidebar on desktop, the list inside the mobile menu below lg. The dashboard matches /app exactly. */
-export function AppNav({ label = 'Account', apiKeys = false }: { label?: string; apiKeys?: boolean }) {
+export function AppNav({ label = 'Account', apiKeys = false, association = false }: { label?: string; apiKeys?: boolean; association?: boolean }) {
   const pathname = usePathname();
-  const items = apiKeys ? [...ITEMS.slice(0, -1), KEYS, ITEMS[ITEMS.length - 1]] : ITEMS;
+  const extra = [...(association ? [ASSOCIATION] : []), ...(apiKeys ? [KEYS] : [])];
+  const items = [...ITEMS.slice(0, -1), ...extra, ITEMS[ITEMS.length - 1]];
   return (
     <nav aria-label={label}>
       <ul className="m-0 flex list-none flex-col gap-1 p-0">

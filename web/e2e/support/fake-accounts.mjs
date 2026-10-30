@@ -17,6 +17,9 @@ const TOKEN = 'k'.repeat(43);
 const session = () => [200, { session: SESSION, expiresAt: new Date(Date.now() + 30 * 86400e3).toISOString(), isNew: false }];
 const KEYS = [];
 const EVENTS = [];
+// WP-158 (e2e/wp158.spec.ts): the signed-in account is the admin of a licensed association; the stop token of its digest is "a" x 64.
+const DIGEST = { on: false, country: null, cpv: [], lastWeek: '2026-W43' };
+const STOP = 'a'.repeat(64);
 const policy = (pw) => (typeof pw === 'string' && pw.length >= 12 ? null : [422, { error: 'password_too_short', message: 'use at least 12 characters' }]);
 
 function route(method, path, headers, body) {
@@ -59,7 +62,19 @@ function route(method, path, headers, body) {
   if (path === '/v1/account/me') {
     if (headers['x-dg-session'] !== SESSION) return [401, { error: 'unauthenticated' }];
     return [200, { id: 'u1', email: 'ann@example.test', createdAt: '2026-10-22T08:00:00Z', profile: { role: 'supplier', tracks: ['tenders'], countries: [], scope: 'core', cadence: 'daily' },
-      onboarded: true, lastVisitAt: null, terms: { current: true }, security: { hasPassword: true, totp: false }, features: ['api_keys'] }];
+      onboarded: true, lastVisitAt: null, terms: { current: true }, security: { hasPassword: true, totp: false }, features: ['api_keys', 'association'] }];
+  }
+  if (method === 'POST' && path === '/v1/account/association/unsubscribe') {
+    if (body.token === STOP) DIGEST.on = false;
+    return [200, { done: true }];
+  }
+  if (path === '/v1/account/association' || path === '/v1/account/association/digest') {
+    if (headers['x-dg-session'] !== SESSION) return [401, { error: 'unauthenticated' }];
+    if (method === 'PUT') {
+      if (body.cpv.some((c) => !/^[0-9]{2,8}$/.test(c))) return [422, { error: 'invalid_cpv' }];
+      Object.assign(DIGEST, { on: body.on, country: body.country ? body.country.toUpperCase() : null, cpv: body.cpv });
+    }
+    return [200, { name: 'Cluster Example', role: 'admin', plan: 'team', memberSince: '2026-10-20T08:00:00Z', licensedUntil: '2027-11-01T00:00:00Z', digest: DIGEST, seats: { used: 12, cap: 50 } }];
   }
   // WP-153 (e2e/wp153.spec.ts): API keys, open. The key is made of the counter so a test can tell one from another.
   if (path === '/v1/account/keys' || path.startsWith('/v1/account/keys/')) {
