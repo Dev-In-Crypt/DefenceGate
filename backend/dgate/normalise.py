@@ -120,6 +120,15 @@ class Opportunity:
     # WP-113: the procurement documents on the buyer's platform (BT-15), where the notice states them and the link is
     # its own `source_url` no longer (the German service: the notice's page is). Payload only, left out while empty.
     documents_url: str | None = None
+    # WP-159: the contract period the notice states (`contract_period`): earliest start, latest end, the longest lot
+    # duration as stated (number and unit), whether a renewal or extension is stated and the most renewals it allows.
+    # The buyer's stated period, never a forecast. Attributes: not versioned, left out of the payload while empty.
+    contract_start: date | None = None
+    contract_end: date | None = None
+    contract_duration: int | None = None
+    contract_duration_unit: str | None = None
+    contract_renewal: bool | None = None
+    contract_renewals_max: int | None = None
     # signals, populated by classify.py
     is_defence: bool = False
     sig_legal_basis: bool = False
@@ -879,6 +888,77 @@ def _lot_count(g) -> int | None:
     return max(sizes) if sizes and max(sizes) > 0 else None
 
 
+# ------------------------------------------------- WP-159: the contract period
+#
+# One reader for every eForms-shaped source. Its input is TED's own search field names (field list:
+# https://docs.ted.europa.eu/ODS/latest/reuse/field-list.html, read 30 October 2026), one entry per lot:
+#   duration-period-value-lot / -unit-lot    BT-36 (OPA-36 number, BT-36 unit)
+#   contract-duration-start-date-lot         BT-536
+#   contract-duration-end-date-lot           BT-537
+#   renewal-maximum-lot                      BT-58
+#   renewal-description-lot                  BT-57 (read for its presence only)
+# TED returns them as they are; the BKMS mapper (`sources.de_bkms.ted_fields`), BOAMP's eForms body
+# (`_fr_eforms_period`) and PLACSP's CODICE (`sources.placsp`) are read into the same names.
+CONTRACT_PERIOD_FIELDS = ("duration-period-value-lot", "duration-period-unit-lot",
+                          "contract-duration-start-date-lot", "contract-duration-end-date-lot",
+                          "renewal-maximum-lot", "renewal-description-lot")
+# eForms `duration-unit` codes, and the UN/ECE Rec. 20 codes CODICE uses (MON, ANN, WEE).
+_PERIOD_UNIT = {"MONTH": "MONTH", "MON": "MONTH", "YEAR": "YEAR", "ANN": "YEAR", "DAY": "DAY",
+                "WEEK": "WEEK", "WEE": "WEEK"}
+_MONTHS_PER_UNIT = {"MONTH": 1.0, "YEAR": 12.0, "DAY": 1 / 30.44, "WEEK": 7 / 30.44}
+_MAX_PERIOD_MONTHS = 1200           # a hundred years: anything longer is a typo, not a contract
+
+
+def _period_day(value: Any) -> date | None:
+    day = _parse_date(value)
+    return day if day and 1990 <= day.year <= 2100 else None
+
+
+def _period_number(value: Any) -> float | None:
+    try:
+        return float(str(value).replace(",", ".").strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def contract_period(g) -> dict[str, Any]:
+    """The contract period a notice states, as Opportunity fields (`contract_*`); empty when it states none.
+
+    Several lots: the earliest start, the latest end and the longest duration (compared in months, stored as stated),
+    the most renewals. A duration pairs with its unit by position when the two lists agree in length, or takes the one
+    unit every lot states; otherwise it is not read. A fractional duration is converted to whole months.
+    """
+    out: dict[str, Any] = {}
+    starts = [d for d in map(_period_day, _each(g("contract-duration-start-date-lot"))) if d]
+    ends = [d for d in map(_period_day, _each(g("contract-duration-end-date-lot"))) if d]
+    if starts:
+        out["contract_start"] = min(starts)
+    if ends and (not starts or max(ends) >= min(starts)):
+        out["contract_end"] = max(ends)
+    values = [_period_number(v) for v in _each(g("duration-period-value-lot"))]
+    units = [_PERIOD_UNIT.get(str(u).strip().upper()) for u in _each(g("duration-period-unit-lot"))]
+    if len(units) != len(values):
+        units = units[:1] * len(values) if len(set(units)) == 1 else []
+    best: tuple[float, int, str] | None = None
+    for value, unit in zip(values, units, strict=False):       # no units at all: nothing paired
+        if value is None or unit is None or value <= 0:
+            continue
+        months = value * _MONTHS_PER_UNIT[unit]
+        if months > _MAX_PERIOD_MONTHS:
+            continue
+        stated = (int(value), unit) if value == int(value) else (max(1, round(months)), "MONTH")
+        if best is None or months > best[0]:
+            best = (months, *stated)
+    if best:
+        out["contract_duration"], out["contract_duration_unit"] = best[1], best[2]
+    renewals = [int(n) for n in map(_period_number, _each(g("renewal-maximum-lot"))) if n is not None and 0 <= n < 100]
+    if renewals:
+        out["contract_renewals_max"] = max(renewals)
+    if any(r > 0 for r in renewals) or _first(g("renewal-description-lot")) is not None:
+        out["contract_renewal"] = True
+    return out
+
+
 # The tender sources whose connector never reads an estimated value, so an empty value there says nothing
 # about the buyer: the BZP board listing (`from_ezamowienia`) and the TenderNed listing and detail
 # (`from_tenderned`) carry none; it is on the notice document, a separate fetch per notice (WP-49 checked
@@ -1131,6 +1211,7 @@ def from_ted(notice: dict[str, Any]) -> Opportunity:
         description=description,
         security_clearance_required=bool(clearance and str(clearance).strip()),
         nda_required=_as_bool(nda),
+        **contract_period(g),
     )
 
 
@@ -1877,6 +1958,31 @@ def _fr_lot_count(body: dict[str, Any]) -> int | None:
     return None
 
 
+def _fr_eforms_period(body: dict[str, Any]) -> dict[str, Any]:
+    """WP-159: an eForms body's contract period per lot, in TED's field names (`contract_period` reads them).
+    `PlannedPeriod` and `ContractExtension` of each lot's `ProcurementProject`; a PIN's parts are not lots."""
+    f: dict[str, list[Any]] = {k: [] for k in CONTRACT_PERIOD_FIELDS}
+    for lot in _fr_nodes(body, ("EFORMS", "*", "cac:ProcurementProjectLot")):
+        if not isinstance(lot, dict) or (isinstance(lot.get("cbc:ID"), dict)
+                                         and lot["cbc:ID"].get("@schemeName") == "Part"):
+            continue
+        for period in _fr_nodes(lot, ("cac:ProcurementProject", "cac:PlannedPeriod")):
+            if not isinstance(period, dict):
+                continue
+            measure = period.get("cbc:DurationMeasure")
+            if isinstance(measure, dict) and _fr_text(measure):
+                f["duration-period-value-lot"].append(_fr_text(measure))
+                f["duration-period-unit-lot"].append(measure.get("@unitCode"))
+            f["contract-duration-start-date-lot"].append(_fr_text(period.get("cbc:StartDate")))
+            f["contract-duration-end-date-lot"].append(_fr_text(period.get("cbc:EndDate")))
+        for ext in _fr_nodes(lot, ("cac:ProcurementProject", "cac:ContractExtension")):
+            if isinstance(ext, dict):
+                f["renewal-maximum-lot"].append(_fr_text(ext.get("cbc:MaximumNumberNumeric")))
+                if ext.get("cac:Renewal"):
+                    f["renewal-description-lot"].append("stated")
+    return contract_period(f.get)
+
+
 def from_boamp(record: dict[str, Any]) -> Opportunity:
     """Map one BOAMP record onto the unified schema.
 
@@ -1928,6 +2034,7 @@ def from_boamp(record: dict[str, Any]) -> Opportunity:
         procedure_identifier=_fr_procedure_id(record),
         lot_count=_fr_lot_count(body),
         description=_fr_description(body),
+        **_fr_eforms_period(body),
     )
 
 

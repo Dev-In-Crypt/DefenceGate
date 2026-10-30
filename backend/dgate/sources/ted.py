@@ -110,6 +110,14 @@ TED_FIELDS = [
     "csecurity-clearance-description-lot",
     "non-disclosure-agreement-lot",
     "links",
+    # WP-159: the contract period per lot (BT-36 number and unit, BT-536, BT-537, BT-58, BT-57), names from the
+    # field list page of 30 October 2026; read by `normalise.contract_period`. Not yet seen in a live answer.
+    "duration-period-value-lot",
+    "duration-period-unit-lot",
+    "contract-duration-start-date-lot",
+    "contract-duration-end-date-lot",
+    "renewal-maximum-lot",
+    "renewal-description-lot",
 ]
 
 

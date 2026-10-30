@@ -389,9 +389,10 @@ class Settings:
     # no key is issued and a request that presents one is refused (401); keys already issued are listed and revocable.
     api_keys_open: bool = field(default_factory=lambda: _env("DGATE_API_KEYS_OPEN", "0").strip() == "1")
     # The sources a key-authenticated request may read: the ones docs/research/DATA_LICENCES_2026-10-27.md finds
-    # resellable, decided by the owner. Comma-separated source codes; TED only by default.
+    # resellable, decided by the owner. Comma-separated source codes; TED and TenderNed (CC0) by default (WP-159). Not
+    # BKMS (inactive, GDPR items open); Vinnova feeds calls, which a key does not read.
     api_key_sources: tuple[str, ...] = field(default_factory=lambda: tuple(
-        s.strip() for s in _env("DGATE_API_KEY_SOURCES", "ted").split(",") if s.strip()))
+        s.strip() for s in _env("DGATE_API_KEY_SOURCES", "ted,nl_tenderned").split(",") if s.strip()))
     # WP-126: the file the accounts security log is written to (JSON lines), kept to 90 days by
     # dgate.ops.logprune. Unset (development, tests): the log goes to stderr as before.
     security_log: str | None = field(default_factory=lambda: os.environ.get("DGATE_SECURITY_LOG") or None)
