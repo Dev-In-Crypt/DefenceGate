@@ -291,15 +291,21 @@ router = APIRouter(prefix="/v1/account", dependencies=[Depends(internal_only), D
 internal_router = APIRouter(dependencies=[Depends(internal_only)])
 
 
+# WP-158: the plan an association's licence gives the account `u` (dgate/associations.py): team for its admin, pro for a member.
+ASSOC_PLAN_SQL = """(SELECT CASE WHEN a.admin_id = u.id THEN 'team' ELSE 'pro' END FROM association_member m
+                       JOIN association a ON a.id = m.association_id AND a.licensed_at IS NOT NULL AND a.licensed_until > now()
+                      WHERE m.account_id = u.id) AS assoc_plan"""
+
+
 def current(request: Request, conn=Depends(get_conn),
             x_dg_session: str | None = Header(None)) -> dict[str, Any]:
     """The authenticated account and the session it came with, or 401. With the subscription
-    (WP-124), so every gate reads the plan in force through `billing.plan_of`."""
+    (WP-124) and the association's plan (WP-158), so every gate reads the plan in force through `billing.plan_of`."""
     if not x_dg_session or not _SESSION.match(x_dg_session):
         raise AccountError(401, "unauthenticated", "sign in required")
     row = conn.execute(
-        """SELECT s.public_id AS session_id, s.id_hash, u.*, b.plan AS sub_plan, b.status AS sub_status,
-                  b.current_period_end AS sub_period_end
+        f"""SELECT s.public_id AS session_id, s.id_hash, u.*, b.plan AS sub_plan, b.status AS sub_status,
+                  b.current_period_end AS sub_period_end, {ASSOC_PLAN_SQL}
              FROM app_session s JOIN app_user u ON u.id = s.user_id
              LEFT JOIN billing_subscription b ON b.account_id = u.id
             WHERE s.id_hash = %s AND s.expires_at > now()
@@ -1057,7 +1063,7 @@ def patch_me(body: ProfilePatch, conn=Depends(get_conn), user=Depends(current)) 
     if sets:
         conn.execute(f"UPDATE app_user SET {', '.join(sets)} WHERE id = %s", params + [user["id"]])
     row = conn.execute("SELECT * FROM app_user WHERE id = %s", (user["id"],)).fetchone()
-    row.update({k: user.get(k) for k in ("sub_plan", "sub_status", "sub_period_end")})   # the plan, as `current` reads it
+    row.update({k: user.get(k) for k in ("sub_plan", "sub_status", "sub_period_end", "assoc_plan")})   # the plan, as `current` reads it
     done = bool(row["role"]) and bool(row["tracks"])
     if done != row["onboarded"]:
         conn.execute("UPDATE app_user SET onboarded = %s WHERE id = %s", (done, user["id"]))
@@ -1131,6 +1137,7 @@ def export(conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
                                                (uid,)).fetchall()],
         "apiKeys": _api_keys_export(conn, uid),
         "apiLicensedAt": user.get("api_licensed_at"),
+        "association": _association_export(conn, uid),
         # WP-155: the company reports counted against the plan (company and month)
         "companyReports": [{"month": r["month"], "organisationId": r["org_id"], "openedAt": r["opened_at"]}
                            for r in conn.execute("SELECT * FROM company_report_open WHERE account_id = %s "
@@ -1140,6 +1147,13 @@ def export(conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
                         "SELECT * FROM app_follow WHERE owner_id = %s ORDER BY created_at LIMIT %s",
                         (uid, MAX_FOLLOWS)).fetchall()],
     }
+
+
+def _association_export(conn, uid) -> dict[str, Any] | None:
+    """WP-158: the account's membership of an association and its digest choice."""
+    from .associations import export_row
+
+    return export_row(conn, uid)
 
 
 def _api_keys_export(conn, uid) -> list[dict[str, Any]]:

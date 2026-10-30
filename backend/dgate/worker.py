@@ -438,6 +438,18 @@ def job_alerts() -> JobResult:
     return run_job("alerts", _run)
 
 
+def job_association_digest() -> JobResult:
+    """WP-158: the weekly digest to the members of a licensed association who opted in. A no-op while accounts are
+    closed or without a mail relay."""
+    from .associations import run_digests
+
+    def _run() -> None:
+        with db.connect(settings().dsn) as conn:
+            log.info("association digest: %s", run_digests(conn))
+
+    return run_job("association_digest", _run)
+
+
 def job_link_twins() -> JobResult:
     """Tie national notices to the TED notice they are the same procurement as.
 
@@ -1236,6 +1248,7 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "seed-buyers": job_seed_buyers,
     "health": job_health_report,
     "alerts": job_alerts,
+    "association-digest": job_association_digest,
     "link-twins": job_link_twins,
     "buyer-families": job_buyer_families,
     "warm-lists": job_warm_lists,
@@ -1298,6 +1311,8 @@ def build_scheduler():
                   id="health_report", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_alerts, CronTrigger(minute=20),
                   id="alerts_hourly", max_instances=1, misfire_grace_time=1800)
+    sched.add_job(job_association_digest, CronTrigger(minute=40),
+                  id="association_digest_hourly", max_instances=1, misfire_grace_time=1800)
     sched.add_job(job_link_twins, CronTrigger(hour=cfg.twins_hour, minute=cfg.twins_minute),
                   id="link_twins_daily", max_instances=1, misfire_grace_time=3600)
     # An hour after the twins: the ingests and the buyer cleanup have finished by then.

@@ -13,7 +13,7 @@ import { cache } from 'react';
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type {
-  AccountSession, ApiKey, ApiKeys, Cadence, Dashboard, DashboardChange, DashboardClosing, DashboardFollowing, DashboardMatch, DashboardPulse,
+  AccountSession, ApiKey, ApiKeys, AssociationView, Cadence, Dashboard, DashboardChange, DashboardClosing, DashboardFollowing, DashboardMatch, DashboardPulse,
   Follow, FollowKind, Me, Profile, ProfileScope, Role, SavedSearch, SearchFilters, SearchKind, ShortlistItem, ShortlistKind,
   ShortlistStatus, StateItem, StateKey, Track, PaidFeature as Feature, SupplierCompetition, SupplierFilters, SupplierItem,
 } from './types';
@@ -185,6 +185,7 @@ function toMe(raw: unknown): Me {
     plan: isRecord(raw.plan) ? toPlan(raw.plan.current) : 'free',
     features: toFeatures(raw.features),
     apiKeys: arr<unknown>(raw.features).includes('api_keys'),
+    association: arr<unknown>(raw.features).includes('association'),
     limits: toLimits(raw.limits),
   };
 }
@@ -486,6 +487,32 @@ export const createApiKey = (name: string, scopes: ApiKey['scopes'], password: s
   });
 export const revokeApiKey = (id: string, password: string) =>
   call<ApiKey>(`/keys/${encodeURIComponent(id)}/revoke`, { method: 'POST', json: { password } }, toApiKey);
+
+/* ---- the association of a cluster licence and its digest (WP-158) ---- */
+
+function toAssociation(raw: unknown): AssociationView {
+  if (!isRecord(raw) || typeof raw.name !== 'string') throw new Error('bad association');
+  const d = isRecord(raw.digest) ? raw.digest : {};
+  const s = isRecord(raw.seats) ? raw.seats : null;
+  return {
+    name: text(raw.name, 80), role: raw.role === 'admin' ? 'admin' : 'member', plan: raw.plan === 'team' ? 'team' : 'pro',
+    memberSince: stamp(raw.memberSince) ?? '', licensedUntil: stamp(raw.licensedUntil),
+    digest: {
+      on: d.on === true,
+      country: typeof d.country === 'string' && /^[A-Z]{2}$/.test(d.country) ? d.country : null,
+      cpv: arr<unknown>(d.cpv).filter((c): c is string => typeof c === 'string' && /^[0-9]{2,8}$/.test(c)),
+      lastWeek: typeof d.lastWeek === 'string' ? d.lastWeek.slice(0, 8) : null,
+    },
+    seats: s ? { used: count(s.used), cap: count(s.cap) } : null,
+  };
+}
+
+export const getAssociation = () => call<AssociationView>('/association', {}, toAssociation);
+export const setAssociationDigest = (digest: { on: boolean; country: string | null; cpv: string[] }) =>
+  call<AssociationView>('/association/digest', { method: 'PUT', json: digest }, toAssociation);
+/** The link in a digest mail: no session, the token alone switches that mail off. */
+export const unsubscribeDigest = (token: string) =>
+  call<{ done: boolean }>('/association/unsubscribe', { method: 'POST', session: false, json: { token } });
 
 /* ---- dashboard ---- */
 

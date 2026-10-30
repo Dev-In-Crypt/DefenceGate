@@ -160,21 +160,27 @@ def to_html(text: str) -> str:
             f"{body}\n</body></html>\n")
 
 
-def build_message(to: str, subject: str, body: str) -> EmailMessage:
+def build_message(to: str, subject: str, body: str, sender_name: str | None = None,
+                  headers: dict[str, str] | None = None) -> EmailMessage:
+    """WP-158: `sender_name` replaces SENDER_NAME for one mail (an association's digest); the address stays ours.
+    `headers`: extra ones (List-Unsubscribe)."""
     cfg = settings()
     sender = cfg.smtp_from or "no-reply@localhost"
     msg = EmailMessage()
-    msg["From"] = formataddr((SENDER_NAME, sender))
+    msg["From"] = formataddr((sender_name or SENDER_NAME, sender))
     msg["To"] = to
     msg["Subject"] = subject
     msg["Date"] = formatdate(localtime=False)
     msg["Message-ID"] = make_msgid(domain=sender.rsplit("@", 1)[-1])
+    for name, value in (headers or {}).items():
+        msg[name] = value
     msg.set_content(body)
     msg.add_alternative(to_html(body), subtype="html")
     return msg
 
 
-def send_mail(to: str, subject: str, body: str) -> bool:
+def send_mail(to: str, subject: str, body: str, sender_name: str | None = None,
+              headers: dict[str, str] | None = None) -> bool:
     """Send one message (plain text and its HTML form). Never raises; returns whether the
     relay (or the catcher) accepted it.
 
@@ -185,10 +191,10 @@ def send_mail(to: str, subject: str, body: str) -> bool:
     if not can_send():
         log.warning("mail not sent: %s", problem())
         return False
-    if any(c in to for c in "\r\n") or any(c in subject for c in "\r\n"):
+    if any(c in v for v in (to, subject, sender_name or "", *(headers or {}).values()) for c in "\r\n"):
         log.warning("mail refused: header injection attempt")
         return False
-    msg = build_message(to, subject, body)
+    msg = build_message(to, subject, body, sender_name, headers)
     catcher = _catcher()
     try:
         if catcher:

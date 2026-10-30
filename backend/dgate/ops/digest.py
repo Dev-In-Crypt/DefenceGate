@@ -15,7 +15,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
-from ..accounts import _is_new, run_search
+from ..accounts import ASSOC_PLAN_SQL, _is_new, run_search
 from ..billing import may, search_limit
 from ..config import settings
 from . import mailer
@@ -25,12 +25,12 @@ log = logging.getLogger("ops.digest")
 MAX_ACCOUNTS_PER_RUN = 200
 MAX_ITEMS_PER_SEARCH = 8
 
-DUE_SQL = """
+DUE_SQL = f"""
     SELECT s.id, s.owner_id, s.name, s.kind, s.filters, s.cadence, s.created_at,
            s.last_alerted_at, u.email_display,
            (SELECT count(*) FROM app_saved_search e WHERE e.owner_id = s.owner_id
                AND (e.created_at, e.id) < (s.created_at, s.id)) AS plan_rank,
-           b.plan AS sub_plan, b.status AS sub_status, b.current_period_end AS sub_period_end
+           b.plan AS sub_plan, b.status AS sub_status, b.current_period_end AS sub_period_end, {ASSOC_PLAN_SQL}
       FROM app_saved_search s JOIN app_user u ON u.id = s.owner_id
       LEFT JOIN billing_subscription b ON b.account_id = u.id
      WHERE s.cadence <> 'off'

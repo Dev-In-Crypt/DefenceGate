@@ -274,6 +274,8 @@ services:
       DGATE_SMTP_FROM: ${DGATE_SMTP_FROM:-}
       DGATE_SMTP_SECURITY: ${DGATE_SMTP_SECURITY:-starttls}
       DGATE_SITE_URL: https://${DGATE_DOMAIN:-localhost}
+      # WP-158: the associations' weekly digest is mailed only while accounts are open (the API's switch).
+      DGATE_ACCOUNTS_OPEN: ${DGATE_ACCOUNTS_OPEN:-0}
       # WP-124: the product ids only (not secrets): with all of them set the plans decide who gets alert digests,
       # as the API decides who may save searches (billing.plans_on_sale). The same lines as the API's.
       DGATE_CREEM_PRODUCT_PRO_MONTHLY: ${DGATE_CREEM_PRODUCT_PRO_MONTHLY:-}

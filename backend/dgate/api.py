@@ -1141,6 +1141,11 @@ app.include_router(_billing_webhook_router)
 from .apikeys import router as _keys_router  # noqa: E402
 
 app.include_router(_keys_router)
+
+# WP-158: an association's members (the cluster licence) and their co-branded digest (internal, like the accounts).
+from .associations import router as _associations_router  # noqa: E402
+
+app.include_router(_associations_router)
 app.add_exception_handler(AccountError, account_error_handler)
 
 # Layer 3, readiness (dgate/readiness): the public requirements catalogue and the stateless
