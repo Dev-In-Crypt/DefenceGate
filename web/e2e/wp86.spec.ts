@@ -43,7 +43,8 @@ test('the header has the four items and the search field; the footer repeats eac
   }
   // each button opens its pages
   const opens: [string | RegExp, string, string[]][] = [
-    ['Tenders & funding', '#sub-open', ['Tenders', 'Funding', 'Buyers', 'Market overview']],
+    // WP-166: Funding first; Contracts ending soon is in this menu
+    ['Tenders & funding', '#sub-open', ['Funding', 'Tenders', 'Contracts ending soon', 'Buyers', 'Market overview']],
     ['Partners', '#sub-partners', ['Companies', 'Ukraine partners', 'Consortium gaps']],
     [/What.s new/, '#sub-new', ['What changed', 'Weekly digest', 'Deadline calendar']],
   ];
@@ -121,8 +122,11 @@ test('home: the lead, the search and the three tasks before anything else; no "W
   // the search is on the first screen, at every width, and the tasks start there
   const bottom = await page.locator('#home-search').evaluate((el) => el.getBoundingClientRect().bottom);
   expect(bottom).toBeLessThanOrEqual(page.viewportSize()!.height);
+  // WP-166 (owner, 31 Oct 2026; moved on purpose): the consortium path starts on the first screen, right under the search; the tasks follow it
+  const pathTop = await page.locator('[data-consortium-path]').evaluate((el) => el.getBoundingClientRect().top);
+  expect(pathTop).toBeLessThan(page.viewportSize()!.height);
   const tasksTop = await tasks.evaluate((el) => el.getBoundingClientRect().top);
-  expect(tasksTop).toBeLessThan(page.viewportSize()!.height);
+  expect(tasksTop).toBeGreaterThan(pathTop);
   for (const t of await tasks.getByRole('link').all()) expect((await t.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
 });
 

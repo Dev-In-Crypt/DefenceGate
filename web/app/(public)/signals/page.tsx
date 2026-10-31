@@ -15,6 +15,7 @@ import {
 } from '@/lib/signals';
 import { PageHeader } from '@/components/dg/page-header';
 import { NoteLine } from '@/components/dg/blocks';
+import { ShareNote } from '@/components/dg/share-note';
 import { EmptyState } from '@/components/dg/feedback';
 import { Button } from '@/components/dg/button';
 import { CountryLabel } from '@/components/dg/data-display';
@@ -226,6 +227,7 @@ export default async function SignalsPage({ searchParams }: Props) {
           participations in projects of the European Defence Fund, EDIDP, EDIP and PADR. Natural persons are never named. These are facts
           from public records; they say nothing about a company&rsquo;s prospects.
         </AboutData>}>{NOT_ADVICE}</NoteLine>
+        <ShareNote />
         {a && <p className="m-0 max-w-prose text-small text-ink-muted" data-attribution>{a.sources.map((s) => s.attribution ?? s.name).join(' ')}</p>}
       </section>
     </>

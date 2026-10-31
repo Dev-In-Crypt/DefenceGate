@@ -19,6 +19,7 @@ import { FilterNotices } from '@/components/dg/filter-notices';
 import { Icon } from '@/components/dg/icon';
 import { Download } from 'lucide-react';
 import { CoverageNote } from '@/components/dg/coverage-note';
+import { ShareNote } from '@/components/dg/share-note';
 import { DataTable } from '@/components/dg/data-table';
 import { moneyLine, valuedShare } from '@/lib/market-money';
 import type { MarketMoney, MoneyTotals } from '@/lib/types';
@@ -291,6 +292,7 @@ export default async function MarketPage({ searchParams }: Props) {
 
       {/* WP-105 (p07: "no spending totals by country, CPV or buyer"): the contract values awarded, contracts only, per currency */}
       <ContentSection title="Contract values awarded">
+        <ShareNote />
         {stats.money ? <Money m={stats.money} basis={stats.basisMoney ?? ''} cpvLink={cpvLink} /> : (
           <p className="m-0 max-w-prose text-body" data-market-money-none>The contract values are being summed; they are shown once the next computation is stored (within a few hours).</p>
         )}

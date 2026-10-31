@@ -50,7 +50,8 @@ test('home: exactly three tiles; each link leads to its page, with the live coun
     await expect(page.getByRole('link', { name }), String(name)).toHaveAttribute('href', href);
   }
   // the first tile holds its two actions and nothing else to click; a tile that is a link holds no other
-  expect(await tiles.first().locator('a').evaluateAll((as) => as.map((a) => a.getAttribute('href')))).toEqual(['/tenders', '/funding']);
+  // WP-166 (moved on purpose): funding first, tenders second
+  expect(await tiles.first().locator('a').evaluateAll((as) => as.map((a) => a.getAttribute('href')))).toEqual(['/funding', '/tenders']);
   await expect(tiles.first().locator('button, input')).toHaveCount(0);
   for (const i of [1, 2]) await expect(tiles.nth(i).locator('a, button, input')).toHaveCount(0);
   const figure = (i: number, label: RegExp) => tiles.nth(i).locator('[data-figure]').filter({ hasText: label }).locator(':scope > span:first-child').innerText();
@@ -72,8 +73,8 @@ test('home: exactly three tiles; each link leads to its page, with the live coun
   await visit(page, '/', { title: /DefenceGate/, h1: 'Win, partner, qualify.' });
   await expect(page.getByText('Make parts or provide services?')).toBeVisible();
   await expect(page.getByRole('link', { name: 'See who buys what you make' })).toHaveAttribute('href', '/readiness/supplier');
-  // keyboard: the first action takes focus and shows it
-  const first = page.locator('[data-tile] a').first();
+  // keyboard: the first action takes focus and shows it. WP-166 (moved on purpose): the consortium path's first step comes before the tiles
+  const first = page.locator('[data-step]').first();
   await page.locator('#home-search').focus();
   await page.keyboard.press('Tab');   // the Search button
   await page.keyboard.press('Tab');
@@ -166,9 +167,10 @@ test('home at 375 px: no horizontal scroll; the tiles and the lists stack', asyn
   expect(w.s).toBeLessThanOrEqual(w.c);
   const lefts = await page.locator('[data-tile]').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().left)));
   expect(new Set(lefts).size, 'one column of tiles').toBe(1);
-  const a = await page.locator('section[aria-labelledby="closing-tenders"]').boundingBox();
-  const b = await page.locator('section[aria-labelledby="closing"]').boundingBox();
-  expect(b!.y, 'the funding list under the tenders list').toBeGreaterThanOrEqual(a!.y + a!.height);
+  // WP-166 (moved on purpose): funding first, the tenders list under it
+  const a = await page.locator('section[aria-labelledby="closing"]').boundingBox();
+  const b = await page.locator('section[aria-labelledby="closing-tenders"]').boundingBox();
+  expect(b!.y, 'the tenders list under the funding list').toBeGreaterThanOrEqual(a!.y + a!.height);
 });
 
 test('home in the dark theme: the page, the tiles and the lists take the dark colours', async ({ browser }) => {

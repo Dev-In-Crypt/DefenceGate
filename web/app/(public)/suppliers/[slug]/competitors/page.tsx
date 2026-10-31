@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/dg/page-header';
 import { Card } from '@/components/dg/card';
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { CompetitorsCard } from '@/components/dg/competition';
+import { ShareNote } from '@/components/dg/share-note';
 import { companyCrumbs } from '@/components/dg/companies-tabs';
 
 /**
@@ -45,7 +46,7 @@ export default async function CompetitorsPage({ params }: Props) {
         title={`Competitors of ${s.name}`} />
       {gate && <Card><p className="m-0 text-body" data-competitors-gate>{gate}</p></Card>}
       {c.available
-        ? <CompetitorsCard c={c} name={s.name} />
+        ? <><CompetitorsCard c={c} name={s.name} /><ShareNote /></>
         : <Card><p className="m-0 text-body">The figures are being renewed. Try again in a few minutes.</p></Card>}
     </>
   );

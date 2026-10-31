@@ -5,6 +5,7 @@ import { getAccountStatus } from '@/lib/account';
 import { getCalls, getHealth, getSiteStats, getTenders, lastDataUpdate } from '@/lib/api';
 import { getOrganisations } from '@/lib/networks-api';
 import { parseOrgFilters } from '@/lib/networks';
+import { parseCallFilters } from '@/lib/filters';
 import { portalWords } from '@/lib/coverage-copy';
 import { sourceKinds } from '@/lib/source-status';
 import { STEPS_QUESTIONS, rangeWords } from '@/lib/question-counts';
@@ -99,6 +100,48 @@ function SplitTile({ id, question, title, actions }: { id: string; question: str
   );
 }
 
+/**
+ * WP-166 (owner, 31 Oct 2026: the paying users assemble consortia for EU calls): the job on the page before anything else, four steps
+ * through pages that exist. Each step is one link card (the card rule: the edge and tint show hover and focus, the text is never
+ * underlined).
+ */
+const STEPS: { n: number; href: string; title: string; text: string }[] = [
+  { n: 1, href: '/funding', title: 'Find a call', text: 'EDF, EDIP and other EU defence calls, with deadlines and budgets.' },
+  { n: 2, href: '/check', title: 'Check eligibility', text: 'Whether your company may apply, from each call’s own conditions.' },
+  { n: 3, href: '/networks/consortium-gaps', title: 'See the gaps', text: 'Repeat EDF participants that never had a partner from Ukraine, or from your country.' },
+  { n: 4, href: '/organisations', title: 'Find partners', text: 'Organisations of earlier EU projects; on a call page with past roles, Ukrainian ones marked.' },
+];
+
+function ConsortiumPath({ openCalls, ukraine, usi }: { openCalls: number | null; ukraine: number | null; usi: number | null }) {
+  return (
+    <section aria-labelledby="consortium" className="flex flex-col gap-4" data-consortium-path>
+      <h2 id="consortium" className="m-0 text-h2">Build a consortium for an EU defence call</h2>
+      <ol className="m-0 grid list-none gap-4 p-0 md:grid-cols-2 xl:grid-cols-4">
+        {STEPS.map((st) => (
+          <li key={st.n} className="min-w-0">
+            <Link href={st.href} data-step={st.n}
+              className={`flex h-full flex-col gap-1 border-strong text-ink no-underline transition-colors duration-dg hover:border-ink-muted hover:bg-surface-inset focus-visible:border-ink-muted ${CARD_SURFACE} ${CARD_PADDING}`}>
+              <h3 className="m-0 flex items-baseline gap-2 text-h3"><span className="font-mono text-small text-accent-text">{st.n}</span>{' '}{st.title}</h3>
+              <span className="text-body text-ink-muted">{st.text}</span>
+              {st.n === 1 && openCalls !== null && <span className="mt-auto pt-1 text-small font-bold">{formatNumber(openCalls)} {plural(openCalls, 'open call')}</span>}
+            </Link>
+          </li>
+        ))}
+      </ol>
+      {/* Ukraine flags in sight: the calls open to Ukrainian participants and the Ukraine Support Instrument's, with the list counts */}
+      <p className="m-0 flex flex-wrap gap-x-6 gap-y-1 text-body" data-ukraine-line>
+        <Link href="/funding?ukraine=true" className="inline-flex min-h-11 items-center font-bold">
+          {ukraine === null ? 'Calls open to Ukrainian participants' : `${formatNumber(ukraine)} ${plural(ukraine, 'call')} open to Ukrainian participants`}
+        </Link>
+        <Link href="/funding?programme=EDIP-USI" className="inline-flex min-h-11 items-center font-bold">
+          {usi === null ? 'Ukraine Support Instrument calls' : `${formatNumber(usi)} open Ukraine Support Instrument ${plural(usi, 'call')}`}
+        </Link>
+        <Link href="/networks/ukraine-partners" className="inline-flex min-h-11 items-center font-bold">Ukraine partners</Link>
+      </p>
+    </section>
+  );
+}
+
 /** A row of a closing-soon list: the title, what it is from (and its value where stated) and the deadline, nothing more. */
 function Row({ href, title, lang, meta, deadline }: { href: string; title: string; lang?: string; meta: string; deadline: DeadlineInfo }) {
   return (
@@ -137,7 +180,7 @@ export default async function LandingPage() {
   const { open: accountsOpen } = await getAccountStatus();
   const health = await getHealth().catch(() => null);
   const faq = homeFaq(faqItems(portalWords(health?.sources ?? []), accountsOpen));
-  const [stats, current, dated, closingCalls, orgs] = await Promise.all([
+  const [stats, current, dated, closingCalls, orgs, uaCalls, usiCalls] = await Promise.all([
     getSiteStats().catch(() => null),
     // The tender list's default (/tenders, status Open): not past its deadline, and with no deadline only if published within the last year.
     getTenders({ pageSize: 1 }, { cacheable: true }).catch(() => null),
@@ -147,6 +190,9 @@ export default async function LandingPage() {
     getCalls({ status: 'closing-soon', sort: 'deadline-asc', pageSize: CANDIDATES }, { cacheable: true }).catch(() => null),
     // WP-121: the partners tile opens the organisations in EU-funded defence projects (the defence programmes, most defence projects first)
     getOrganisations(parseOrgFilters({})).catch(() => null),
+    // WP-166: the counts of the two funding lists the consortium path links to, with their own filters
+    getCalls({ ...parseCallFilters({ ukraine: 'true' }), pageSize: 1 }, { cacheable: true }).catch(() => null),
+    getCalls({ ...parseCallFilters({ programme: 'EDIP-USI' }), pageSize: 1 }, { cacheable: true }).catch(() => null),
   ]);
   // A list that did not come is not an empty list, and not a page to keep. This page is prerendered and revalidated every minute
   // (`revalidate`): an error thrown here fails the build (which tries a page again, next.config.ts) or the revalidation, and Next
@@ -177,13 +223,16 @@ export default async function LandingPage() {
         <SiteSearchForm id="home-search" className="mt-4 md:mt-5" />
       </section>
 
+      <ConsortiumPath openCalls={openCalls} ukraine={uaCalls?.total ?? null} usi={usiCalls?.total ?? null} />
+
       <section aria-label="Three questions" className="flex flex-col gap-3">
         <ul aria-label="What do you want to know?" className="m-0 grid list-none gap-4 p-0 md:grid-cols-3">
           {/* WP-121: two actions, each with its own count (the tile showed the funding count and led to tenders only) */}
           <SplitTile id="t-open" question="What is open?" title="Find tenders and funding"
             actions={[
-              { href: '/tenders', go: 'Browse tenders', value: openTenders, label: plural(openTenders ?? 0, 'open tender') },
+              // WP-166: funding first, tenders second
               { href: '/funding', go: 'Browse funding', value: openCalls, label: plural(openCalls ?? 0, 'open funding call') },
+              { href: '/tenders', go: 'Browse tenders', value: openTenders, label: plural(openTenders ?? 0, 'open tender') },
             ]} />
           {/* WP-121: the organisations of the EU's defence programmes, most defence projects first (the winners list opened on Spanish
               caterers: only Spain's national awards are read); the number is the count of that same list */}
@@ -203,21 +252,22 @@ export default async function LandingPage() {
       </section>
 
       <div className="grid gap-8 md:grid-cols-2 md:gap-6">
-        <ClosingList id="closing-tenders" title="Tenders closing soon"
-          more={{ href: '/tenders', label: openTenders === null ? 'All open tenders' : `All ${formatNumber(openTenders)} open tenders` }}
-          empty={<EmptyState title="No tenders to show right now" action={<Button variant="secondary" href="/tenders">Browse all tenders</Button>} />}>
-          {soonTenders.map(({ item: t, deadline }) => (
-            <Row key={t.id} href={`/tenders/${t.slug}`} title={displayName(t.title)} lang={isNonEnglish(t.titleLanguage) ? (t.titleLanguage ?? undefined) : undefined}
-              meta={[t.country ? countryName(t.country) : null, stated(t.estimatedValue)].filter(Boolean).join(' · ')} deadline={deadline} />
-          ))}
-        </ClosingList>
+        {/* WP-166: funding first */}
         <ClosingList id="closing" title="Funding closing soon"
           more={{ href: '/funding', label: openCalls === null ? 'All open calls' : `All ${formatNumber(openCalls)} open ${plural(openCalls, 'call')}` }}
           empty={<EmptyState title="No calls close in the next 30 days" action={<Button variant="secondary" href="/funding">Browse all open calls</Button>} />}>
           {soonCalls.map(({ item: c, deadline }) => (
             // A call budget shared by the topics of one call is stated once (on its first row), as the list cards do.
             <Row key={c.id} href={`/funding/${c.slug}`} title={displayName(c.title)} lang={isNonEnglish(c.titleLanguage) ? c.titleLanguage : undefined}
-              meta={[PROGRAMMES[c.programme].label, budgetRepeats.has(c.id) ? null : stated(c.budget)].filter(Boolean).join(' · ')} deadline={deadline} />
+              meta={[PROGRAMMES[c.programme].label, budgetRepeats.has(c.id) ? null : stated(c.budget), c.openToUkraine === true ? 'Open to Ukrainian participants' : null].filter(Boolean).join(' · ')} deadline={deadline} />
+          ))}
+        </ClosingList>
+        <ClosingList id="closing-tenders" title="Tenders closing soon"
+          more={{ href: '/tenders', label: openTenders === null ? 'All open tenders' : `All ${formatNumber(openTenders)} open tenders` }}
+          empty={<EmptyState title="No tenders to show right now" action={<Button variant="secondary" href="/tenders">Browse all tenders</Button>} />}>
+          {soonTenders.map(({ item: t, deadline }) => (
+            <Row key={t.id} href={`/tenders/${t.slug}`} title={displayName(t.title)} lang={isNonEnglish(t.titleLanguage) ? (t.titleLanguage ?? undefined) : undefined}
+              meta={[t.country ? countryName(t.country) : null, stated(t.estimatedValue)].filter(Boolean).join(' · ')} deadline={deadline} />
           ))}
         </ClosingList>
       </div>

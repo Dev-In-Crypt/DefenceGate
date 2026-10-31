@@ -29,8 +29,9 @@ test('home: the owner’s shorter lead; each tile is its question, one line, a b
       expect(await n.evaluate((e) => parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(32);
     }
   }
-  // on a desktop the three tiles, their numbers and actions included, are on the first screen
-  if (!isMobile(page)) expect(await tiles.evaluateAll((ts) => Math.max(...ts.map((t) => t.getBoundingClientRect().bottom)))).toBeLessThanOrEqual(900);
+  // on a desktop the first screen holds the lead's job. WP-166 (owner, 31 Oct 2026; moved on purpose): the four steps of the consortium
+  // path took the tiles' place there (e2e/wp166.spec.ts); the tiles follow right under them
+  if (!isMobile(page)) expect(await page.locator('[data-step]').evaluateAll((ts) => Math.max(...ts.map((t) => t.getBoundingClientRect().bottom)))).toBeLessThanOrEqual(900);
 });
 
 test('forms: a label sits 8 px above its field (the funding search, a readiness field)', async ({ page }) => {

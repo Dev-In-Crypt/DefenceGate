@@ -47,6 +47,20 @@ const ROLE_WORD: Record<string, string> = {
 };
 export const roleWord = (role: string) => ROLE_WORD[role] ?? role.replace(/_/g, ' ');
 
+/** WP-166: the mark of an organisation established in Ukraine (country UA as the source states it), wherever partners are listed. */
+export const UA_MARK = 'Ukrainian organisation';
+
+/** WP-166: an organisation's past roles over all its projects (backend partners.past_roles). */
+export interface PastRoles { coordinator: number; participant: number; thirdParty: number; other: number }
+
+/** "coordinator in 3 projects, participant in 12, third party in 1": the roles held, most responsible first; null when none. */
+export function pastRolesWords(r: PastRoles | null | undefined): string | null {
+  if (!r) return null;
+  const parts = ([['coordinator', r.coordinator], ['participant', r.participant], ['third party', r.thirdParty], ['other partner roles', r.other]] as const)
+    .filter(([, n]) => n > 0).map(([w, n], i) => `${w} in ${n}${i === 0 ? ` ${n === 1 ? 'project' : 'projects'}` : ''}`);
+  return parts.length ? parts.join(', ') : null;
+}
+
 /**
  * The EDF capability categories are named by abbreviations in the Commission's own file names. These are our plain reading of the
  * abbreviation (UX walk-through U11: the page listed SMERO 33, DIS 23 with no meaning); a category whose abbreviation we do not

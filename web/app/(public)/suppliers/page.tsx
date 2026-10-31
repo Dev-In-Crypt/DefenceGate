@@ -18,6 +18,7 @@ import { displayName } from '@/lib/display-name';
 import { coverageText, placspCredit, placspNote } from '@/lib/supplier-sources';
 import { groupValueLine, listValueLine } from '@/lib/value-totals';
 import { CoverageNote } from '@/components/dg/coverage-note';
+import { ShareNote } from '@/components/dg/share-note';
 import { EmptyState, ErrorState } from '@/components/dg/feedback';
 import { PageHeader } from '@/components/dg/page-header';
 import { CompaniesTabs, companyCrumbs } from '@/components/dg/companies-tabs';
@@ -249,6 +250,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
         )}
         {/* WP-98b: whose award results are read for the countries asked (the buyer's, else the supplier's), above an empty list too */}
         <CoverageNote countries={(api.buyerCountry || api.country).split(',').filter(Boolean)} kind="awards" />
+        <ShareNote />
         {/* WP-121 (p01, p04: the list opened on Spanish caterers, with nothing on it saying why): the order, said on the list */}
         {pageCredit && !f.source && !(api.buyerCountry || api.country) && f.sort === 'awards' && (
           <p className="m-0 max-w-prose text-small text-ink-muted" data-order-note>

@@ -9,6 +9,7 @@ import { cleanQuote } from '@/lib/quote';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/dg/logo';
 import { Icon } from '@/components/dg/icon';
+import { ShareNote } from '@/components/dg/share-note';
 
 /**
  * WP-162: the "Who to sell to" supplier report, one page for the screen and for paper (A4, the browser's print dialog saves it as PDF).
@@ -356,6 +357,8 @@ export function SellReportView({ r }: { r: SellReport }) {
                 ))}
               </p>
             )}
+            {/* WP-166: the figures are from the award notices we read, a part of defence spending */}
+            <ShareNote contracts={m.total!.procurements} />
           </>
         )}
       </Section>
@@ -363,7 +366,7 @@ export function SellReportView({ r }: { r: SellReport }) {
       <Section id="sr-3" title={L.s3}>
         {!m.available ? <Unavailable r={r} /> : m.winners!.total === 0
           ? <p className="m-0 text-body" data-sr-empty>No winner of these contracts is published in what we hold.</p>
-          : <Winners r={r} />}
+          : <><Winners r={r} /><ShareNote contracts={m.total!.awarded} /></>}
       </Section>
 
       <Section id="sr-4" title={L.s4}><OpenNow r={r} /></Section>
