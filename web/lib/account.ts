@@ -20,6 +20,7 @@ import type {
 import { PAID_FEATURES } from './types';
 import { PLAN_LABELS, readPlanChoice, type Billing, type PlanChoice, type PlanId } from './plans';
 import { signalQuery, type SignalAnswer, type SignalFilters } from './signals';
+import { endingQuery, type EndingAnswer, type EndingFilters } from './contract-period';
 import type { PackAnswer } from './eligibility-pack';
 
 const API_BASE = process.env.DG_API_URL;
@@ -608,3 +609,14 @@ export const getEligibilityCalls = () =>
     if (!isRecord(raw) || !Array.isArray(raw.items) || typeof raw.total !== 'number') throw new Error('bad calls');
     return raw as unknown as PackAnswer;
   });
+
+/* ---- WP-160: contracts ending soon, the paid part (Pro: the whole list a page at a time; Team: the CSV, CSV_ROWS at once) ---- */
+
+/** 402 without a plan that has it (once plans are on sale), 401 signed out (lib/contract-period endingState). */
+export const getFullEnding = (f: Omit<EndingFilters, 'page'>, page: number, pageSize: number) => {
+  const q = endingQuery(f);
+  return call<EndingAnswer>(`/contracts/ending?${q ? `${q}&` : ''}page=${page}&pageSize=${pageSize}`, { timeoutMs: pageSize > 100 ? 60_000 : 10_000 }, (raw) => {
+    if (!isRecord(raw) || !Array.isArray(raw.items) || typeof raw.total !== 'number') throw new Error('bad ending');
+    return raw as unknown as EndingAnswer;
+  });
+};

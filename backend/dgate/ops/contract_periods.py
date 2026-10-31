@@ -37,15 +37,20 @@ BACKFILL = {"de_bkms": from_de_bkms, "fr_boamp": from_boamp}
 
 def coverage(conn) -> list[dict[str, Any]]:
     """Per source, of the kept notices (`is_defence`): how many state a period, an end, a duration, a renewal, and
-    how many stated ends fall in the next twelve months."""
+    how many ends fall in the next twelve months by the list's rule (WP-160 `expiring.end_sql`: stated, or start +
+    duration; estimates are counted apart)."""
+    from ..expiring import end_sql
+
     return conn.execute(
-        """SELECT s.code AS source, count(*) AS notices,
+        f"""SELECT s.code AS source, count(*) AS notices,
                   count(*) FILTER (WHERE o.contract_start IS NOT NULL OR o.contract_end IS NOT NULL
                                       OR o.contract_duration IS NOT NULL) AS with_period,
                   count(*) FILTER (WHERE o.contract_end IS NOT NULL) AS with_end,
                   count(*) FILTER (WHERE o.contract_duration IS NOT NULL) AS with_duration,
                   count(*) FILTER (WHERE o.contract_renewal) AS with_renewal,
-                  count(*) FILTER (WHERE o.contract_end BETWEEN current_date AND current_date + 365) AS ends_12m
+                  count(*) FILTER (WHERE {end_sql(estimated=False)} BETWEEN current_date AND current_date + 365) AS ends_12m,
+                  count(*) FILTER (WHERE o.contract_start IS NULL AND o.contract_end IS NULL
+                                     AND {end_sql()} BETWEEN current_date AND current_date + 365) AS estimated_12m
              FROM opportunity o JOIN source s ON s.id = o.source_id
             WHERE o.is_defence
             GROUP BY s.code ORDER BY s.code""").fetchall()
@@ -126,7 +131,8 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
         for r in coverage(conn):
             print(f"{r['source']:<16} notices {r['notices']:>7}  period {r['with_period']:>6}  end {r['with_end']:>6}  "
-                  f"duration {r['with_duration']:>6}  renewal {r['with_renewal']:>6}  ends in 12 months {r['ends_12m']:>6}")
+                  f"duration {r['with_duration']:>6}  renewal {r['with_renewal']:>6}  ends in 12 months {r['ends_12m']:>6}  "
+                  f"(estimated {r['estimated_12m']:>6})")
     return 0
 
 

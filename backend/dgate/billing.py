@@ -70,6 +70,10 @@ FEATURES: dict[str, frozenset[str]] = {
     # WP-157: a workspace of up to SEATS users sharing the owner's plan, searches, shortlist and follows (workspace.py)
     "team_workspace": TEAM,
     "client_profiles": frozenset({"consultant"}),   # up to CLIENTS client profiles in the workspace
+    # WP-160 (owner, 31 October 2026): contracts ending soon beyond the first rows, and saved searches of that kind with their
+    # alerts (expiring.py); the list's CSV is Team. The buyer page's block is free.
+    "expiring_contracts": PRO,
+    "expiring_contracts_csv": TEAM,
 }
 # How many: None is no plan limit.
 REPORTS_PER_MONTH: dict[str, int | None] = {"pro": 3, "founding": 3, "team": 15, "consultant": None}
@@ -252,6 +256,8 @@ MESSAGES = {
     "supplier_map_csv": "the supplier map as CSV is part of Team and Consultant: choose a plan under Billing",
     "team_workspace": "the team workspace is part of Team and Consultant: choose a plan under Billing",
     "client_profiles": "client profiles are part of Consultant: choose a plan under Billing",
+    "expiring_contracts": "the full list of contracts ending soon and its alerts are part of Pro: choose a plan under Billing",
+    "expiring_contracts_csv": "the CSV of contracts ending soon is part of Team and Consultant: choose a plan under Billing",
 }
 
 

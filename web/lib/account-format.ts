@@ -17,7 +17,7 @@ export const ROLE_LABEL: Record<Role, string> = {
 };
 export const TRACK_LABEL: Record<Track, string> = { tenders: 'Tenders', funding: 'Funding calls' };
 export const CADENCE_LABEL: Record<Cadence, string> = { instant: 'Within the hour', daily: 'Daily digest', weekly: 'Weekly summary', off: 'Off' };
-export const KIND_LABEL: Record<SearchKind, string> = { tender: 'Tenders', call: 'Funding calls' };
+export const KIND_LABEL: Record<SearchKind, string> = { tender: 'Tenders', call: 'Funding calls', ending: 'Contracts ending soon' };
 
 /** Public detail pages look up the leading id only, so an id alone is a working link (it redirects to the full slug). */
 const ID_RE = /^[0-9]{1,9}$/;
@@ -38,7 +38,9 @@ export function followHref(kind: FollowKind, ref: string, slug?: string | null):
 export const FILTER_KEYS: Record<SearchKind, readonly string[]> = {
   tender: ['q', 'country', 'cpv', 'status', 'scope', 'goods', 'from', 'to', 'min', 'max', 'currency', 'sort'],
   call: ['q', 'programme', 'regime', 'country', 'status', 'from', 'to', 'min', 'max', 'currency', 'sort'],
+  ending: ['country', 'cpv', 'buyer', 'within', 'estimated'],          // WP-160: /tenders/ending
 };
+const LIST_PATH: Record<SearchKind, string> = { tender: '/tenders', call: '/funding', ending: '/tenders/ending' };
 
 function text(v: SearchFilters[string] | undefined): string {
   if (v === undefined) return '';
@@ -53,7 +55,7 @@ export function searchHref(kind: SearchKind, filters: SearchFilters): string {
     if (v) p.set(k, v);
   }
   const q = p.toString();
-  return `${kind === 'tender' ? '/tenders' : '/funding'}${q ? `?${q}` : ''}`;
+  return `${LIST_PATH[kind]}${q ? `?${q}` : ''}`;
 }
 
 const STATUS_WORDS: Record<string, string> = {
@@ -66,6 +68,17 @@ const codes = (v: string) => v.split(',').map((s) => s.trim()).filter(Boolean);
 /** A short, human list of what a stored filter selects. Always starts with the status; never empty. */
 export function describeFilters(kind: SearchKind, filters: SearchFilters): string[] {
   const out: string[] = [];
+  if (kind === 'ending') {
+    // WP-160: the window first, then what narrows it; estimated ends only when the search asked for them
+    out.push(`Ending within ${text(filters.within) || '12'} months`);
+    const country = codes(text(filters.country));
+    if (country.length) out.push(`Buyer country: ${country.map(countryName).join(', ')}`);
+    const cpv = codes(text(filters.cpv));
+    if (cpv.length) out.push(`CPV ${cpv.slice(0, 5).join(', ')}${cpv.length > 5 ? ' …' : ''}`);
+    if (text(filters.buyer)) out.push('One buyer');
+    out.push(text(filters.estimated) === 'true' ? 'Estimated ends included' : 'Stated and computed ends');
+    return out;
+  }
   const status = text(filters.status) || 'open';
   out.push(STATUS_WORDS[status] ?? status);
   if (kind === 'tender') {

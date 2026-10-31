@@ -161,11 +161,26 @@ const REPORT_SLUG = '152001-fake-defence-gmbh';
 // reports, the signals CSV, the gap analysis), "d" x 43 is Pro with this month's reports used. 155001 is a company with eight competitors,
 // five of them public, and the sample report (open to everyone).
 // WP-156: Pro has the eligibility pack, Consultant the supplier map's CSV as well
-const PRO = ['saved_searches', 'email_alerts', 'company_report', 'competitors_full', 'signals_full', 'eligibility_export'];
+// WP-160: Pro has the full list of contracts ending soon, Consultant its CSV as well
+const PRO = ['saved_searches', 'email_alerts', 'company_report', 'competitors_full', 'signals_full', 'eligibility_export', 'expiring_contracts'];
 const REPORT_SESSIONS = {
   ['a'.repeat(43)]: PRO, ['b'.repeat(43)]: ['saved_searches', 'email_alerts'],
-  ['c'.repeat(43)]: [...PRO, 'signals_csv', 'consortium_gaps', 'branded_reports', 'supplier_map_csv'], ['d'.repeat(43)]: PRO,
+  ['c'.repeat(43)]: [...PRO, 'signals_csv', 'consortium_gaps', 'branded_reports', 'supplier_map_csv', 'expiring_contracts_csv'], ['d'.repeat(43)]: PRO,
 };
+// ---- WP-160 (e2e/wp160-api.spec.ts): 14 contracts ending soon, one per basis among them (invented). The public answer has the first 10.
+const PERIOD0 = { start: null, end: null, endBasis: null, estimatedFrom: null, duration: null, durationUnit: null, renewal: null, renewalsMax: null };
+const endingItem = (i) => tender(160_000 + i, {
+  title: `Ending contract ${i}`, status: 'closed', statusNative: 'awarded', deadline: '2025-11-01T10:00:00Z',
+  awardedTo: i % 3 === 0 ? [{ name: `Fake Winner ${i} GmbH`, slug: null, country: 'DE' }] : [], awardedPersons: 0,
+  contractPeriod: i % 2 === 0
+    ? { ...PERIOD0, end: `2026-${String(11 + Math.floor(i / 10)).padStart(2, '0')}-${String(10 + (i % 10)).padStart(2, '0')}`, endBasis: 'stated', renewal: i === 0, renewalsMax: i === 0 ? 2 : null }
+    : { ...PERIOD0, start: '2025-11-15', end: `2026-${String(11 + Math.floor(i / 10)).padStart(2, '0')}-${String(10 + (i % 10)).padStart(2, '0')}`, endBasis: 'computed', duration: 12, durationUnit: 'MONTH' },
+});
+const ENDING = Array.from({ length: 14 }, (_, i) => endingItem(i));
+const ending = (items, over = {}) => ({
+  within: 12, from: '2026-10-12', to: '2027-10-12', estimated: false, items, total: ENDING.length, offset: 0, freeRows: 10, public: true,
+  coverage: [{ country: 'DE', dated: 9613, estimated: 40 }, { country: 'FR', dated: 1423, estimated: 0 }], ...over,
+});
 // ---- WP-156 (e2e/wp156-api.spec.ts): the supplier map's list and its export, and the open calls of the eligibility pack. Invented names.
 const mapSupplier = (id, name, values = []) => ({ id: String(id), slug: `${id}-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, name, country: 'DE',
   awardCount: 3, firstYear: 2024, lastYear: 2026, cpvDivisions: ['35'], contractValues: values });
@@ -260,6 +275,11 @@ function accountRoute(p, q, session, method) {
     const items = Array.from({ length: 14 }, (_, i) => signalRow(i, i < 13));
     return [200, { ...signal(items), page: 1, pageSize: Number(q.get('pageSize') ?? 50), csv: features.includes('signals_csv') }];
   }
+  if (p === '/v1/account/contracts/ending') {
+    if (!features.includes('expiring_contracts')) return [402, { error: 'plan_required', message: 'the full list of contracts ending soon and its alerts are part of Pro' }];
+    if (Number(q.get('pageSize') ?? 50) > 100 && !features.includes('expiring_contracts_csv')) return [402, { error: 'plan_required', message: 'the CSV of contracts ending soon is part of Team and Consultant' }];
+    return [200, { ...ending(ENDING), public: false, page: 1, pageSize: Number(q.get('pageSize') ?? 50), csv: features.includes('expiring_contracts_csv') }];
+  }
   return [404, { error: 'not_found' }];
 }
 
@@ -287,6 +307,7 @@ function route(url, headers = {}, method = 'GET') {
   if (p === '/v1/tenders/scope-counts' && q.get('q') === 'slowcounts') return [503, { detail: 'the count took too long; narrow the request' }, 5000];
   if (p === '/v1/tenders/scope-counts') return [200, { relevant: 1522, core: 294, supply: 1274, overlap: 46, capped: false, asOf: '2026-10-12T07:55:00Z' }];
   if (p === '/v1/tenders') return tenders(q);
+  if (p === '/v1/tenders/ending') return [200, ending(ENDING.slice(0, 10))];
   // WP-143 (e2e/wp143-api.spec.ts): a notice 777nnn answers "busy" (every connection taken, api.py `_busy`) the first time it is
   // asked; a notice 778nnn always answers a statement time-out (503, Retry-After 5)
   if (/^\/v1\/tenders\/777\d{3}(-[a-z0-9-]*)?$/.test(p) && !busyOnce.has(p)) {

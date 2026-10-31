@@ -412,6 +412,23 @@ export interface Tender {
   stages?: ProcedureStage[];
   /** WP-106: the official CPV titles of the codes (on the page all of them, in a list the main code's), from the full vocabulary. */
   cpvTitles?: Record<string, string>;
+  /** WP-160, the notice's page and the list of contracts ending soon: the contract period the notice states (lib/contract-period.ts). */
+  contractPeriod?: ContractPeriod | null;
+}
+
+/**
+ * WP-160: a contract period as the notice states it (backend expiring.period). `endBasis`: where `end` comes from: `stated`, `computed` (stated
+ * start + stated duration), `estimated` (an award notice's publication date + duration: `estimatedFrom`), null: no end. A renewal is never added.
+ */
+export interface ContractPeriod {
+  start: string | null;
+  end: string | null;
+  endBasis: 'stated' | 'computed' | 'estimated' | null;
+  estimatedFrom?: 'award_published' | null;
+  duration: number | null;
+  durationUnit: 'DAY' | 'WEEK' | 'MONTH' | 'YEAR' | null;
+  renewal: boolean | null;
+  renewalsMax: number | null;
 }
 
 /** WP-106: another notice of the same procedure. `status` is its stored one: awarded, cancelled, forthcoming, else a call. */
@@ -968,7 +985,8 @@ export interface ApiKeys {
 /** WP-124: the paid features that exist (backend billing.FEATURES; WP-155: the owner's plan split). */
 export const PAID_FEATURES = ['saved_searches', 'email_alerts', 'company_report', 'competitors_full', 'signals_full', 'signals_csv', 'consortium_gaps', 'branded_reports',
   'eligibility_export', 'supplier_map_csv',   // WP-156: the two exports
-  'team_workspace', 'client_profiles'] as const;   // WP-157: the team workspace and client profiles
+  'team_workspace', 'client_profiles',   // WP-157: the team workspace and client profiles
+  'expiring_contracts', 'expiring_contracts_csv'] as const;   // WP-160: contracts ending soon (Pro) and their CSV (Team)
 export type PaidFeature = (typeof PAID_FEATURES)[number];
 
 /** GET /v1/account/sessions */
@@ -979,7 +997,8 @@ export interface AccountSession {
   current: boolean;
 }
 
-export type SearchKind = 'tender' | 'call';
+/** WP-160: `ending`, a search of contracts ending soon (/tenders/ending). */
+export type SearchKind = 'tender' | 'call' | 'ending';
 /** The query parameters of GET /v1/tenders or GET /v1/funding: the site's own URL keys. */
 export type SearchFilters = Record<string, string | number | boolean | string[]>;
 export interface SavedSearch {
@@ -1040,8 +1059,8 @@ export interface DashboardMatch {
   /** Up to 5, newest first. */
   items: (Tender | Call)[];
 }
-export interface DashboardClosing { kind: SearchKind; item: Tender | Call; source: 'shortlist' | 'search' }
-export interface DashboardChange { kind: SearchKind; item: Tender | Call; observedAt: IsoDateTime; changes: FieldChange[] }
+export interface DashboardClosing { kind: ShortlistKind; item: Tender | Call; source: 'shortlist' | 'search' }
+export interface DashboardChange { kind: ShortlistKind; item: Tender | Call; observedAt: IsoDateTime; changes: FieldChange[] }
 export interface DashboardFollowing { kind: FollowKind; ref: string; name: string; openCount: number; latestAt: IsoDateTime | null }
 export interface DashboardPulse {
   asOf: IsoDateTime;

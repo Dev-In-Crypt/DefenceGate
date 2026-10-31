@@ -15,9 +15,17 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
-from ..accounts import ASSOC_PLAN_SQL, WS_JOIN_SQL, WS_PLAN_SQL, _is_new, run_search
+from ..accounts import (
+    ASSOC_PLAN_SQL,
+    WS_JOIN_SQL,
+    WS_PLAN_SQL,
+    _is_new,
+    run_search,
+    search_kind_allowed,
+)
 from ..billing import may, search_limit
 from ..config import settings
+from ..expiring import period_text
 from . import mailer
 
 log = logging.getLogger("ops.digest")
@@ -47,7 +55,13 @@ DUE_SQL = f"""
 
 
 def _line(kind: str, item: dict[str, Any], site: str) -> str:
-    where = "tenders" if kind == "tender" else "funding"
+    if kind == "ending":
+        # WP-160: a contract that entered the search's window: its end and where the end comes from, the winners named
+        meta = ", ".join(x for x in (item.get("buyerName"), item.get("country")) if x)
+        won = ", ".join(w["name"] for w in item.get("awardedTo") or [])
+        return (f"- {item['title']}\n  {meta} | {period_text(item.get('contractPeriod'))}"
+                + (f"\n  awarded to {won}" if won else "") + f"\n  {site}/tenders/{item['slug']}")
+    where ="tenders" if kind == "tender" else "funding"
     who = item.get("buyerName") if kind == "tender" else item.get("issuer")
     deadline = item.get("deadline")
     when = deadline.strftime("%Y-%m-%d") if isinstance(deadline, datetime) else "no deadline stated"
@@ -83,6 +97,16 @@ def run_digests(conn) -> dict[str, int]:
             searches = [s for s in searches if s["plan_rank"] < limit]
             if not searches:
                 continue
+        # WP-160: a search of contracts ending soon alerts only with accounts open (built dark) and `expiring_contracts`
+        # (Pro); otherwise its window moves on the same way, so nothing is mailed later as a backlog
+        held = [s["id"] for s in searches
+                if s["kind"] == "ending" and not (settings().accounts_open and search_kind_allowed(s, "ending"))]
+        if held:
+            conn.execute("UPDATE app_saved_search SET last_alerted_at = now() WHERE id = ANY(%s)", (held,))
+            conn.commit()
+            searches = [s for s in searches if s["id"] not in held]
+            if not searches:
+                continue
         result["accounts"] += 1
         sections, total = [], 0
         evaluated: list[Any] = []       # only these may move their window on (audit M3)
@@ -101,7 +125,9 @@ def run_digests(conn) -> dict[str, int]:
                 more = len(fresh) - len(lines)
                 if more > 0:
                     lines.append(f"  ... and {more} more")
-                sections.append(f"{s['name']}: {len(fresh)} new\n" + "\n".join(lines))
+                what = (f"{len(fresh)} {'contract' if len(fresh) == 1 else 'contracts'} newly ending within "
+                        f"{s['filters'].get('within', '12')} months" if s["kind"] == "ending" else f"{len(fresh)} new")
+                sections.append(f"{s['name']}: {what}\n" + "\n".join(lines))
         if sections:
             body = (
                 "New for your saved searches on DefenceGate\n\n" + "\n\n".join(sections) +

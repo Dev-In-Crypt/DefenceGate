@@ -6,8 +6,9 @@ import { buyerNames, expand, matchesSlots, namesAll } from '../search-terms';
 import { BUYER_PAGE_SIZE, TENDER_PAGE_SIZE, defaultTenderSort } from '../filters';
 import { listOrder } from '../export-cache';
 import { unitKey } from '../buyer-units';
+import type { EndingAnswer, EndingCoverage, EndingFilters } from '../contract-period';
 import type {
-  Buyer, BuyerFilters, BuyerUnit, CalendarItem, CalendarPage, Change, ChangeFilters, ChangePage, CountryCode, Money, Paginated, Tender, TenderFilters, TenderScope,
+  Buyer, BuyerFilters, BuyerUnit, CalendarItem, CalendarPage, Change, ChangeFilters, ChangePage, ContractPeriod, CountryCode, Money, Paginated, Tender, TenderFilters, TenderScope,
   TenderVersion,
 } from '../types';
 
@@ -132,6 +133,21 @@ const DETAIL: Record<string, Partial<Pick<Tender, 'subject' | 'documentsUrl' | '
 };
 
 const buyerId = (i: number) => String(i + 1);
+
+const isoDay = (ref: Date, days: number) => new Date(ref.getTime() + days * 86_400_000).toISOString().slice(0, 10);
+/**
+ * WP-160: the contract periods some demo notices state (invented), relative to the site's clock so the demo's "ending soon" list is never
+ * empty: one stated end, one computed from start + duration, one an award with only a duration (estimated), one a duration with no start.
+ */
+export function mockPeriods(ref: Date = now()): Record<string, ContractPeriod> {
+  const none = { start: null, end: null, endBasis: null, estimatedFrom: null, duration: null, durationUnit: null, renewal: null, renewalsMax: null } as const;
+  return {
+    'vehicle-fleet-maintenance-services': { ...none, start: isoDay(ref, -320), end: isoDay(ref, 45), endBasis: 'stated', renewal: true, renewalsMax: 2 },
+    'fuel-supply-framework': { ...none, start: isoDay(ref, -200), end: isoDay(ref, 165), endBasis: 'computed', duration: 12, durationUnit: 'MONTH' },
+    'packaging-and-logistics-services': { ...none, end: isoDay(ref, 80), endBasis: 'estimated', estimatedFrom: 'award_published', duration: 6, durationUnit: 'MONTH' },
+    'uniform-textiles-framework': { ...none, duration: 24, durationUnit: 'MONTH' },
+  };
+}
 
 function isClosed(r: RawTender, ref: Date): boolean {
   // The API's `status` is open | closed: a planned (forthcoming) notice is not open, so it reads closed there; `statusNative` says planned.
@@ -327,7 +343,9 @@ export function queryChanges(f: ChangeFilters, ref: Date = now()): ChangePage {
 export function findTender(slug: string, ref: Date = now()): Tender | null {
   const id = /^(\d+)(?:-|$)/.exec(slug)?.[1];
   const t = id ? (allTenders(ref).find((x) => x.id === id) ?? null) : null;
-  return t ? { ...t, subject: null, documentsUrl: null, awardedTo: [], awardedPersons: 0, awardValue: null, ...DETAIL[RAW[Number(t.id) - 1].words] } : null;
+  const words = t ? RAW[Number(t.id) - 1].words : '';
+  return t ? { ...t, subject: null, documentsUrl: null, awardedTo: [], awardedPersons: 0, awardValue: null, ...DETAIL[words],
+    contractPeriod: mockPeriods(ref)[words] ?? null } : null;
 }
 
 /**
@@ -415,4 +433,27 @@ export function findBuyer(slug: string, ref: Date = now()): Buyer | null {
   const id = /^(\d+)(?:-|$)/.exec(slug)?.[1];
   const b = id ? (allBuyers(ref).find((x) => x.id === id) ?? null) : null;
   return b ? { ...b, units: buyerUnits(b.id, ref) } : null;
+}
+
+/** WP-160: mock of GET /v1/tenders/ending (the demo's periods, `mockPeriods`): the first rows, soonest end first; estimates only when asked. */
+export function queryEnding(f: Omit<EndingFilters, 'page'>, ref: Date = now()): EndingAnswer {
+  const periods = mockPeriods(ref);
+  const until = new Date(ref);
+  until.setUTCMonth(until.getUTCMonth() + f.within);
+  const from = ref.toISOString().slice(0, 10);
+  const to = until.toISOString().slice(0, 10);
+  const items = allTenders(ref).map((t) => ({ t, p: periods[RAW[Number(t.id) - 1].words] }))
+    .filter(({ t, p }) => p?.end && p.end >= from && p.end <= to && (f.estimated || p.endBasis !== 'estimated')
+      && (!f.country || f.country.split(',').includes(t.country ?? '')) && (!f.cpv || f.cpv.split(',').some((c) => t.cpvCodes.some((x) => x.startsWith(c))))
+      && (!f.buyer || t.buyerId === f.buyer))
+    .sort((a, b) => a.p.end!.localeCompare(b.p.end!))
+    .map(({ t, p }) => ({ ...t, ...DETAIL[RAW[Number(t.id) - 1].words], contractPeriod: p }));
+  const coverage: EndingCoverage[] = [];
+  for (const t of allTenders(ref)) {
+    const p = periods[RAW[Number(t.id) - 1].words];
+    if (!p?.end || !t.country) continue;
+    const row = coverage.find((c) => c.country === t.country) ?? coverage[coverage.push({ country: t.country, dated: 0, estimated: 0 }) - 1];
+    if (p.endBasis === 'estimated') row.estimated += 1; else row.dated += 1;
+  }
+  return { within: f.within, from, to, estimated: f.estimated, items: items.slice(0, f.buyer ? 20 : 10), total: items.length, offset: 0, freeRows: 10, public: true, coverage };
 }
