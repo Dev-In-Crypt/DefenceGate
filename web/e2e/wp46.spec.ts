@@ -61,12 +61,11 @@ test('/pricing is one list of the five plans, and /pack one block', async ({ pag
   await expect(page.locator('main section')).toHaveCount(1);
 });
 
-test('/imprint: the seven fields stand in two columns and every value is still a placeholder', async ({ page }) => {
-  await visit(page, '/imprint', { title: /imprint/i, h1: 'Imprint' });
-  await expect(page.getByText('[to be provided]')).toHaveCount(7);
-  const tops = await page.locator('main dt').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
-  expect(tops).toHaveLength(7);
-  if (!isMobile(page)) expect(tops[0], 'the second field is beside the first').toBe(tops[1]);
+// WP-161 (owner, 31 Oct 2026): with no provider details given, the page shows no empty label and no placeholder, and says so.
+test('/imprint: with no provider details given, no empty label and no placeholder', async ({ page }) => {
+  await visit(page, '/imprint', { title: /imprint/i, h1: 'Imprint', text: ['not published yet'] });
+  await expect(page.getByText(/to be provided|text pending|Draft/)).toHaveCount(0);
+  await expect(page.locator('main dt')).toHaveCount(0);
 });
 
 test('/networks/ukraine-partners opens on a view that has content and says why it is not the defence view', async ({ page }) => {

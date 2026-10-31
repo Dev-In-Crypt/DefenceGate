@@ -27,7 +27,7 @@ MAX_ITEMS_PER_SEARCH = 8
 
 DUE_SQL = f"""
     SELECT s.id, s.owner_id, s.name, s.kind, s.filters, s.cadence, s.created_at,
-           s.last_alerted_at, u.email_display,
+           s.last_alerted_at, u.email_display, u.alerts_stop_token,
            (SELECT count(*) FROM app_saved_search e WHERE e.owner_id = s.owner_id
                AND (e.created_at, e.id) < (s.created_at, s.id)) AS plan_rank,
            b.plan AS sub_plan, b.status AS sub_status, b.current_period_end AS sub_period_end, {ASSOC_PLAN_SQL},
@@ -103,13 +103,18 @@ def run_digests(conn) -> dict[str, int]:
                     lines.append(f"  ... and {more} more")
                 sections.append(f"{s['name']}: {len(fresh)} new\n" + "\n".join(lines))
         if sections:
+            # WP-161: a stop link that works without signing in (the page's button, a POST, does the stopping); the proxy
+            # drops `token` from its logs (infra/caddy/Caddyfile)
+            stop = f"{site}/unsubscribe?kind=alerts&token={searches[0]['alerts_stop_token']}"
             body = (
                 "New for your saved searches on DefenceGate\n\n" + "\n\n".join(sections) +
                 "\n\nCheck the original notice before you act on any of these. DefenceGate is "
                 "an information service, not an official source.\n"
-                f"Change or stop these alerts: {site}/app/searches\n")
+                f"Change these alerts: {site}/app/searches\n"
+                f"Stop all these alerts: {stop}\n")
             subject = f"DefenceGate: {total} new for your saved searches"
-            if not mailer.send_mail(searches[0]["email_display"], subject, body):
+            if not mailer.send_mail(searches[0]["email_display"], subject, body,
+                                    headers={"List-Unsubscribe": f"<{stop}>"}):
                 result["failed"] += 1
                 continue                      # not marked as sent: the next run tries again
             result["mails"] += 1

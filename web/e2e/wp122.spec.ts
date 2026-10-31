@@ -18,7 +18,12 @@ const PAID: [string, string, ('monthly' | 'yearly')[]][] = [
 
 test('/pricing: the lead, and the five plans with the owner’s exact prices', async ({ page }) => {
   await open(page);
-  await expect(page.getByText('Browsing stays free, and no paid plan is on sale yet: nothing is charged until a feature works and its terms are published.')).toBeVisible();
+  // WP-161: with billing open the lead no longer says that no plan is on sale, and no feature says "Opens with sign-in"
+  await expect(page.getByText(BILLING_OPEN ? 'Browsing stays free. A paid plan is charged only when you choose it and pay at the checkout.'
+    : 'Browsing stays free, and no paid plan is on sale yet: nothing is charged until a feature works and its terms are published.')).toBeVisible();
+  if (BILLING_OPEN) await expect(page.locator('main [data-signin]')).toHaveCount(0);
+  // ... and the footer's alerts link no longer says "not open yet"
+  await expect(page.locator('footer').getByRole('link', { name: BILLING_OPEN ? 'Alerts and saved searches' : 'Alerts (not open yet)', exact: true })).toBeVisible();
   await expect(page.getByText('Prices in euros, excluding VAT.')).toBeVisible();
   await expect(page.getByRole('list', { name: 'Plans' }).locator(':scope > li h3')).toHaveText(['Free', 'Pro', 'Team', 'Consultant', 'Founding customer']);
   const prices: [string, string[]][] = [

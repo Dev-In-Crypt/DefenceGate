@@ -12,7 +12,10 @@ export const revalidate = 3600;
 
 export const metadata: Metadata = buildMetadata({
   title: 'Pricing: Free, Pro, Team and Consultant plans',
-  description: 'Browsing stays free. Pro, Team, Consultant and Founding customer plans in euros, excluding VAT; none is on sale yet and nothing is charged.',
+  // WP-161: with billing open (launch day) the page said no plan was on sale
+  description: BILLING_OPEN
+    ? 'Browsing stays free. Pro, Team, Consultant and Founding customer plans in euros, excluding VAT.'
+    : 'Browsing stays free. Pro, Team, Consultant and Founding customer plans in euros, excluding VAT; none is on sale yet and nothing is charged.',
   path: '/pricing',
   noindex: true,
 });
@@ -25,7 +28,7 @@ function Features({ items }: { items: Feature[] }) {
         <li key={f.text}>
           {f.text}
           {f.coming && <> <span data-coming><Tag>Coming</Tag></span></>}
-          {f.signin && <> <span data-signin><Tag>Opens with sign-in</Tag></span></>}
+          {f.signin && !BILLING_OPEN && <> <span data-signin><Tag>Opens with sign-in</Tag></span></>}
         </li>
       ))}
     </ul>
@@ -69,7 +72,9 @@ function Choose({ plan }: { plan: Plan }) {
 }
 
 const FAQ = [
-  { q: 'Is anything charged now?', a: 'No. No plan is on sale and we ask for no payment details. Nothing is charged until a feature works and its terms are published.' },
+  { q: 'Is anything charged now?', a: BILLING_OPEN
+    ? 'Only when you choose a paid plan and pay for it at the checkout of Creem, our merchant of record, which takes the payment and adds the VAT. Browsing stays free.'
+    : 'No. No plan is on sale and we ask for no payment details. Nothing is charged until a feature works and its terms are published.' },
   { q: 'What stays free?', a: 'Browsing tenders, funding calls, buyers and companies, what changed in the last 14 days, the Atom and calendar feeds, the CSV export, the readiness check, and on every company page where it wins, its share and its top 5 competitors.' },
   { q: 'Do the prices include VAT?', a: 'No. Prices are in euros and exclude VAT.' },
   { q: 'How do I get access?', a: BILLING_OPEN
@@ -77,13 +82,16 @@ const FAQ = [
     : 'Plans open soon: each paid plan will then have a button to choose it.' },
 ];
 
+const LEAD_CLOSED = 'Browsing stays free, and no paid plan is on sale yet: nothing is charged until a feature works and its terms are published.';
+const LEAD_OPEN = 'Browsing stays free. A paid plan is charged only when you choose it and pay at the checkout.';
+
 export default function PricingPage() {
   return (
     <ContentPage
       wide
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Pricing', href: '/pricing' }]}
       title="Pricing"
-      lead="Browsing stays free, and no paid plan is on sale yet: nothing is charged until a feature works and its terms are published."
+      lead={BILLING_OPEN ? LEAD_OPEN : LEAD_CLOSED}
     >
       <PageSection title="Plans" id="plans" intro="Prices in euros, excluding VAT.">
         <AutoGrid as="ul" min={260} fill aria-label="Plans">

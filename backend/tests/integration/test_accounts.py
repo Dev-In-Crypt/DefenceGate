@@ -44,7 +44,8 @@ def sent(monkeypatch):
         config.reset_cache()
         mailer.reset_check()
         monkeypatch.setattr(mailer, "send_mail",
-                            lambda to, subject, body: box.append({"to": to, "subject": subject, "body": body}) or True)
+                            lambda to, subject, body, **extra: box.append({"to": to, "subject": subject, "body": body,
+                                                                            **extra}) or True)   # WP-161: headers=
         yield box
     config.reset_cache()
     mailer.reset_check()
@@ -888,7 +889,7 @@ def test_a_failed_send_is_not_marked_as_sent(client, sent, conn, monkeypatch):
                  "last_alerted_at = now() - interval '1 day'")
     conn.commit()
     accounts._cache.clear()
-    monkeypatch.setattr(mailer, "send_mail", lambda *a: False)
+    monkeypatch.setattr(mailer, "send_mail", lambda *a, **k: False)
     assert run_digests(conn)["failed"] == 1
     assert conn.execute("SELECT last_alerted_at < now() - interval '12 hours' AS old "
                         "FROM app_saved_search").fetchone()["old"] is True
