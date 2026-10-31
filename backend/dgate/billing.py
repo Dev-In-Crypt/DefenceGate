@@ -81,9 +81,10 @@ FEATURES: dict[str, frozenset[str]] = {
 # How many: None is no plan limit.
 REPORTS_PER_MONTH: dict[str, int | None] = {"pro": 3, "founding": 3, "team": 15, "consultant": None}
 SAVED_SEARCHES: dict[str, int | None] = {"pro": 10, "founding": 10, "team": 50, "consultant": None}
-# ponytail: "unlimited" saved searches stop at a ceiling, since each one is run when the list is shown; raise it when
+# ponytail: "unlimited" saved searches stop at a ceiling, since each one is run when the list is shown (1000 rows of
+# `_search_out` on one page view); page the list or raise it when
 # an account reaches it.
-SEARCH_CEILING = 200
+SEARCH_CEILING = 1000   # owner, 31 Oct 2026: in practice "unlimited" (was 200)
 # WP-157: users of a workspace (the owner included) and client profiles; while no plan is on sale, the Team and Consultant
 # numbers (nobody is refused the feature then, WP-124).
 SEATS: dict[str, int] = {"team": 5, "consultant": 5}
