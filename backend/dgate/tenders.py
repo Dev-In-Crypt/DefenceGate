@@ -52,7 +52,7 @@ import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, model_serializer
 
-from . import award_set, cpv_labels
+from . import award_set, cpv_labels, expiring
 from .classify import (
     CORE_SQL,
     GROUP_CIVIL_DIRECTIVE,
@@ -284,6 +284,9 @@ class Tender(BaseModel):
     stages: list[ProcedureStage] = []
     # WP-106: the official titles of the codes (on the notice's page all of them, in a list the main code's)
     cpvTitles: dict[str, str] = {}
+    # WP-160, the notice's own page and the list of contracts ending soon: the contract period it states (`expiring.period`:
+    # start, end and where the end comes from, `endBasis`; duration; renewal), null when it states none or is not asked
+    contractPeriod: dict[str, Any] | None = None
 
 
 class SearchGroupRef(BaseModel):
@@ -2186,6 +2189,7 @@ def get_tender(slug: str, conn=Depends(get_conn)):
     out.update(awarded(conn, [tender_id] + [int(t["id"]) for t in out["sameNotice"]]))
     out["stages"] = procedure_stages(conn, tender_id, [int(t["id"]) for t in out["sameNotice"]])
     out["cpvTitles"] = cpv_titles(out["cpvCodes"])
+    out["contractPeriod"] = expiring.periods(conn, [tender_id]).get(tender_id)
     return out
 
 

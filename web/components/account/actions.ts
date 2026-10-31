@@ -90,7 +90,7 @@ export async function setFollowed(kind: FollowKind, ref: string, on: boolean): P
 
 /** `filters` are the list page's own query keys; anything else is dropped before the API sees it. */
 export async function saveSearch(kind: SearchKind, name: string, filters: SearchFilters): Promise<ActionOutcome> {
-  if (kind !== 'tender' && kind !== 'call') return { ok: false, mode: 'ready', message: 'Could not save this search.' };
+  if (kind !== 'tender' && kind !== 'call' && kind !== 'ending') return { ok: false, mode: 'ready', message: 'Could not save this search.' };
   const clean: SearchFilters = {};
   for (const key of FILTER_KEYS[kind]) {
     const v = (filters as Record<string, unknown> | null)?.[key];

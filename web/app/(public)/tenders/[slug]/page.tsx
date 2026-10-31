@@ -34,6 +34,7 @@ import { DetailLayout } from '@/components/dg/detail-layout';
 import { FactsGrid } from '@/components/dg/facts-grid';
 import { AnomalyNote, TenderCard, TenderStatusPills } from '@/components/dg/cards';
 import { FollowButton, SaveButton } from '@/components/account/save-button';
+import { ContractPeriodText } from '@/components/tenders/contract-period';
 
 export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }> };
@@ -294,6 +295,13 @@ export default async function TenderDetailPage({ params }: Props) {
                 {tender.procedureFrom === 'ted_twin' && <div className="mt-1 font-sans text-small font-normal text-ink-muted">Not stated in this notice; as given in the TED notice of the same procurement</div>}
                 {procedureEn && <div className="mt-1 font-sans text-small font-normal text-ink-muted">As stated: {tender.procedure}</div>}
               </FactCell>
+              {/* WP-160: the contract period the notice states, with where its end comes from; free for everyone */}
+              {tender.contractPeriod && (
+                <FactCell label="Contract period">
+                  <ContractPeriodText p={tender.contractPeriod} className="font-normal" />
+                  {tender.contractPeriod.end && <Link href="/tenders/ending" className="mt-1 inline-flex min-h-8 items-center font-sans text-small font-bold">Contracts ending soon</Link>}
+                </FactCell>
+              )}
               <FactCell label="Legal basis">
                 {tender.legalBasis ? (
                   legal ? (

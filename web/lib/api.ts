@@ -15,6 +15,7 @@ import { FEED_MAX } from './analyst';
 import { clientIp } from './hits';
 import { recall, remember } from './last-good';
 import { signalQuery, type SignalAnswer, type SignalFilters } from './signals';
+import { endingQuery, type EndingAnswer, type EndingFilters } from './contract-period';
 import * as signalsMock from './mock/signals';
 import * as callsMock from './mock/calls';
 import * as sourcesMock from './mock/sources';
@@ -654,3 +655,15 @@ export function lastDataUpdate(health: { generatedAt: string; sources: { lastRun
 }
 
 export { now };
+
+/**
+ * WP-160: the first rows of the contracts ending soon and how many there are (GET /v1/tenders/ending); with `buyer`, the buyer page's block
+ * (free in full, its first 20). Visitor-shaped filters are not kept in the shared cache. The rest of the list is lib/account.ts.
+ */
+export async function getEnding(f: Omit<EndingFilters, 'page'>): Promise<EndingAnswer> {
+  if (!API_BASE) return tenderMock.queryEnding(f);
+  const q = endingQuery(f);
+  const res = await http<EndingAnswer>(`/v1/tenders/ending${q ? `?${q}` : ''}`, q && !/^buyer=\d+$/.test(q) ? 'no-store' : 'revalidate', LIST_REVALIDATE_SECONDS);
+  if (!res) throw new ApiError(404, 'GET /v1/tenders/ending failed');
+  return res;
+}

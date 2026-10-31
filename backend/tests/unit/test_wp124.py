@@ -167,7 +167,8 @@ def test_paid_features_are_pro_and_up_and_free_keeps_none_of_them():
     assert set(billing.FEATURES) == {"saved_searches", "email_alerts", "company_report", "competitors_full",
                                      "signals_full", "signals_csv", "consortium_gaps", "branded_reports",
                                      "eligibility_export", "supplier_map_csv",
-                                     "team_workspace", "client_profiles"}      # WP-157
+                                     "team_workspace", "client_profiles",      # WP-157
+                                     "expiring_contracts", "expiring_contracts_csv"}   # WP-160
     assert not any(billing.allows("free", f) for f in billing.FEATURES)
 
 
@@ -178,7 +179,8 @@ def test_while_no_plan_is_on_sale_nothing_is_withheld_and_once_it_is_the_plan_de
     assert billing.may(free, "saved_searches") and billing.features(free) == [
         "saved_searches", "email_alerts", "competitors_full", "signals_full", "signals_csv", "consortium_gaps",
         "eligibility_export", "supplier_map_csv",                         # WP-156
-        "team_workspace", "client_profiles"]                                  # WP-157
+        "team_workspace", "client_profiles",                                  # WP-157
+        "expiring_contracts", "expiring_contracts_csv"]                       # WP-160
     _all(monkeypatch)
     assert not billing.may(free, "saved_searches") and billing.features(free) == []
     assert billing.may(paid, "email_alerts")

@@ -434,7 +434,7 @@ class DeleteAccount(_Body):
 
 class SearchIn(_Body):
     name: str = Field(min_length=1, max_length=80)
-    kind: Literal["tender", "call"]
+    kind: Literal["tender", "call", "ending"]           # WP-160: `ending`, contracts ending soon (Pro)
     filters: dict[str, Any] = Field(default_factory=dict)
     cadence: Literal["instant", "daily", "weekly", "off"] = "daily"
     clientId: str | None = Field(None, max_length=36)       # WP-157: a client profile of the workspace
@@ -1234,7 +1234,12 @@ _TENDER_KEYS = {"q", "country", "cpv", "status", "scope", "goods", "buyer", "fro
                 "currency", "sort", "cpvMain", "notCpv"}
 _CALL_KEYS = {"q", "programme", "regime", "country", "status", "from", "to", "min", "max",
               "currency", "sort", "who"}
+# WP-160: a search of contracts ending soon (expiring.py): GET /v1/tenders/ending's own filters
+_ENDING_KEYS = {"country", "cpv", "buyer", "within", "estimated"}
+_KEYS = {"tender": _TENDER_KEYS, "call": _CALL_KEYS, "ending": _ENDING_KEYS}
 _ENUMS = {
+    ("ending", "within"): {"3", "6", "12"},
+    ("ending", "estimated"): {"true"},
     ("tender", "status"): {"open", "closed", "all"},
     ("tender", "scope"): {"relevant", "core", "supply", "all"},
     ("tender", "goods"): {"defence"},
@@ -1250,7 +1255,7 @@ _MAX_LEN = {"q": 100, "country": 200, "cpv": 400, "notCpv": 400, "programme": 20
 def clean_filters(kind: str, filters: dict[str, Any]) -> dict[str, str]:
     """The stored form of a search: only the public list endpoint's own parameters, each
     checked against the rule that endpoint applies, as strings. Anything else is refused."""
-    allowed = _TENDER_KEYS if kind == "tender" else _CALL_KEYS
+    allowed = _KEYS[kind]
     if len(json.dumps(filters)) > 2000:
         raise AccountError(422, "invalid_filters", "filters are too large")
     out: dict[str, str] = {}
@@ -1359,7 +1364,26 @@ def _stamp(kind: str, item: dict[str, Any]):
     # When the portal first collected it, for tenders and calls alike. Not a publication
     # date: a notice published yesterday and first collected today is new today, and a
     # day compared with a timestamp missed most of them (internal audit H3).
-    return item.get("firstSeenAt")
+    # WP-160: a contract ending soon is new when it entered the search's window (`expiring.entered`).
+    return item.get("enteredAt") if kind == "ending" else item.get("firstSeenAt")
+
+
+def _run_ending(conn, f: dict[str, str], full: bool) -> dict[str, Any]:
+    """WP-160: an `ending` search: every contract of its window with when it entered it, newest entry first; the items of
+    the first SEARCH_RESULTS (CACHED_ITEMS when cached) as the list shows them, each with its `enteredAt`."""
+    from . import expiring
+
+    try:
+        rows = expiring.entered(conn, int(f.get("within", "12")), f.get("country"), f.get("cpv"),
+                                int(f["buyer"]) if "buyer" in f else None, f.get("estimated") == "true")
+    except HTTPException as exc:
+        raise AccountError(422, "invalid_filters", str(exc.detail)) from None
+    shown = rows[:SEARCH_RESULTS if full else CACHED_ITEMS]
+    stamps = {r["id"]: r["enteredAt"] for r in shown}
+    items = expiring.present(conn, [r["id"] for r in shown])
+    for it in items:
+        it["enteredAt"] = stamps[int(it["id"])]
+    return {"total": len(rows), "items": items, "stamps": [r["enteredAt"] for r in rows]}
 
 
 def run_search(conn, kind: str, filters: dict[str, str], *, full: bool = False) -> dict[str, Any]:
@@ -1372,6 +1396,8 @@ def run_search(conn, kind: str, filters: dict[str, str], *, full: bool = False) 
     from .tenders import list_tenders
 
     def compute() -> dict[str, Any]:
+        if kind == "ending":
+            return _run_ending(conn, filters, full)
         kwargs = _call_kwargs(kind, filters)
         try:
             if kind == "tender":
@@ -1421,6 +1447,13 @@ RANKED_SEARCHES = ("(SELECT s.*, row_number() OVER (ORDER BY s.created_at, s.id)
                    "FROM app_saved_search s WHERE s.owner_id = %s) ranked")
 
 
+def search_kind_allowed(user: dict[str, Any], kind: str) -> bool:
+    """WP-160: a search of contracts ending soon (and its alert) needs `expiring_contracts` as well (Pro)."""
+    from .billing import may
+
+    return kind != "ending" or may(user, "expiring_contracts")
+
+
 def _search_out(conn, r: dict[str, Any], user: dict[str, Any]) -> dict[str, Any]:
     from .billing import may, search_limit
 
@@ -1431,7 +1464,7 @@ def _search_out(conn, r: dict[str, Any], user: dict[str, Any]) -> dict[str, Any]
         rank = conn.execute("SELECT count(*) AS n FROM app_saved_search WHERE owner_id = %s AND (created_at, id) < (%s, %s)",
                             (r["owner_id"], r["created_at"], r["id"])).fetchone()["n"]
     # WP-124: a search kept after a downgrade is not run (the paid feature stops, the data stays).
-    out["paused"] = not may(user, "saved_searches") or rank >= search_limit(user)
+    out["paused"] = not may(user, "saved_searches") or rank >= search_limit(user) or not search_kind_allowed(user, r["kind"])
     if out["paused"]:
         out.update(matchCount=None, newCount=0, lastMatchAt=None)
         return out
@@ -1482,6 +1515,8 @@ def create_search(body: SearchIn, conn=Depends(get_conn), user=Depends(throttled
     from .workspace import client_id
 
     require(user, "saved_searches")
+    if body.kind == "ending":
+        require(user, "expiring_contracts")
     client = client_id(conn, user, body.clientId) if body.clientId is not None else None
     n = conn.execute("SELECT count(*) AS n FROM app_saved_search WHERE owner_id = %s",
                      (user["id"],)).fetchone()["n"]
@@ -1505,7 +1540,9 @@ def patch_search(search_id: str, body: SearchPatch, conn=Depends(get_conn),
 
     row = _owned_search(conn, search_id, user)
     require(user, "saved_searches")
-    name = body.name.strip() if body.name is not None else row["name"]
+    if row["kind"] == "ending":
+        require(user, "expiring_contracts")
+    name =body.name.strip() if body.name is not None else row["name"]
     cadence = body.cadence if body.cadence is not None else row["cadence"]
     filters = row["filters"]
     if body.filters is not None:
@@ -1841,12 +1878,15 @@ def dashboard(conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, Any]
         (user["id"], search_limit(user))).fetchall() if may(user, "saved_searches") else []
     matches, searched_items = [], []
     for s in searches:
+        if not search_kind_allowed(user, s["kind"]):
+            continue
         res = run_search(conn, s["kind"], s["filters"])
         fresh = [i for i in res["items"] if _is_new(s["kind"], i, since)]
         matches.append({"search": {"id": str(s["id"]), "name": s["name"], "kind": s["kind"]},
                         "newCount": _new_count(res, since), "totalCount": res["total"],
                         "items": (fresh or res["items"])[:5]})
-        searched_items += [(s["kind"], i) for i in res["items"]]
+        # WP-160: an ending search's items are tenders (their deadline long passed)
+        searched_items += [("tender" if s["kind"] == "ending" else s["kind"], i) for i in res["items"]]
 
     where, params = shared_scope(user)          # WP-157: the workspace's shortlist and follows
     shortlist_rows = conn.execute(

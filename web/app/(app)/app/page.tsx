@@ -32,7 +32,7 @@ function NewForSearches({ d }: { d: Dashboard }) {
                 <span className="font-mono text-mono text-ink-muted">{formatNumber(m.newCount)} new · {formatNumber(m.totalCount)} {plural(m.totalCount, 'match', 'matches')}</span>
               </div>
               {m.items.length > 0 ? (
-                <ul className={LIST}>{m.items.map((i) => <ItemRow key={i.id} kind={m.search.kind} item={i} />)}</ul>
+                <ul className={LIST}>{m.items.map((i) => <ItemRow key={i.id} kind={m.search.kind === 'ending' ? 'tender' : m.search.kind} item={i} />)}</ul>
               ) : (
                 <p className="m-0 text-small text-ink-muted">No new matches since your last visit.</p>
               )}

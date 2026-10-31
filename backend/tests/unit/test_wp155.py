@@ -27,6 +27,9 @@ TABLE = {
     # WP-157: the team workspace (Team, and Consultant as "Everything in Team") and the client profiles
     "team_workspace": {"team", "consultant"},
     "client_profiles": {"consultant"},
+    # WP-160 (owner, 31 October 2026): contracts ending soon beyond the first rows and their alerts; the CSV
+    "expiring_contracts": {"pro", "team", "consultant", "founding"},
+    "expiring_contracts_csv": {"team", "consultant"},
 }
 
 

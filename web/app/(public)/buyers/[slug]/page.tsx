@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
-import { getBuyer, getBuyerProfile, getBuyerSuppliers, getTenders, isBuyerSlug, PERSON, REMOVED, UNAVAILABLE, whenRemovedOrPerson } from '@/lib/api';
+import { EndingRow } from '@/components/tenders/contract-period';
+import { getBuyer, getBuyerProfile, getBuyerSuppliers, getEnding, getTenders, isBuyerSlug, PERSON, REMOVED, UNAVAILABLE, whenRemovedOrPerson } from '@/lib/api';
 import { NotShownPerson, RemovedOnRequest } from '@/components/dg/removed';
 import { displayName, shownVariants } from '@/lib/display-name';
 import { formatDateUtc, formatNumber, plural, variantsLine } from '@/lib/format';
@@ -96,7 +97,7 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
   // All of them in the scope the counts above are in. WP-96: the tender list's default (All defence), as the counts now are:
   // the core scope left out a ministry's transport, catering and storage tenders (NL Ministry of Defence: 5 open against the
   // list's 27). The military goods and works among the open ones are counted beside "Open now".
-  const [open, planned, earlier, profile, suppliers] = await Promise.all([
+  const [open, planned, earlier, profile, suppliers, ending] = await Promise.all([
     page === 1 && (buyer.openCount > 0 || cpv)
       ? getTenders({ ...own, status: 'open', pageSize: openSize }, { cacheable: !narrowed })
       : Promise.resolve(null),
@@ -107,6 +108,8 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
     page === 1 && buyer.tenderCount > 0 && !outside ? getBuyerProfile(buyer) : Promise.resolve(null),
     // WP-105: under the page's CPV filter too, with contract values
     page === 1 ? getBuyerSuppliers(buyer, cpv ?? undefined) : Promise.resolve(null),
+    // WP-160: the buyer's contracts ending in the next 12 months, free in full (its first 20); an extra like the profile
+    page === 1 ? getEnding({ within: 12, country: '', cpv: '', buyer: buyer.id, estimated: false }).catch(() => null) : Promise.resolve(null),
   ]);
 
   // A page past the last one is the last one, not an empty list.
@@ -257,6 +260,20 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
               {!all && <> <Link href={allHref} className="font-semibold">Show {planned.total > OPEN_LIMIT ? `${formatNumber(OPEN_LIMIT)} of them` : 'all of them'}</Link></>}
             </p>
           )}
+        </section>
+      )}
+
+      {ending && ending.items.length > 0 && (
+        <section aria-labelledby="contracts-ending" className="flex flex-col gap-4" data-buyer-ending>
+          <h2 id="contracts-ending" className="m-0 text-h2">Contracts ending in the next 12 months</h2>
+          <p className="m-0 max-w-prose text-small text-ink-muted">When a contract ends, the buyer usually tenders again. Soonest first, from the contract periods the notices state.</p>
+          <ul className="m-0 flex list-none flex-col gap-3 p-0">
+            {ending.items.map((t) => <EndingRow key={t.id} t={t} showBuyer={false} />)}
+          </ul>
+          <p className="m-0 text-small text-ink-muted">
+            {ending.total > ending.items.length ? `The first ${formatNumber(ending.items.length)} of ${formatNumber(ending.total)}. ` : ''}
+            <Link href={`/tenders/ending?buyer=${encodeURIComponent(buyer.id)}`} className="font-semibold">All contracts of this buyer ending soon</Link>
+          </p>
         </section>
       )}
 

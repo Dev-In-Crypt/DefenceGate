@@ -35,7 +35,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from . import classify, db
+from . import classify, db, expiring
 from .config import require_production_secrets, settings
 from .hardening import BodyLimit, ETag, HeadAsGet, RateLimit, SecurityHeaders
 from .listcache import cache_list
@@ -253,6 +253,15 @@ class OpportunityOut(BaseModel):
     # TED notice it was forwarded as. Joined on the publication number the
     # national source itself states; nothing is matched by name or title.
     same_notice: list[dict[str, Any]] = []
+    # WP-160: the contract period the notice states (expiring.period), null when it states none. `end_basis` says where
+    # `end` comes from: stated, computed (start + duration), estimated (an award's publication date + duration), or null.
+    contract_period: dict[str, Any] | None = None
+
+
+def _period_out(r: dict[str, Any]) -> dict[str, Any] | None:
+    """expiring.period with this API's snake_case names."""
+    p = expiring.period(r)
+    return None if p is None else {re.sub(r"(?<!^)(?=[A-Z])", "_", k).lower(): v for k, v in p.items()}
 
 
 SOURCE_HELP = ("comma-separated source codes (ted, es_placsp, fr_boamp, ...): only notices of these sources, and "
@@ -338,6 +347,7 @@ def _row_to_out(r: dict[str, Any], same_notice: list[dict[str, Any]] | None = No
             r.get("status"), r.get("deadline_at"), r.get("published_at"), procedure=r.get("procedure_type")),
         status_native=r.get("status_native"),
         same_notice=same_notice or [],
+        contract_period=_period_out(r),
     )
 
 
@@ -463,7 +473,8 @@ def row_scope(r: dict[str, Any]) -> str:
 
 
 BASE_SELECT = f"""
-    SELECT o.*, s.code AS source_code, s.attribution AS source_attribution,
+    SELECT o.*, {expiring.END_SQL} AS period_end, {expiring.basis_sql()} AS end_basis,
+           s.code AS source_code, s.attribution AS source_attribution,
            org.confidence AS org_confidence, {EFFECTIVE_STATUS_SQL} AS eff_status,
            org.individual_reason IS NOT NULL AS buyer_person
       FROM opportunity o
@@ -1098,6 +1109,9 @@ app.include_router(_funding_router)
 from . import tenders as _tenders  # noqa: E402
 from .tenders import router as _tenders_router  # noqa: E402
 
+# WP-160: contracts ending soon (expiring.py). Before the tenders router: /v1/tenders/ending is not a tender's slug.
+app.include_router(expiring.router)
+app.include_router(expiring.account_router)
 app.include_router(_tenders_router)
 
 # What changed in the last 14 days (changes.py): new notices and real amendments.

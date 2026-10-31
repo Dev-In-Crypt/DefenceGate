@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getHealth, getTenderScopeCounts, getTenders } from '@/lib/api';
 import { filtersFromQuery } from '@/lib/account-format';
@@ -97,7 +98,11 @@ export default async function TendersPage({ searchParams }: Props) {
         <GroupSuggestions groups={result.searchGroups} hrefFor={(cpv) => `/tenders${toTenderQuery({ ...filters, q: undefined, cpv, page: 1 })}`} />
       </>}
       hrefFor={(p) => `/tenders${toTenderQuery({ ...filters, page: p })}`}
-      footnote="Amounts are shown in the currency the source states and are never converted or added up across currencies."
+      // WP-160: after the results (a link above them would be the page's first /tenders/ link, which e2e specs read as a notice)
+      footnote={<>
+        <p className="m-0 max-w-prose text-small text-ink-muted">Amounts are shown in the currency the source states and are never converted or added up across currencies.</p>
+        <p className="m-0 max-w-prose text-small text-ink-muted">Where the next tenders come from: <Link href="/tenders/ending" className="font-bold" data-ending-link>contracts ending soon</Link>, by the contract periods the notices state.</p>
+      </>}
     >
       {result.items.map((t) => <li key={t.id}><TenderCard tender={t} cpvFilter={filters.cpv} classifiedNote={false} valueNote={valueMissingNote(missing, t.source.sourceId)} /></li>)}
     </ListPage>
