@@ -144,7 +144,7 @@ def test_the_name_on_reports_is_the_consultants_and_plain_text(conn, client, sen
     assert client.patch("/v1/account/me", headers=H(session), json={"reportName": "x" * 81}).status_code == 422
     me = client.patch("/v1/account/me", headers=H(session), json={"reportName": " <b>Acme</b>\n Advisory "}).json()
     assert me["profile"]["reportName"] == "<b>Acme</b> Advisory"
-    assert "branded_reports" in me["features"] and me["limits"] == {"savedSearches": 200, "reportsPerMonth": None}
+    assert "branded_reports" in me["features"] and me["limits"] == {"savedSearches": 1000, "reportsPerMonth": None}   # ceiling 1000 (owner, 31 Oct)
     report = client.post(f"/v1/account/suppliers/{ids['rival0']}/report", headers=H(session)).json()
     assert report["reportName"] == "<b>Acme</b> Advisory"
     on_plan(conn, "team")                                           # a plan without it: kept, not printed

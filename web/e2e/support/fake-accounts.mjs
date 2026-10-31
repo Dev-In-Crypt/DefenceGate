@@ -146,7 +146,7 @@ function team(method, path, body, query) {
   if (path === '/v1/account/me') {
     return [200, { id: 'u2', email: 'team@example.test', createdAt: '2026-10-22T08:00:00Z', profile: { role: 'consultant', tracks: ['tenders'], countries: [], scope: 'core', cadence: 'daily' },
       onboarded: true, lastVisitAt: null, terms: { current: true }, security: { hasPassword: true, totp: false }, plan: { current: 'consultant' },
-      features: ['saved_searches', 'email_alerts', 'team_workspace', 'client_profiles'], limits: { savedSearches: 200, reportsPerMonth: null },
+      features: ['saved_searches', 'email_alerts', 'team_workspace', 'client_profiles'], limits: { savedSearches: 1000, reportsPerMonth: null },
       workspace: wsMade ? { role: 'owner', active: true } : null }];
   }
   if (path === '/v1/account/workspace') {
