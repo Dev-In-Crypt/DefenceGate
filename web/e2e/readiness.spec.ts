@@ -135,8 +135,9 @@ test('a Ukrainian company: the wizard sends the answers the rules read and the p
   await expect(page).toHaveURL(/\/readiness\/results$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your readiness results');
   // only the free PIC (Ukraine Support Instrument) or the NCAGE code (NATO) is missing: "Obtain first", not "Blocked".
-  // The EDF is "Conditional": Ukraine's association agreement to the EDF is pending signature and not confirmed (V2-B2).
-  await expect(card(page, 'European Defence Fund (EDF)')).toContainText('Conditional');
+  // WP-167: the EDF is "Obtain first" (only the PIC): Ukraine's association with the EDF is in force since 16 October 2026 (it was
+  // "Conditional" while the association agreement was not confirmed, V2-B2).
+  await expect(card(page, 'European Defence Fund (EDF)')).toContainText('Obtain first');
   // EDIP the Programme: Ukraine is not an associated country there, so the company is blocked whatever it obtains
   await expect(card(page, 'European Defence Industry Programme (EDIP): the Programme')).toContainText('Blocked');
   await expect(card(page, 'EDIP: Ukraine Support Instrument')).toContainText('Obtain first');
@@ -153,9 +154,9 @@ test('a Ukrainian company: the wizard sends the answers the rules read and the p
   await edf.getByText(/Show the \d+ rules behind this/).click();
   const rule = edf.locator('li[data-rule="EDF-ESTABLISH"]');
   await expect(rule).toContainText('Established in the Union or an associated country');
-  await expect(rule).toContainText('Conditional');
-  await expect(rule).toContainText('pending the signature of the association agreement to EDF');
-  await expect(rule).toContainText('Last reviewed 2026-10-18');
+  await expect(rule).toContainText('Met');
+  await expect(rule).toContainText('in force since 16 October 2026');
+  await expect(rule).toContainText('Last reviewed 2026-10-31');
   await expect(rule.getByRole('link', { name: 'Open the source' })).toHaveAttribute('href', 'http://data.europa.eu/eli/reg/2021/697/oj');
   await rule.getByText('Show the text of the source').click();
   await expect(rule).toContainText('Recipients and subcontractors involved in an action shall be established in the Union or in an associated country.');
@@ -229,7 +230,8 @@ test('a Ukrainian company: the roadmap in order, with issuers and ranges, and ma
   expect(await page.evaluate(() => JSON.parse(window.localStorage.getItem('dg.profile.v1') ?? '{}').statuses['REQ-PIC'])).toBe('held');
 
   await page.getByRole('link', { name: 'My results' }).click();
-  await expect(card(page, 'European Defence Fund (EDF)')).toContainText('Conditional');
+  // WP-167: with the PIC held the Ukrainian company is eligible for the EDF (the association is in force since 16 October 2026)
+  await expect(card(page, 'European Defence Fund (EDF)')).toContainText('Eligible');
   await expect(card(page, 'EDIP: Ukraine Support Instrument')).toContainText('Eligible');
   await expect(card(page, 'European Defence Industry Programme (EDIP): the Programme')).toContainText('Blocked');
 });
@@ -268,7 +270,7 @@ test('the answers stay in this browser: a reload keeps them, nothing is sent but
   const stored = await page.evaluate(() => window.localStorage.getItem('dg.profile.v1'));
   expect(stored).toContain('"country":"UA"');
   await page.reload();
-  await expect(card(page, 'European Defence Fund (EDF)')).toContainText('Conditional');
+  await expect(card(page, 'European Defence Fund (EDF)')).toContainText('Obtain first');
   await page.goto('/readiness');
   // U7: a finished profile with nothing unanswered is changed from the first step; any step is one click away.
   await expect(page.getByText('Step 1 of 5: Your company')).toBeVisible();

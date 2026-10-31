@@ -237,8 +237,16 @@ ASSOCIATED = {
     "HORIZON": {"name": "Horizon Europe", "yes": ["AL", "AM", "BA", "EG", "FO", "GE", "IS", "IL", "XK", "MD", "ME", "MK", "NO", "RS", "CH", "TN", "TR", "UA"],
                 "no": ["LI"]},
     "EDIP": {"name": "the EDIP Programme", "yes": ["NO"], "no": ["UA"]},
-    "EDF": {"name": "the European Defence Fund", "yes": ["NO"], "no": []},
+    # WP-167: Ukraine since 16 October 2026 (ukraine.EDF_IN_FORCE, the Commission's news of that day); a call that closed before that
+    # day keeps the question (`ukraineBeforeAssociation` in the context)
+    "EDF": {"name": "the European Defence Fund", "yes": ["NO", "UA"], "no": []},
 }
+# WP-167: lib/eligibility-check.ts EDF_UA_YES, EDF_UA_BEFORE, word for word
+EDF_UA_YES = ("Ukraine is associated to the European Defence Fund since 16 October 2026 (European Commission, DG DEFIS: “The Ukrainian "
+              "association with the European Defence Fund (EDF) and financing under the European Defence Industry Programme (EDIP) "
+              "agreements have come into force.”), and the call is open to the associated countries.")
+EDF_UA_BEFORE = ("This call closed before 16 October 2026, when Ukraine's association with the European Defence Fund entered into force. "
+                 "Its document said participation of entities established in Ukraine was pending the signature of the association agreement.")
 # WP-102: the primary-source clause each Horizon Europe entry rests on (the same in web/lib/eligibility-check.ts ASSOCIATION_SOURCES).
 HE_LIST_URL = "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/common/guidance/list-3rd-country-participation_horizon-euratom_en.pdf"
 ASSOCIATION_SOURCES = {
@@ -289,6 +297,8 @@ def country_status(fact: dict[str, Any], country: str, ctx: dict[str, str] | Non
         return "yes", "EEA countries are eligible under this call."
     if country in named:
         return "yes", "Your country is named among the eligible countries."
+    if opens and assoc == "EDF" and country == "UA":
+        return ("check", EDF_UA_BEFORE) if (ctx or {}).get("ukraineBeforeAssociation") else ("yes", EDF_UA_YES)
     if opens and lst and country in lst["yes"]:
         return "yes", f"Your country is associated to {lst['name']}, and the call is open to the associated countries."
     if opens and lst and country in lst["no"]:
@@ -759,7 +769,8 @@ def with_programme(doc: dict[str, Any], prog: dict[str, Any] | None) -> dict[str
 
 def call_fit(call: dict[str, Any] | None, profile: dict[str, Any] | None, assessment: dict[str, Any] | None) -> dict[str, Any]:
     """lib/fit.ts `callFit`: `call` is {state, facts, programme, topic}; `assessment` the assess payload without a call."""
-    ctx = {"programme": call["programme"], "topic": call["topic"], "ukraineNoFunding": call.get("ukraineNoFunding")} if call else None
+    ctx = {"programme": call["programme"], "topic": call["topic"], "ukraineNoFunding": call.get("ukraineNoFunding"),
+           "ukraineBeforeAssociation": call.get("ukraineBeforeAssociation")} if call else None
     doc = fit_of(call["facts"], profile, ctx) if call and call["state"] == "read" else {"fit": "unknown", "result": None, "conditions": [], "blockedBy": []}
     with_rules = with_programme(doc, programme_fit(assessment, programmes_of_call(call["programme"], call["topic"]) if call else []))
     if not call:

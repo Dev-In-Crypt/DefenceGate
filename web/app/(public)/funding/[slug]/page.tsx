@@ -6,7 +6,7 @@ import { getCall, getOpenCallsForRelated, relatedCallsFrom, REMOVED, whenRemoved
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { callStatusKind, getCallDeadline, localDeadline } from '@/lib/deadline';
 import { displayName } from '@/lib/display-name';
-import { formatDateLabelledUtc, formatDateUtc, formatMoney, funderLine, openingPhrase, isoDatesToSite } from '@/lib/format';
+import { documentBudgetLine, formatDateLabelledUtc, formatDateUtc, formatMoney, funderLine, openingPhrase, isoDatesToSite } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { sourceDisplay } from '@/lib/source-status';
 import { absoluteUrl, buildMetadata, callJsonLd, meetsMinimumContent } from '@/lib/seo';
@@ -36,6 +36,7 @@ import { otherTopicCode, whatItFunds, whoLimits } from '@/lib/funding-path';
 import { WHO_BADGE } from '@/lib/filters';
 import { ApplySummary, UkraineOnly } from '@/components/funding/apply-summary';
 import { UA_NO_FUNDING } from '@/lib/eligibility-check';
+import { EDF_IN_FORCE_URL, beforeAssociation } from '@/lib/ukraine';
 
 export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }> };
@@ -239,6 +240,13 @@ export default async function CallDetailPage({ params }: Props) {
                 {call.budget && call.budgetScope === 'topic' && (
                   <div className="mt-1 font-sans text-small font-normal text-ink-muted">Budget of this topic</div>
                 )}
+                {/* WP-167: the call document's own total where it differs from the portal's figure (the voted EU budget) */}
+                {call.documentBudget && safeHttpUrl(call.documentBudget.documentUrl) && (
+                  <div className="mt-1 font-sans text-small font-normal text-ink-muted" data-document-budget>
+                    {documentBudgetLine(call.documentBudget)}{' '}
+                    <a href={safeHttpUrl(call.documentBudget.documentUrl)!} target="_blank" rel="noopener noreferrer" className="font-semibold">call document<span className="sr-only"> (opens in new tab)</span></a>
+                  </div>
+                )}
               </FactCell>
               {call.callId && <FactCell label="Call ID">{call.callId}</FactCell>}
               <FactCell label={call.callId ? 'Topic ID' : 'Source ID'}>
@@ -352,6 +360,10 @@ export default async function CallDetailPage({ params }: Props) {
             {call.ukraineBasis?.evidence && (
               <p className="m-0 text-small text-ink-muted">
                 {UKRAINE_BASIS[call.ukraineBasis.reason] ?? 'Source'}: <q className="italic">{call.ukraineBasis.evidence}</q>
+                {/* WP-167: the Commission's news of 16 October 2026 that the evidence quotes or dates by */}
+                {(call.ukraineBasis.reason === 'edf_association' || beforeAssociation(call.ukraineBasis.reason)) && (
+                  <> <a href={EDF_IN_FORCE_URL} target="_blank" rel="noopener noreferrer" className="font-semibold" data-edf-in-force>European Commission, 16 October 2026<span className="sr-only"> (opens in new tab)</span></a></>
+                )}
               </p>
             )}
           </Panel>
@@ -361,7 +373,8 @@ export default async function CallDetailPage({ params }: Props) {
           <Panel title="Can you apply?" className="print:hidden">
             <EligibilityCheck facts={call.documentEligibility.facts} documentUrl={call.documentEligibility.documentUrl} readAt={formatDateUtc(call.documentEligibility.extractedAt)}
               basis={call.documentEligibility.basis} sources={call.documentEligibility.sources} callId={call.id} closed={closed}
-              ctx={{ programme: call.programme, topic: call.topicId, ukraineNoFunding: call.ukraineBasis?.reason === 'call_document_no_funding' ? call.ukraineBasis.evidence : null }}
+              ctx={{ programme: call.programme, topic: call.topicId, ukraineNoFunding: call.ukraineBasis?.reason === 'call_document_no_funding' ? call.ukraineBasis.evidence : null,
+                ukraineBeforeAssociation: beforeAssociation(call.ukraineBasis?.reason) }}
               rulesApply={call.rulesApply} />
           </Panel>
         ) : call.eligibilityState === 'not_read' ? (

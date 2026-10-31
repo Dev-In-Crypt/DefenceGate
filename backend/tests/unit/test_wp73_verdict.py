@@ -114,5 +114,5 @@ def test_unknown_is_a_status_the_api_takes_and_the_roadmap_reads_as_not_held():
 
 def test_rules_reviewed_is_the_latest_review_of_any_rule():
     latest = max(r.last_reviewed for p in CONTENT.programmes.values() for r in p.rules)
-    assert CONTENT.reviewed == latest == "2026-10-20"
+    assert CONTENT.reviewed == latest == "2026-10-31"          # WP-167: the three EDF rules on Ukraine
     assert engine.STATUS_UNKNOWN == "unknown"

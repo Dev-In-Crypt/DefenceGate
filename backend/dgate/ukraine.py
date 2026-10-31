@@ -33,12 +33,14 @@ sentence it rests on. In this order:
                       part without funding is another question); the evidence is that sentence, which the call page and the list
                       card say, and the eligibility check blocks a Ukrainian applicant with it. Read on 26 October 2026: none of
                       the 10 EDIP calls' documents has such a sentence (docs/verification/round6/wp145-selfcheck.md).
-  7. `edf_association_unconfirmed`  an EDF call: Ukraine may take part as an associated country
-                      "in accordance with the conditions laid down in the EU-Ukraine Association
-                      Agreement" (Regulation (EU) 2021/697, Article 5, as replaced), the EDF call
-                      documents say participation of entities established in Ukraine "is pending the
-                      signature of the association agreement", and no primary text read on 18 October 2026
-                      says that agreement is in force. Unknown, conditional on the agreement.
+  7. `edf_association`  WP-167 (owner, 31 October 2026): an EDF call open on or after 16 October 2026 (or with no deadline). Ukraine
+                      takes part as an associated country "in accordance with the conditions laid down in the EU-Ukraine Association
+                      Agreement" (Regulation (EU) 2021/697, Article 5, as replaced), and the Commission (DG DEFIS, news of 16 October
+                      2026) says the association agreement has come into force. True, unless the call's own document says otherwise
+                      (the reasons above come first).
+  7b. `edf_closed_before_association`  an EDF call that closed before 16 October 2026: its document said participation of
+                      entities established in Ukraine "is pending the signature of the association agreement". Unknown, as before
+                      (it was `edf_association_unconfirmed` until WP-167; the web reads that old name the same way).
   8. `not_stated`     nothing states it. Unknown.
 
 The work programme's general annexes never decide it alone (a topic may restrict who takes part): only
@@ -49,15 +51,19 @@ together with a topic sentence that sends the call to the associated countries. 
 from __future__ import annotations
 
 import re
+from datetime import date, datetime, time
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from . import eligibility, verdict
 from .regime import EDF, EDIP, HORIZON, USI, regime_of
 
 REASONS = ("call_document", "call_document_closed_list", "topic_text", "call_text", "topic_text_associated", "horizon_associated",
-           "programme_rule", "call_document_no_funding", "edf_association_unconfirmed", "not_stated")
+           "programme_rule", "call_document_no_funding", "edf_association", "edf_closed_before_association", "not_stated")
 EVIDENCE_MAX = 450
 NO_FUNDING = "call_document_no_funding"
+# WP-167: an EDF call that closed before Ukraine's association entered into force (the old name too, until the flags are re-run)
+BEFORE_ASSOCIATION = ("edf_closed_before_association", "edf_association_unconfirmed")
 
 # Verbatim from the Official Journal text (CELLAR), read on 18 October 2026.
 USI_RULE = ("Only legal entities established in the Union or in Ukraine and having their executive management "
@@ -73,9 +79,18 @@ EDF_RULE = ("Ukraine, in accordance with the conditions laid down in the EU-Ukra
 # on 18 October 2026 (latest versions dated 8 September 2026), word for word.
 EDF_PENDING = ("Participation of entities established in Ukraine is pending the signature of the association "
                "agreement to EDF (see countries currently negotiating association agreements below).")
-EDF_EVIDENCE = (f"EDF call documents, 2026: “{EDF_PENDING}” Regulation (EU) 2025/2653, Article 3(1): Ukraine "
-                "“in accordance with the conditions laid down in the EU-Ukraine Association Agreement”. "
-                "No text we could read says that agreement is in force.")
+# WP-167: the DG DEFIS news of 16 October 2026, read on 31 October 2026, word for word. (The page's own title spells "Porgramme".)
+EDF_IN_FORCE_DAY = date(2026, 10, 16)
+EDF_IN_FORCE_URL = ("https://defence-industry-space.ec.europa.eu/ukraines-association-european-defence-fund-and-european-defence-"
+                    "industry-porgramme-funding-entered-2026-10-16_en")
+EDF_IN_FORCE = ("The Ukrainian association with the European Defence Fund (EDF) and financing under the European Defence Industry "
+                "Programme (EDIP) agreements have come into force.")
+EDF_EVIDENCE = (f"European Commission, DG DEFIS, 16 October 2026: “{EDF_IN_FORCE}” Regulation (EU) 2025/2653, Article 3(1): Ukraine "
+                "“in accordance with the conditions laid down in the EU-Ukraine Association Agreement”.")
+EDF_CLOSED_EVIDENCE = ("This call closed before 16 October 2026, when Ukraine's association with the EDF entered into force. "
+                       f"The EDF call documents of 2026 said: “{EDF_PENDING}”")
+# Before the start of 16 October 2026 in Brussels: closed before the association entered into force.
+_IN_FORCE_FROM = datetime.combine(EDF_IN_FORCE_DAY, time(0), tzinfo=ZoneInfo("Europe/Brussels"))
 HORIZON_ANNEX = "The general annexes of the Horizon Europe work programme list Ukraine among the countries associated to Horizon Europe."
 
 _UKRAINE = re.compile(r"\bUkrain\w*", re.I)
@@ -158,7 +173,8 @@ def _closed_list(fact: dict[str, Any]) -> str | None:
 def decide(call: dict[str, Any], facts: dict[str, Any]) -> tuple[bool | None, str, str | None]:
     """(flag, reason, evidence) of one call. `facts` are its verified eligibility facts as served
     (`eligibility.read_many`); `call` has `programme_code`, `topic_code` and `eligibility_text`, and may have `document_text`,
-    the stored text of its call document (WP-145)."""
+    the stored text of its call document (WP-145), and `deadline_at` (WP-167: whether an EDF call closed before Ukraine's
+    association entered into force)."""
     regime = regime_of(call.get("programme_code") or "", call.get("topic_code"))
     if regime is EDIP:
         said = no_funding_sentence(f"{call.get('document_text') or ''}\n{call.get('eligibility_text') or ''}")
@@ -184,7 +200,10 @@ def decide(call: dict[str, Any], facts: dict[str, Any]) -> tuple[bool | None, st
     if regime is EDIP:
         return None, "programme_rule", _clip(EDIP_RULE)
     if regime is EDF:
-        return None, "edf_association_unconfirmed", _clip(EDF_EVIDENCE)
+        closed = call.get("deadline_at")
+        if closed is not None and closed < _IN_FORCE_FROM:
+            return None, "edf_closed_before_association", _clip(EDF_CLOSED_EVIDENCE)
+        return True, "edf_association", _clip(EDF_EVIDENCE)
     if regime is HORIZON:
         topic = eligibility.topic_text(call.get("eligibility_text"))
         m = _HORIZON_TOPIC.search(re.sub(r"\s+", " ", topic or ""))
@@ -198,10 +217,11 @@ def decide(call: dict[str, Any], facts: dict[str, Any]) -> tuple[bool | None, st
     return None, "not_stated", None
 
 
-def run(conn, *, write: bool = False) -> dict[str, int]:
-    """Decide every call. Writes only the calls whose answer changed; a second run changes nothing."""
+def run(conn, *, write: bool = False, changes: list[dict[str, Any]] | None = None) -> dict[str, int]:
+    """Decide every call. Writes only the calls whose answer changed; a second run changes nothing. `changes` collects them
+    (id, topic, before, after) for a report."""
     rows = conn.execute(
-        """SELECT c.id, p.code AS programme_code, c.topic_code, c.type_of_action, c.conditions_raw, c.eligibility_text,
+        """SELECT c.id, p.code AS programme_code, c.topic_code, c.deadline_at, c.type_of_action, c.conditions_raw, c.eligibility_text,
                   c.open_to_ukraine, c.open_to_ukraine_reason, c.open_to_ukraine_evidence,
                   -- WP-145: the stored call documents of the EDIP calls, the only ones whose text is read here
                   CASE WHEN c.topic_code LIKE 'EDF-EDIP-P-%%' THEN
@@ -218,6 +238,9 @@ def run(conn, *, write: bool = False) -> dict[str, int]:
         if (flag, reason, evidence) == (r["open_to_ukraine"], r["open_to_ukraine_reason"], r["open_to_ukraine_evidence"]):
             continue
         counts["changed"] += 1
+        if changes is not None:
+            changes.append({"id": r["id"], "topic": r["topic_code"], "before": (r["open_to_ukraine"], r["open_to_ukraine_reason"]),
+                            "after": (flag, reason)})
         if write:
             conn.execute(
                 """UPDATE call SET open_to_ukraine = %s, open_to_ukraine_reason = %s, open_to_ukraine_evidence = %s,

@@ -171,11 +171,12 @@ def test_an_edip_call_whose_document_does_say_ukraine_is_not_eligible_is_still_c
     assert (flag, reason) == (False, "call_document")
 
 
-def test_an_edf_call_is_unknown_until_a_primary_text_says_the_association_is_in_force():
+def test_an_edf_call_is_open_to_ukraine_since_the_association_entered_into_force():
+    """WP-167: was unknown until a primary text said the association is in force; the Commission said so on 16 October 2026."""
     quote = "listed EEA countries and countries associated to the EDF Programme (‘EDF associated countries’)"
     for facts in ({}, {"eligible_countries": fact(quote)}):
         flag, reason, evidence = ukraine.decide(call("EDF", "EDF-2026-DA-GROUND-MBT"), facts)
-        assert flag is None and reason == "edf_association_unconfirmed" and "EU-Ukraine Association Agreement" in evidence
+        assert flag is True and reason == "edf_association" and "EU-Ukraine Association Agreement" in evidence
 
 
 def test_an_edf_document_that_itself_names_ukraine_still_decides():
@@ -250,7 +251,8 @@ def test_every_entry_has_a_primary_source_a_verbatim_sentence_and_a_check_date()
 
 def test_a_claim_no_primary_text_confirms_is_marked_unconfirmed_and_says_what_is_open():
     unconfirmed = [e for e in regulation.load_file() if e["status"] == "unconfirmed"]
-    assert {e["code"] for e in unconfirmed} == {"safe-uk-unconfirmed", "edf-ukraine-in-force-unconfirmed"}
+    # WP-167: Ukraine's EDF association is in force since 16 October 2026 (DG DEFIS): no longer an open point
+    assert {e["code"] for e in unconfirmed} == {"safe-uk-unconfirmed"}
     for e in unconfirmed:
         assert "found no" in e["what_changed"]
 
@@ -297,7 +299,7 @@ def test_a_duplicate_code_and_an_empty_file_are_refused():
 def test_the_payload_lists_the_newest_event_first_and_the_last_check():
     p = regulation.payload(regulation.load_file())
     days = [e["eventDate"] for e in p["entries"]]
-    assert days == sorted(days, reverse=True) and p["lastChecked"] == "2026-10-18"
+    assert days == sorted(days, reverse=True) and p["lastChecked"] == "2026-10-31"      # WP-167: the EDF Ukraine entries
     assert regulation.payload([])["lastChecked"] is None
 
 

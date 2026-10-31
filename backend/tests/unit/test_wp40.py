@@ -197,15 +197,21 @@ def test_a_document_that_names_ukraine_as_a_member_of_a_seap_does_not_make_an_ed
     assert "The call document also says" in evidence and "or Ukraine" in evidence and "Ukraine is not one" in evidence
 
 
-def test_an_edf_call_is_unknown_and_its_evidence_is_the_sentence_of_the_call_documents():
+def test_an_edf_call_is_open_to_ukraine_under_the_association_unless_it_closed_before_16_october_2026():
+    """WP-167 (owner, 31 October 2026): Ukraine's association with the EDF is in force since 16 October 2026 (DG DEFIS). The EDF calls
+    of this export all closed before that day (the latest on 29 September 2026): they keep "unknown", with the sentence their documents
+    said. Read as open calls (no deadline), the same facts make them open to Ukraine: none of their documents says otherwise."""
     edf = [cid for cid, c in CALLS.items() if regime_of(c["programme"], c["topic"]) is EDF]
     assert len(edf) >= 15
+    closed = datetime(2026, 9, 29, 15, tzinfo=timezone.utc)
     for cid in edf:
+        flag, reason, evidence = ukraine.decide({**call_dict(cid), "deadline_at": closed}, served(cid)["facts"])
+        assert (flag, reason) == (None, "edf_closed_before_association"), cid
+        assert "pending the signature of the association agreement to EDF" in evidence and "closed before 16 October 2026" in evidence, cid
         flag, reason, evidence = ukraine_flag(cid)
-        assert (flag, reason) == (None, "edf_association_unconfirmed"), cid
-        assert "pending the signature of the association agreement to EDF" in evidence, cid
-        assert "EU-Ukraine Association Agreement" in evidence and "Article 3(1)" in evidence
-    assert len(ukraine.EDF_EVIDENCE) <= ukraine.EVIDENCE_MAX
+        assert (flag, reason) == (True, "edf_association"), cid
+        assert ukraine.EDF_IN_FORCE in evidence and "EU-Ukraine Association Agreement" in evidence and "Article 3(1)" in evidence
+    assert len(ukraine.EDF_EVIDENCE) <= ukraine.EVIDENCE_MAX and len(ukraine.EDF_CLOSED_EVIDENCE) <= ukraine.EVIDENCE_MAX
 
 
 def test_the_digital_europe_cyber_documents_list_the_eligible_countries_and_ukraine_is_not_on_the_list():
@@ -294,11 +300,12 @@ def test_the_edip_control_rule_says_article_9_9_exempts_the_same_entities():
     assert "Article 9(9)" in next(r for r in block["rules"] if r["rule"] == "EDIP-CONTROL")["caveat"]
 
 
-def test_the_edf_rules_block_says_ukraine_is_conditional_on_the_association_agreement():
+def test_the_edf_rules_block_says_ukraines_association_is_in_force_since_16_october_2026():
     block = rules_apply.build(CONTENT, "EDF", "EDF-2026-DA-AIR-SPS")
     caveats = {r["rule"]: r["caveat"] for r in block["rules"] if r["caveat"]}
     assert set(caveats) == {"EDF-ESTABLISH", "EDF-EXEC-MGMT"}
-    assert all("conditional on the EU-Ukraine association agreement, which is not confirmed" in c for c in caveats.values())
+    assert all("in force since 16 October 2026" in c and "not confirmed" not in c for c in caveats.values())
+    assert ukraine.EDF_IN_FORCE in caveats["EDF-ESTABLISH"], "the Commission's sentence, word for word"
 
 
 # ======================================================================= B2, B4, B7: the seed
@@ -307,13 +314,20 @@ def rule(programme: str, code: str):
     return next(r for r in CONTENT.programmes[programme].rules if r.code == code)
 
 
-def test_the_edf_rules_treat_ukraine_as_conditional_with_the_call_documents_sentence():
+def test_the_edf_rules_count_ukraine_as_an_associated_country_since_16_october_2026():
+    """WP-167: was conditional on the association agreement (V2-B2); the agreement is in force since 16 October 2026."""
     est = rule("EDF", "EDF-ESTABLISH")
-    assert est.condition == {"field": "country", "in": ["EU", "EEA_EFTA"]} and est.conditional_when == {"field": "country", "is": "UA"}
-    assert "pending the signature of the association agreement to EDF" in est.texts["conditional"]
-    assert "conditional on that agreement, not confirmed" in est.texts["conditional"]
-    assert rule("EDF", "EDF-EXEC-MGMT").conditional_when == {"field": "executive_management_country", "is": "UA"}
-    assert "Ukraine" not in rule("EDF", "EDF-ESTABLISH").texts["met"] and "Ukraine" not in rule("EDF", "EDF-EXEC-MGMT").texts["met"]
+    assert est.condition == {"field": "country", "in": ["EU", "EEA_EFTA", "UA"]} and est.conditional_when is None
+    assert rule("EDF", "EDF-EXEC-MGMT").condition == {"field": "executive_management_country", "in": ["EU", "EEA_EFTA", "UA"]}
+    assert rule("EDF", "EDF-EXEC-MGMT").conditional_when is None
+    # control from Ukraine or an EEA EFTA state is control from an associated country; from elsewhere, the guarantees decide
+    control = rule("EDF", "EDF-CONTROL")
+    assert control.condition == {"field": "third_country_control", "in": ["no", "ua_eea_only"]}
+    assert control.conditional_when == {"field": "third_country_control", "is": "other"}
+    for r in (est, rule("EDF", "EDF-EXEC-MGMT"), control):
+        assert "Ukraine" in r.texts["met"] and "16 October 2026" in r.texts["met"] + r.texts["requires"], r.code
+        assert "not confirmed" not in json.dumps(r.texts) and r.last_reviewed == "2026-10-31", r.code
+    assert ukraine.EDF_IN_FORCE in est.note and "pending the signature of the association agreement to EDF" in est.note
 
 
 def test_the_safe_rules_make_a_canadian_company_conditional_under_the_provisionally_applied_agreement():
@@ -359,14 +373,17 @@ def test_the_uk_entry_rests_on_the_written_statement_of_the_uk_government():
     assert "up to 35 %" in e["what_changed"] and "unconfirmed" in e["what_changed"]
 
 
-def test_the_edf_ukraine_entry_quotes_the_call_documents_and_the_three_places_agree():
-    e = TRACKER["edf-ukraine-in-force-unconfirmed"]
-    assert e["source_quote"].startswith("Participation of entities established in Ukraine is pending the signature of the association agreement to EDF")
-    assert e["source_quote"] in ukraine.EDF_PENDING or ukraine.EDF_PENDING in e["source_quote"]
-    assert "10 of 10" in e["what_changed"] and "conditional" in e["what_changed"]
+def test_the_edf_ukraine_entry_quotes_the_commission_and_the_three_places_agree():
+    """WP-167: the entry was "pending the signature (not confirmed in force)"; the Commission said on 16 October 2026 it is in force."""
+    assert "edf-ukraine-in-force-unconfirmed" not in TRACKER
+    e = TRACKER["edf-ukraine-association-in-force"]
+    assert e["source_quote"] == ukraine.EDF_IN_FORCE and e["source_url"] == ukraine.EDF_IN_FORCE_URL
+    assert e["status"] == "in_force" and e["event_date"] == "2026-10-16" and "16 October 2026" in e["what_changed"]
+    assert "pending the signature of the association agreement" in e["what_changed"], "the closed calls keep their documents' answer"
     # the flag, the readiness rule and the tracker use the same sentence
-    assert ukraine.EDF_PENDING.split(" (see")[0] in rule("EDF", "EDF-ESTABLISH").texts["conditional"].replace("“", "").replace("”", "") or \
-        "pending the signature of the association agreement to EDF" in rule("EDF", "EDF-ESTABLISH").texts["conditional"]
+    assert ukraine.EDF_IN_FORCE in ukraine.EDF_EVIDENCE and ukraine.EDF_IN_FORCE in rule("EDF", "EDF-ESTABLISH").texts["caveat"]
+    link = next(x for x in TRACKER["edf-ukraine-legal-basis"]["links"] if x["kind"] == "page" and x["code"].startswith("/regulation#"))
+    assert link["code"] == "/regulation#edf-ukraine-association-in-force" and "in force since 16 October 2026" in link["label"]
 
 
 def test_the_applicant_rule_of_common_procurement_is_in_the_tracker_with_the_sentence_of_the_journal():

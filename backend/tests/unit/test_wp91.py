@@ -77,7 +77,8 @@ def test_the_country_groups_of_the_rules_block_from_the_seed():
         for r in group:
             assert r["outcome"] != "met" or not r["asks"]
     edf = rules_apply.build(content, "EDF", "EDF-2026-DA-SPACE-SSA")
-    assert {r["rule"]: r["outcome"] for r in edf["byCountry"]["UA"]}["EDF-ESTABLISH"] == "conditional"
+    # WP-167: Ukraine is an associated country of the EDF since 16 October 2026 (it was conditional before)
+    assert {r["rule"]: r["outcome"] for r in edf["byCountry"]["UA"]}["EDF-ESTABLISH"] == "met"
     cpa = rules_apply.build(content, "EDF", "EDF-EDIP-P-2027-FNLC-CPA-AMDS")
     assert [r["outcome"] for r in cpa["forCompany"]] == ["not_met"]
     assert rules_apply.build(content, "HORIZON", "HORIZON-CL3-2026-01-DRS-01").get("byCountry") is None, "no rules encoded: no summary"

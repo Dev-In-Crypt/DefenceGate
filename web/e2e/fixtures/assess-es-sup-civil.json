@@ -63,14 +63,14 @@
      "consultant": null,
      "denominator": null,
      "kind": "establishment",
-     "note": "The associated countries are the EEA EFTA states (under the conditions of the EEA Agreement) and, since Regulation (EU) 2025/2653, Ukraine under the conditions of the EU-Ukraine Association Agreement. That those conditions are met is not confirmed, so a company established in Ukraine is conditional here, not eligible. The EDF call documents of 2026 say: “Participation of entities established in Ukraine is pending the signature of the association agreement to EDF”, and we found no Official Journal text, Council decision or notice that says the EU-Ukraine association agreement applies to the EDF.",
+     "note": "The associated countries are the EEA EFTA states (under the conditions of the EEA Agreement) and, since Regulation (EU) 2025/2653, Ukraine under the conditions of the EU-Ukraine Association Agreement. That agreement is in force for the EDF since 16 October 2026: the European Commission (DG DEFIS, news of 16 October 2026) says “The Ukrainian association with the European Defence Fund (EDF) and financing under the European Defence Industry Programme (EDIP) agreements have come into force.” Until then the EDF call documents of 2026 said: “Participation of entities established in Ukraine is pending the signature of the association agreement to EDF”.",
      "obligation": "mandatory",
      "outcome": "met",
-     "reason": "Your company is established in an EU Member State or an EEA EFTA state. These are the Union and an associated country of the EDF.",
+     "reason": "Your company is established in an EU Member State, an EEA EFTA state or Ukraine. These are the Union and the associated countries of the EDF (Ukraine's association is in force since 16 October 2026).",
      "requirement": null,
      "rule": "EDF-ESTABLISH",
      "source": {
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-31",
       "origin": "primary",
       "ref": "Regulation (EU) 2021/697, Article 9(1) and Article 5 (as replaced by Regulation (EU) 2025/2653)",
       "text": "[Regulation (EU) 2021/697, Article 9(1)] Recipients and subcontractors involved in an action shall be established in the Union or in an associated country.\n\n[Regulation (EU) 2021/697, Article 5, as replaced by Regulation (EU) 2025/2653, Article 3(1)] The Fund shall be open to the participation of the following third countries (associated countries): (a) members of the European Free Trade Association which are members of the EEA, in accordance with the conditions laid down in the Agreement on the European Economic Area; (b) Ukraine, in accordance with the conditions laid down in the EU-Ukraine Association Agreement.",
@@ -96,7 +96,7 @@
      "requirement": null,
      "rule": "EDF-EXEC-MGMT",
      "source": {
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-31",
       "origin": "primary",
       "ref": "Regulation (EU) 2021/697, Article 9(2)",
       "text": "[Regulation (EU) 2021/697, Article 9(2)] The infrastructure, facilities, assets and resources of the recipients and subcontractors involved in an action which are used for the purposes of an action supported by the Fund shall be located on the territory of a Member State or of an associated country for the entire duration of an action, and their executive management structures shall be established in the Union or in an associated country.",
@@ -113,11 +113,11 @@
      "note": "The guarantees must show that control is not exercised in a way that restricts the action, that access to sensitive information is prevented, and that intellectual property stays with the recipient. Paragraph 4 of Article 9 lists them.",
      "obligation": "mandatory",
      "outcome": "met",
-     "reason": "Your company is not controlled from outside the EU.",
+     "reason": "Your company is not controlled from outside the EU, or only from an associated country of the EDF: an EEA EFTA state, or Ukraine, whose association is in force since 16 October 2026.",
      "requirement": null,
      "rule": "EDF-CONTROL",
      "source": {
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-31",
       "origin": "primary",
       "ref": "Regulation (EU) 2021/697, Article 9(3) and (4)",
       "text": "[Regulation (EU) 2021/697, Article 9(3)] For the purposes of an action supported by the Fund, the recipients and subcontractors involved in an action shall not be subject to control by a non-associated third country or by a non-associated third-country entity.\n\n[Regulation (EU) 2021/697, Article 9(4), first sentence] By way of derogation from paragraph 3, a legal entity established in the Union or in an associated country and controlled by a non-associated third country or a non-associated third-country entity shall be eligible to be a recipient or subcontractor involved in an action only if guarantees approved by the Member State or the associated country in which it is established in accordance with its national procedures are made available to the Commission.",
@@ -2391,5 +2391,5 @@
    "REQ-PECAL"
   ]
  },
- "rulesReviewed": "2026-10-20"
+ "rulesReviewed": "2026-10-31"
 }

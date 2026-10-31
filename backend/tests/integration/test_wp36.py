@@ -76,14 +76,14 @@ def test_the_flag_is_decided_from_the_document_then_the_regulation_and_a_second_
     assert before["changed"] == 5 and before["calls"] == 5
     assert conn.execute("SELECT count(*) AS n FROM call WHERE open_to_ukraine_reason IS NOT NULL").fetchone()["n"] == 0, "a report writes nothing"
     done = ukraine.run(conn, write=True)
-    assert (done["yes"], done["no"], done["unknown"]) == (2, 0, 3)
+    assert (done["yes"], done["no"], done["unknown"]) == (3, 0, 2)            # WP-167: the open EDF call is open to Ukraine
     got = {r["id"]: r for r in conn.execute("SELECT id, open_to_ukraine AS flag, open_to_ukraine_reason AS reason, "
                                             "open_to_ukraine_evidence AS evidence FROM call").fetchall()}
     assert (got[usi]["flag"], got[usi]["reason"]) == (True, "call_document")
     assert got[usi]["evidence"].endswith("Ukraine") and len(got[usi]["evidence"]) > 25, "the sentence the list item stands in, not one word"
     assert (got[usi_bare]["flag"], got[usi_bare]["reason"]) == (True, "programme_rule")
     assert (got[edip]["flag"], got[edip]["reason"]) == (None, "programme_rule"), "V3-A: the Regulation limits recipients, the document is silent: unknown"
-    assert (got[edf]["flag"], got[edf]["reason"]) == (None, "edf_association_unconfirmed"), "unknown is not no"
+    assert (got[edf]["flag"], got[edf]["reason"]) == (True, "edf_association"), "WP-167: the association is in force since 16 Oct 2026"
     assert (got[hz]["flag"], got[hz]["reason"]) == (None, "not_stated"), "the general annexes never decide it"
 
     stamp = conn.execute("SELECT open_to_ukraine_decided_at AS t FROM call WHERE id = %s", (usi,)).fetchone()["t"]
@@ -102,21 +102,22 @@ def test_the_list_filters_badges_and_counts_calls_open_to_ukraine(client, conn):
     yes = put(conn, "yes", programme="EDF", topic="EDF-EDIP-USI-2026-LS-IRA-A")
     closed_yes = put(conn, "old", programme="EDF", topic="EDF-EDIP-USI-2026-LS-IRA-B", days=-3)
     put(conn, "no", programme="EDF", topic="EDF-EDIP-P-2026-FNLC-CPA-C")
-    put(conn, "unknown", programme="EDF", topic="EDF-2026-DA-D")
+    edf = put(conn, "edf", programme="EDF", topic="EDF-2026-DA-D")
     ukraine.run(conn, write=True)
 
     everything = client.get("/v1/funding", params={"status": "all"}).json()
-    assert everything["total"] == 4 and everything["ukraineTotal"] == 2
+    assert everything["total"] == 4 and everything["ukraineTotal"] == 3
     only = client.get("/v1/funding", params={"status": "all", "ukraine": "true"}).json()
-    assert only["total"] == 2 and {c["id"] for c in only["items"]} == {str(yes), str(closed_yes)}
+    assert only["total"] == 3 and {c["id"] for c in only["items"]} == {str(yes), str(closed_yes), str(edf)}
     assert all(c["openToUkraine"] is True for c in only["items"])
     by_topic = {c["topicId"]: c["openToUkraine"] for c in everything["items"]}
-    # V3-A: an EDIP Programme call is unknown, not closed: no sentence of its document says a Ukrainian entity may not apply
-    assert by_topic["EDF-EDIP-P-2026-FNLC-CPA-C"] is None and by_topic["EDF-2026-DA-D"] is None
+    # V3-A: an EDIP Programme call is unknown, not closed: no sentence of its document says a Ukrainian entity may not apply.
+    # WP-167: an open EDF call is open to Ukraine (the association is in force since 16 October 2026).
+    assert by_topic["EDF-EDIP-P-2026-FNLC-CPA-C"] is None and by_topic["EDF-2026-DA-D"] is True
     # The count follows the other filters; only `true` is a filter.
     openly = client.get("/v1/funding", params={"status": "open"}).json()
-    assert openly["total"] == 3 and openly["ukraineTotal"] == 1
-    assert client.get("/v1/funding", params={"status": "open", "ukraine": "true"}).json()["total"] == 1
+    assert openly["total"] == 3 and openly["ukraineTotal"] == 2
+    assert client.get("/v1/funding", params={"status": "open", "ukraine": "true"}).json()["total"] == 2
     assert client.get("/v1/funding", params={"ukraine": "false"}).status_code == 422
     assert client.get("/v1/funding", params={"ukraine": "yes"}).status_code == 422
     both = client.get("/v1/funding", params={"status": "all", "ukraine": "true", "cascade": "true"}).json()
@@ -140,9 +141,9 @@ def test_the_call_detail_says_how_the_flag_was_decided_and_carries_the_rules_blo
     assert "USI-ORIGIN-35" in [r["rule"] for r in block["rules"]] and block["alsoRead"] is None
     assert "legal advice" in block["notice"]
 
-    unconfirmed = client.get(f"/v1/funding/{edf}").json()
-    assert unconfirmed["openToUkraine"] is None and unconfirmed["ukraineBasis"]["reason"] == "edf_association_unconfirmed"
-    assert [r["rule"] for r in unconfirmed["rulesApply"]["rules"]] == ["EDF-LEGAL-ENTITY", "EDF-ESTABLISH", "EDF-EXEC-MGMT", "EDF-CONTROL"]
+    associated = client.get(f"/v1/funding/{edf}").json()
+    assert associated["openToUkraine"] is True and associated["ukraineBasis"]["reason"] == "edf_association"      # WP-167
+    assert [r["rule"] for r in associated["rulesApply"]["rules"]] == ["EDF-LEGAL-ENTITY", "EDF-ESTABLISH", "EDF-EXEC-MGMT", "EDF-CONTROL"]
 
     horizon = client.get(f"/v1/funding/{hz}").json()
     assert horizon["rulesApply"]["regime"]["code"] == "HORIZON" and horizon["rulesApply"]["encoded"] is False
@@ -198,7 +199,7 @@ def test_the_worker_applies_the_tracker_on_start(conn):
 def test_the_api_serves_the_entries_newest_first_with_source_quote_and_check_date(client, conn):
     regulation.apply(conn, regulation.load_file())
     body = client.get("/v1/regulation").json()
-    assert body["lastChecked"] == "2026-10-18" and "legal advice" in body["notice"]
+    assert body["lastChecked"] == "2026-10-31" and "legal advice" in body["notice"]      # WP-167: the EDF Ukraine entries
     days = [e["eventDate"] for e in body["entries"]]
     assert days == sorted(days, reverse=True)
     for e in body["entries"]:

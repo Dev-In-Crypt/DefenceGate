@@ -110,6 +110,20 @@ export function repeatedCallBudgets(calls: { id: string; callId: string | null; 
   return repeats;
 }
 
+/** WP-167: "EUR 184.5 million" for a round amount (a whole hundred thousand), else the amount in full. */
+export function millions(m: Money): string {
+  return m.amount >= 1e6 && m.amount % 1e5 === 0 ? `${m.currency} ${m.amount / 1e6} million` : formatMoney(m);
+}
+
+/**
+ * WP-167: the call document's own total next to the portal's figure: "Call document total: EUR 184.5 million, including EUR 180 million
+ * from the voted EU budget" (the portal states the voted EU budget only).
+ */
+export function documentBudgetLine(b: { amount: number; votedEu?: number | null; currency: string }): string {
+  const voted = b.votedEu != null ? `, including ${millions({ amount: b.votedEu, currency: b.currency })} from the voted EU budget` : '';
+  return `Call document total: ${millions({ amount: b.amount, currency: b.currency })}${voted}.`;
+}
+
 /** "EUR 25,000,000" — always ISO code, never a symbol. */
 export function formatMoney(m: Money): string {
   return `${m.currency} ${amountFormat.format(m.amount)}`;

@@ -13,7 +13,10 @@ export const UKRAINE_BASIS: Record<string, string> = {
   call_text: 'From the call’s conditions text',
   programme_rule: 'From the regulation of this regime',
   call_document_no_funding: 'From the call document',
-  edf_association_unconfirmed: 'From the EDF call documents and the regulation',
+  // WP-167: Ukraine's EDF association is in force since 16 October 2026; the old name is read as a call closed before that day
+  edf_association: 'From the European Commission’s statement of 16 October 2026 and the regulation',
+  edf_closed_before_association: 'From the EDF call documents',
+  edf_association_unconfirmed: 'From the EDF call documents',
   call_document_closed_list: 'From the call document’s list of eligible countries',
   topic_text_associated: 'From the topic’s own conditions and the general annexes',
   horizon_associated: 'From the call’s list of eligible countries (open to the countries associated to Horizon Europe) and the general annexes, which list Ukraine',
