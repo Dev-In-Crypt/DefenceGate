@@ -332,6 +332,13 @@ def test_a_normal_pg_dump_excerpt_passes_unchanged():
     assert _passes(PG_DUMP_EXCERPT) == PG_DUMP_EXCERPT
 
 
+def test_the_extensions_a_production_dump_creates_pass():
+    # WP-163: production's dump of 31 Oct 2026 starts with pg_stat_statements; the filter refused it.
+    for name in (b"pg_stat_statements", b"pg_trgm"):
+        line = b"CREATE EXTENSION IF NOT EXISTS " + name + b" WITH SCHEMA public;\n"
+        assert _passes(line) == line
+
+
 def test_a_planted_shell_escape_is_rejected():
     with pytest.raises(backup.UnsafeDump, match="meta-command"):
         _passes(b"SELECT 1;\n\\! id\nSELECT 2;\n")

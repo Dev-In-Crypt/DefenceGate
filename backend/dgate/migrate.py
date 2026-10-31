@@ -96,6 +96,59 @@ def apply(conn, migration: Migration) -> None:
         raise
 
 
+# Top-level statement splitting: comments dropped, strings, quoted names and dollar bodies kept whole.
+_TOKENS = re.compile(r"--[^\n]*|/\*.*?\*/|'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"|(\$(?:[A-Za-z_]\w*)?\$).*?\1|;",
+                     re.S)
+_PRIVILEGE = re.compile(r"(?:GRANT|REVOKE|ALTER\s+DEFAULT\s+PRIVILEGES|ALTER\s+ROLE)\b", re.I)
+_ROLE_BLOCK = re.compile(r"DO\b.*\bCREATE\s+ROLE\b", re.I | re.S)
+
+
+def _statements(text: str) -> list[str]:
+    out: list[str] = []
+    buf: list[str] = []
+    pos = 0
+    for m in _TOKENS.finditer(text):
+        buf.append(text[pos:m.start()])
+        pos = m.end()
+        token = m.group()
+        if token == ";":
+            out.append("".join(buf).strip())
+            buf = []
+        else:
+            buf.append(" " if token.startswith(("--", "/*")) else token)
+    out.append("".join(buf + [text[pos:]]).strip())
+    return [s for s in out if s]
+
+
+def privilege_statements(migrations: list[Migration]) -> list[str]:
+    """Every role and privilege statement of these migrations, in the order they ran:
+    the role-creating DO blocks, ALTER ROLE, GRANT, REVOKE, ALTER DEFAULT PRIVILEGES."""
+    return [s for m in migrations for s in _statements(m.sql())
+            if _PRIVILEGE.match(s) or _ROLE_BLOCK.match(s)]
+
+
+def reapply_privileges(conn, directory: Path | None = None) -> int:
+    """Bring the service roles and their grants back to what the applied migrations made (WP-163).
+
+    Backups are dumped with --no-privileges (roles are cluster objects, not in a dump), so a
+    restored database has no dgate_api / dgate_worker / dgate_app roles on a new server and no
+    grants on any table. Replaying the applied migrations' own privilege statements, in order, in
+    one transaction, rebuilds exactly that state; on a database that has it already it changes
+    nothing. `migrate` runs it before the pending migrations (their GRANTs need the roles), so a
+    restore ends with `migrate` like any deploy.
+    """
+    done = applied_versions(conn)
+    todo = privilege_statements([m for m in discover(directory) if m.version in done])
+    try:
+        for statement in todo:
+            conn.execute(statement)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return len(todo)
+
+
 def set_role_passwords(conn) -> list[str]:
     """Give the service roles of migration 0024 a login, from the environment.
 
@@ -129,6 +182,7 @@ def migrate(dsn: str | None = None, directory: Path | None = None) -> list[Migra
     from . import db
 
     with db.connect(dsn or settings().dsn) as conn:
+        log.info("roles and grants: %d statements re-applied", reapply_privileges(conn, directory))
         todo = pending(conn, directory)
         for migration in todo:
             apply(conn, migration)
