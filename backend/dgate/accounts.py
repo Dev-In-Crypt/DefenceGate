@@ -492,6 +492,8 @@ def _prune(conn) -> None:
     # WP-155: the report counts of months before the last one are read by nothing (only the current month counts)
     conn.execute("DELETE FROM company_report_open WHERE month < date_trunc('month', now() AT TIME ZONE 'UTC') "
                  "- interval '1 month'")
+    # WP-162: a supplier report's count is read for its month, or for its calendar year (an association's pool)
+    conn.execute("DELETE FROM sell_report_use WHERE month < date_trunc('year', now() AT TIME ZONE 'UTC') - interval '1 year'")
 
 
 def prune_expired(conn) -> None:
@@ -1173,6 +1175,14 @@ def export(conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
         "companyReports": [{"month": r["month"], "organisationId": r["org_id"], "openedAt": r["opened_at"]}
                            for r in conn.execute("SELECT * FROM company_report_open WHERE account_id = %s "
                                                  "ORDER BY month, opened_at LIMIT 1000", (uid,)).fetchall()],
+        # WP-162: the supplier reports counted (no field of a form is in them), the form kept with consent, the cover logo
+        "supplierReports": [{"month": r["month"], "organisationId": r["org_id"], "usedAt": r["used_at"]}
+                            for r in conn.execute("SELECT * FROM sell_report_use WHERE account_id = %s "
+                                                  "ORDER BY used_at LIMIT 1000", (uid,)).fetchall()],
+        "supplierProfile": next((r["body"] for r in conn.execute(
+            "SELECT body FROM sell_profile WHERE account_id = %s", (uid,)).fetchall()), None),
+        "reportLogo": next(({"type": r["type"], "bytes": r["n"], "setAt": r["set_at"]} for r in conn.execute(
+            "SELECT type, octet_length(data) AS n, set_at FROM report_logo WHERE account_id = %s", (uid,)).fetchall()), None),
         "follows": [{"kind": r["kind"], "ref": r["ref"], "createdAt": r["created_at"]}
                     for r in conn.execute(
                         "SELECT * FROM app_follow WHERE owner_id = %s ORDER BY created_at LIMIT %s",

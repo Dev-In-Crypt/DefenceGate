@@ -168,7 +168,8 @@ def test_paid_features_are_pro_and_up_and_free_keeps_none_of_them():
                                      "signals_full", "signals_csv", "consortium_gaps", "branded_reports",
                                      "eligibility_export", "supplier_map_csv",
                                      "team_workspace", "client_profiles",      # WP-157
-                                     "expiring_contracts", "expiring_contracts_csv"}   # WP-160
+                                     "expiring_contracts", "expiring_contracts_csv",   # WP-160
+                                     "sell_report"}                            # WP-162
     assert not any(billing.allows("free", f) for f in billing.FEATURES)
 
 

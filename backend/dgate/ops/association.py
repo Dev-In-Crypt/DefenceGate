@@ -10,6 +10,8 @@
     python -m dgate.ops.association --association NAME --revoke [--yes]         withdraw the licence
     python -m dgate.ops.association --association NAME --license --until DATE --reason TEXT [--yes]
                                                                       grant it again, or move its end date
+    python -m dgate.ops.association --association NAME --reports N [--yes]   WP-162: the yearly pool of supplier reports
+                                                                      for all its members (0-1000; "none": no pool)
 
 NAME is the operator's key (lower case, digits, hyphens); the display name is what members see in the mail's sender and
 heading. A member's account gets the Pro features and the admin's the Team features while the licence holds
@@ -113,7 +115,8 @@ def _report(a: dict[str, Any]) -> str:
     licence = (f"since {a['licensed_at']:%Y-%m-%d} until {a['licensed_until']:%Y-%m-%d}"
                + (" (ended)" if a["licensed_until"] <= datetime.now(timezone.utc) else "") if a["licensed_at"] else "none")
     return (f"{a['name']} ({a['display_name']}): licence {licence}, "
-            f"{a['members']} of {a['seat_cap']} seats, admin {'set' if a['admin_id'] else 'none'}, {a['digest']} digest opt-in(s)")
+            f"{a['members']} of {a['seat_cap']} seats, admin {'set' if a['admin_id'] else 'none'}, {a['digest']} digest opt-in(s), "
+            f"supplier reports a year: {'no pool' if a.get('sell_reports_per_year') is None else a['sell_reports_per_year']}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -127,6 +130,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--license", action="store_true", help="grant the licence again, or move its end date (with --until, --reason)")
     p.add_argument("--until", type=date.fromisoformat, metavar="YYYY-MM-DD", help="the licence's last day (with --create, --license)")
     p.add_argument("--reason", help="the reference of the agreement (with --create, --license), at most 200 characters")
+    p.add_argument("--reports", metavar="N", help="WP-162: supplier reports a calendar year for all members; 'none': no pool")
     p.add_argument("--yes", action="store_true", help="make the change (default: report only)")
     a = p.parse_args(argv)
     email = a.add_member or a.revoke or None
@@ -165,6 +169,19 @@ def main(argv: list[str] | None = None) -> int:
             print("no association with that name")
             return 1
         print(_report(assoc))
+        if a.reports is not None:
+            pool = None if a.reports == "none" else int(a.reports) if a.reports.isdigit() and int(a.reports) <= 1000 else -1
+            if pool == -1:
+                print("--reports is a number from 0 to 1000, or none", file=sys.stderr)
+                return 2
+            if not a.yes:
+                print(f"dry run: would set the yearly pool of supplier reports to {a.reports} (add --yes)")
+                return 0
+            conn.execute("UPDATE association SET sell_reports_per_year = %s WHERE id = %s", (pool, assoc["id"]))
+            _audit("association_report_pool_set", None, association=assoc["id"], pool=a.reports)
+            conn.commit()
+            print(_report(get(conn, a.association)))
+            return 0
         if not (email or a.revoke == "" or a.license):
             return 0
         user = account(conn, email) if email else None

@@ -30,6 +30,8 @@ TABLE = {
     # WP-160 (owner, 31 October 2026): contracts ending soon beyond the first rows and their alerts; the CSV
     "expiring_contracts": {"pro", "team", "consultant", "founding"},
     "expiring_contracts_csv": {"team", "consultant"},
+    # WP-162: the "Who to sell to" supplier report (Pro 3, Team 15, Consultant unlimited, as the company report)
+    "sell_report": {"pro", "team", "consultant", "founding"},
 }
 
 

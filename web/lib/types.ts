@@ -986,7 +986,8 @@ export interface ApiKeys {
 export const PAID_FEATURES = ['saved_searches', 'email_alerts', 'company_report', 'competitors_full', 'signals_full', 'signals_csv', 'consortium_gaps', 'branded_reports',
   'eligibility_export', 'supplier_map_csv',   // WP-156: the two exports
   'team_workspace', 'client_profiles',   // WP-157: the team workspace and client profiles
-  'expiring_contracts', 'expiring_contracts_csv'] as const;   // WP-160: contracts ending soon (Pro) and their CSV (Team)
+  'expiring_contracts', 'expiring_contracts_csv',   // WP-160: contracts ending soon (Pro) and their CSV (Team)
+  'sell_report'] as const;               // WP-162: the "Who to sell to" supplier report
 export type PaidFeature = (typeof PAID_FEATURES)[number];
 
 /** GET /v1/account/sessions */

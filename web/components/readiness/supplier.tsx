@@ -284,7 +284,7 @@ export function SupplierForm({ offer = null }: { offer?: 'services' | 'products'
 /** How many matches the picker lists (WP-73: the whole vocabulary matches more than the 20 of the selection did). */
 const SHOWN = 50;
 
-function CpvPicker({ codes, onChange, error, services = false }: { codes: string[]; onChange: (codes: string[]) => void; error?: string; services?: boolean }) {
+export function CpvPicker({ codes, onChange, error, services = false }: { codes: string[]; onChange: (codes: string[]) => void; error?: string; services?: boolean }) {
   const [query, setQuery] = useState('');
   const vocab = useCpvVocabulary();
   const found = query.trim() ? cpvSearch(query, SHOWN, vocab ?? undefined) : [];
