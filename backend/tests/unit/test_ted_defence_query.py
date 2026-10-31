@@ -60,6 +60,17 @@ def test_search_pages_at_the_requested_size(monkeypatch):
     assert [p["limit"] for p in sent] == [2, 2]
 
 
+def test_search_keeps_fields_times_page_size_within_teds_limit(monkeypatch):
+    sent = []
+    monkeypatch.setattr(ted, "_post", lambda client, payload: sent.append(payload) or {"notices": [], "totalNoticeCount": 0})
+    list(ted.search("q"))
+    assert len(sent[0]["fields"]) * sent[0]["limit"] <= ted.MAX_FIELDS_PER_PAGE
+    assert sent[0]["limit"] == ted.MAX_FIELDS_PER_PAGE // len(ted.TED_FIELDS)
+    sent.clear()
+    list(ted.search("q", fields=["publication-number"], page_size=250))
+    assert sent[0]["limit"] == 250                                   # a short field list keeps the full page
+
+
 def test_month_windows_clip_to_the_range_and_split_into_weeks_then_days():
     assert pipeline._month_windows(date(2024, 2, 10), date(2024, 4, 16)) == [
         (date(2024, 2, 10), date(2024, 2, 29)), (date(2024, 3, 1), date(2024, 3, 31)),

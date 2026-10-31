@@ -64,6 +64,7 @@ log = logging.getLogger(__name__)
 
 TED_SEARCH_URL = "https://api.ted.europa.eu/v3/notices/search"
 PAGE_SIZE = 250          # the API maximum; 500 is rejected outright
+MAX_FIELDS_PER_PAGE = 10_000   # TED refuses fields x page size above this (400 SEARCH_FIELDS_PER_PAGE_EXCEEDS_MAX_LIMIT)
 MAX_PAGES = 400          # hard stop so a bad query cannot run forever
 
 # Exactly the fields we map in normalise.py. Requesting a narrow set keeps
@@ -254,6 +255,8 @@ def search(
     downstream logic can be re-run against it without refetching.
     """
     fields = fields or TED_FIELDS
+    # 43 fields x 250 is 10,750: the page shrinks to what TED accepts (40 x 250 would still fit)
+    page_size = min(page_size, MAX_FIELDS_PER_PAGE // max(len(fields), 1))
     owns_client = client is None
     client = client or new_client(headers={"User-Agent": USER_AGENT})
     try:
