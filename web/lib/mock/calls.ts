@@ -21,6 +21,8 @@ interface RawCall {
   whoDoc?: WhoMayApply; smeOnly?: boolean;
   /** WP-92: the commercial summary of the topic description (detail only). */
   fundsSummary?: string;
+  /** WP-167: the call document's own total where it differs from the portal's figure (backend funding.document_budget_of). */
+  documentBudget?: Call['documentBudget'];
 }
 const data = raw as unknown as { eligibility: Record<string, EligibilityItem[]>; calls: RawCall[] };
 
@@ -79,6 +81,7 @@ function toCall(r: RawCall, index: number, ref: Date, detail: boolean): Call {
     budgetScope: r.budget ? (r.budgetScope ?? 'topic') : null,
     // The API's reason for a call with no budget (backend/dgate/funding.py budget_note).
     budgetNote: r.budget ? null : { reason: 'source_none', short: 'The source states no budget', text: 'The source states no budget for this call.' },
+    documentBudget: r.documentBudget ?? null,
     actionType: r.actionType, fundingRate: r.fundingRate, scope: r.scope,
     eligibility: r.eligibility ?? data.eligibility[eligKey] ?? [],
     cascade: r.cascade ?? null,
@@ -156,8 +159,8 @@ function mockDetail(r: RawCall): Partial<Call> {
       programme: { code: 'EDF', name: 'European Defence Fund', legalBasis: 'Regulation (EU) 2021/697, as amended by Regulation (EU) 2025/2653' },
       rules: [{
         rule: 'EDF-ESTABLISH', title: 'Established in the Union or an associated country', kind: 'establishment', requirement: 'REQ-EDF-ELIG',
-        caveat: 'For an applicant established in Ukraine this is conditional on the EU-Ukraine association agreement, which is not confirmed: the EDF call documents say participation of entities established in Ukraine is pending its signature.',
-        source: { url: 'http://data.europa.eu/eli/reg/2021/697/oj', ref: 'Regulation (EU) 2021/697, Article 9(1)', origin: 'primary', verificationStatus: 'V', lastReviewed: '2026-10-18',
+        caveat: 'For an applicant established in Ukraine: Ukraine’s association with the EDF is in force since 16 October 2026 (European Commission, DG DEFIS).',
+        source: { url: 'http://data.europa.eu/eli/reg/2021/697/oj', ref: 'Regulation (EU) 2021/697, Article 9(1)', origin: 'primary', verificationStatus: 'V', lastReviewed: '2026-10-31',
           text: '[Regulation (EU) 2021/697, Article 9(1)] Recipients and subcontractors involved in an action shall be established in the Union or in an associated country.' },
       }],
       alsoRead: null,
@@ -165,8 +168,8 @@ function mockDetail(r: RawCall): Partial<Call> {
       byCountry: {
         EU: [LEGAL('EDF'), o('EDF-ESTABLISH', 'Established in the Union or an associated country', 'met', [], 'Your company is established in an EU Member State or an EEA EFTA state. These are the Union and an associated country of the EDF.'), MGMT('EDF', 'an associated country')],
         EEA_EFTA: [LEGAL('EDF'), o('EDF-ESTABLISH', 'Established in the Union or an associated country', 'met', [], 'Your company is established in an EU Member State or an EEA EFTA state. These are the Union and an associated country of the EDF.'), MGMT('EDF', 'an associated country')],
-        UA: [LEGAL('EDF'), o('EDF-ESTABLISH', 'Established in the Union or an associated country', 'conditional', [], 'Your company is established in Ukraine. Treat your participation as conditional on the association agreement, not confirmed.'), MGMT('EDF', 'an associated country')],
-        OTHER: [LEGAL('EDF'), o('EDF-ESTABLISH', 'Established in the Union or an associated country', 'not_met', [], 'Your company is established outside the EU and the EEA EFTA states, and not in Ukraine. EDF recipients must be established in the Union or in an associated country.'), MGMT('EDF', 'an associated country')],
+        UA: [LEGAL('EDF'), o('EDF-ESTABLISH', 'Established in the Union or an associated country', 'unknown', ['ua_non_government_controlled_area'], 'Answer the questions that are missing to see whether this applies to you.'), MGMT('EDF', 'an associated country')],
+        OTHER: [LEGAL('EDF'), o('EDF-ESTABLISH', 'Established in the Union or an associated country', 'not_met', [], 'Your company is established outside the EU, the EEA EFTA states and Ukraine. EDF recipients must be established in the Union or in an associated country.'), MGMT('EDF', 'an associated country')],
       },
       forCompany: [],
     };

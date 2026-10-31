@@ -87,8 +87,12 @@ export function applySummary(call: Pick<Call, 'rulesApply' | 'documentEligibilit
     else if (established?.outcome === 'met') lines.push({ key: 'country', verdict: 'yes', text: `From ${name}: your country is eligible (${lowerFirst(established.title)}).` });
     else lines.push({ key: 'country', verdict: 'check', text: `From ${name}: check the call’s rules on where applicants must be established.` });
     // Shown to a Ukrainian company only: the other groups never carry the rule (`applies_when` country UA).
-    if (rows.some((r) => r.asks.includes('ua_non_government_controlled_area'))) {
-      lines.push({ key: 'territory', verdict: 'check', text: 'Not if your company is established in an area of Ukraine that the Ukrainian government does not control.' });
+    const area = rows.find((r) => r.asks.includes('ua_non_government_controlled_area'));
+    if (area) {
+      // WP-167: the Ukraine Support Instrument excludes those areas; for the EDF no text we hold says either way (a check, not a no)
+      lines.push({ key: 'territory', verdict: 'check', text: area.rule.startsWith('USI-')
+        ? 'Not if your company is established in an area of Ukraine that the Ukrainian government does not control.'
+        : 'To be confirmed if your company is established in an area of Ukraine that the Ukrainian government does not control: no EDF text we hold covers those areas.' });
     }
     const also = rows.filter((r) => r.outcome === 'unknown' && !r.asks.includes('ua_partner') && !r.asks.includes('ua_non_government_controlled_area'));
     if (!no && also.length > 0) lines.push({ key: 'also', verdict: 'info', text: `Also required: ${also.map((r) => lowerFirst(r.title)).join('; ')}.` });

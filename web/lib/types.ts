@@ -98,6 +98,9 @@ export interface Call {
   budgetScope: 'call' | 'topic' | null;
   /** Only when `budget` is null: why there is none, from what the source states (never a number of ours). Absent on older API builds. */
   budgetNote?: BudgetNote | null;
+  /** WP-167: the call document's own total where it differs from `budget` (the portal's figure, the voted EU budget), with the part the
+   *  document says comes from the voted EU budget (null: it does not say). Absent on older API builds. */
+  documentBudget?: { amount: number; votedEu: number | null; currency: string; documentUrl: string } | null;
   actionType: string | null;
   /** Not collected yet; always null. */
   fundingRate: string | null;

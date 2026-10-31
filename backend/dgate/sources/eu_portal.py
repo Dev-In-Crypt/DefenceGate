@@ -206,6 +206,29 @@ def document_closing(text: str | None, day: date) -> datetime | None:
     return None
 
 
+# WP-167: the call document's own total, "The estimated available call budget is EUR 184 500 000", and the footnote that says how much
+# of it is the voted EU budget, "including EUR 180 000 000 from voted EU budget" (the two Ukraine Support Instrument call documents; 38
+# of the 109 stored documents state a total on 31 October 2026, 2 the footnote). The footnote number is glued to the amount in the
+# PDF text ("EUR 184 500 0008"), so an amount is read in groups of three digits.
+_EUR = r"EUR\s*(\d{1,3}(?:[ \u00a0.,]\d{3})+|\d+)"
+_DOCUMENT_TOTAL = re.compile(r"estimated\s+available\s+call\s+budget\s+is\s+" + _EUR, re.I)
+_DOCUMENT_VOTED = re.compile(r"including\s+" + _EUR + r"\s+from\s+(?:the\s+)?voted\s+EU\s+budget", re.I)
+
+
+def _eur(digits: str) -> int:
+    return int(re.sub(r"\D", "", digits))
+
+
+def document_budget(text: str | None) -> dict[str, int | None] | None:
+    """{"total", "voted"} in EUR as the call document states them, or None when it states no total. `voted` is None where the
+    document does not say how much of the total comes from the voted EU budget."""
+    m = _DOCUMENT_TOTAL.search(text or "")
+    if m is None:
+        return None
+    voted = _DOCUMENT_VOTED.search(text or "")
+    return {"total": _eur(m.group(1)), "voted": _eur(voted.group(1)) if voted else None}
+
+
 def with_document_time(conn, call: Any) -> Any:
     """A date-only deadline with the time the stored call document states for that day (`document_closing`), else unchanged.
     The documents are the ones the call's stored detail lists (`conditions_raw.documents`, label "Call document"); their text is

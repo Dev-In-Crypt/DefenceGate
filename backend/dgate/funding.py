@@ -120,6 +120,15 @@ class Budget(BaseModel):
     currency: str
 
 
+class DocumentBudget(BaseModel):
+    """WP-167: the call document's own total where it differs from `budget` (the portal's figure, the voted EU budget), and how
+    much of it the document says is the voted EU budget (null where it does not say)."""
+    amount: float
+    votedEu: float | None = None
+    currency: str = "EUR"
+    documentUrl: str
+
+
 class Row(BaseModel):
     label: str
     value: str
@@ -221,6 +230,7 @@ class FundingCall(BaseModel):
     budgetScope: str | None
     # Set only when `budget` is null: why there is none (the source gives none, the portal states 0...).
     budgetNote: BudgetNote | None = None
+    documentBudget: DocumentBudget | None = None
     actionType: str | None
     fundingRate: str | None
     scope: list[str]
@@ -709,6 +719,19 @@ def budget_note(programme_code: str, cond: dict[str, Any]) -> dict[str, Any]:
             "text": "The source states no budget for this call."}
 
 
+def document_budget_of(r: dict[str, Any]) -> dict[str, Any] | None:
+    """WP-167: the call document's total next to the portal's figure, only where the two measure the same thing and differ: the
+    document says the portal's figure is its voted EU budget part, or the portal's figure is the call's own (not one topic's)."""
+    doc, budget = r.get("document_budget"), r.get("budget")
+    if not doc or budget is None or (r.get("currency") or "EUR") != "EUR" or not http_url(doc.get("url")):
+        return None
+    portal = float(budget)
+    if doc["total"] == portal or (doc.get("voted") != portal and r.get("budget_scope") != "call"):
+        return None
+    return {"amount": float(doc["total"]), "votedEu": float(doc["voted"]) if doc.get("voted") is not None else None,
+            "currency": "EUR", "documentUrl": http_url(doc["url"])}
+
+
 def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
     from .api import _attribution  # api includes this router, so import it late
 
@@ -745,6 +768,7 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
                    if r.get("budget") is not None else None),
         "budgetScope": r.get("budget_scope"),
         "budgetNote": budget_note(prog, cond) if r.get("budget") is None else None,
+        "documentBudget": document_budget_of(r),
         "actionType": r.get("type_of_action"),
         "fundingRate": None,
         "scope": scope_keywords(prog, cond),

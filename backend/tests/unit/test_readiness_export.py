@@ -23,8 +23,9 @@ def test_the_e2e_fixtures_state_the_verdicts_of_the_two_test_profiles():
         return {a["programme"]: a["verdict"] for a in body["assessments"]}
     # the free PIC and NCAGE are "obtain first" (WP-33, D3), not blocks. EDIP the Programme: blocked for the Ukrainian
     # company (Ukraine is not an associated country there), "obtain" for the Spanish one (only the PIC is missing).
-    # The EDF is "conditional" for the Ukrainian company: the EU-Ukraine association agreement is not confirmed (V2-B2).
-    expected = {"EDF": "conditional", "EDIP": "blocked", "EDIP-USI": "obtain", "SAFE": "eligible", "NATO-SUPPLY": "obtain"}
+    # The EDF is "obtain" for the Ukrainian company (only the PIC is missing): Ukraine's association with the EDF is in force since
+    # 16 October 2026 (WP-167; it was "conditional" while the association agreement was not confirmed, V2-B2).
+    expected = {"EDF": "obtain", "EDIP": "blocked", "EDIP-USI": "obtain", "SAFE": "eligible", "NATO-SUPPLY": "obtain"}
     assert verdicts("ua") == expected
     # the Spanish company also needs a Ukrainian applicant or partner for the Ukraine Support Instrument (WP-42 R1)
     # and, since WP-64, the Spanish defence supplier route. WP-73: it handles classified information and answered "We do not hold it" for
@@ -38,7 +39,7 @@ def test_the_e2e_fixtures_state_the_verdicts_of_the_two_test_profiles():
     assert edip["toObtain"] == ["EDIP-PIC"]
     pic = json.loads((ROOT / "web" / "e2e" / "fixtures" / "assess-ua-pic.json").read_text(encoding="utf-8"))
     assert {a["programme"]: a["verdict"] for a in pic["assessments"]} == {
-        "EDF": "conditional", "EDIP": "blocked", "EDIP-USI": "eligible", "SAFE": "eligible", "NATO-SUPPLY": "obtain"}
+        "EDF": "eligible", "EDIP": "blocked", "EDIP-USI": "eligible", "SAFE": "eligible", "NATO-SUPPLY": "obtain"}
     assert "REQ-PIC" not in [s["code"] for s in pic["roadmap"]["steps"]]
     # WP-53 (T4): "Not applicable to us" for the PIC is neither "met" nor a step: the rule is left out of the programmes' cards
     na = json.loads((ROOT / "web" / "e2e" / "fixtures" / "assess-ua-pic-na.json").read_text(encoding="utf-8"))

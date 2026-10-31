@@ -61,12 +61,12 @@ def outcomes(a):
 def test_ua_manufacturer_with_nothing_verdicts():
     by, general, _ = run(UA, {})
     # EDF: Regulation (EU) 2025/2653 lets Ukraine be an associated country "in accordance with the conditions laid down in the
-    # EU-Ukraine Association Agreement"; the EDF call documents say that participation is pending the signature of the
-    # agreement and no primary text says it applies (V2-B2), so the establishment rules are conditional, and the PIC
-    # (a free registration to obtain first, D3) stays on the list.
-    assert by["EDF"].verdict == "conditional" and by["EDF"].blocking == () and by["EDF"].to_obtain == ("EDF-PIC",)
-    assert outcomes(by["EDF"])["EDF-ESTABLISH"] == outcomes(by["EDF"])["EDF-EXEC-MGMT"] == "conditional"
-    assert by["EDF"].conditions == ("EDF-ESTABLISH", "EDF-EXEC-MGMT")
+    # EU-Ukraine Association Agreement", and the Commission says that agreement is in force since 16 October 2026 (WP-167; the
+    # rules were conditional while no primary text said so, V2-B2): the establishment rules are met, and the PIC (a free
+    # registration to obtain first, D3) stays on the list.
+    assert by["EDF"].verdict == "obtain" and by["EDF"].blocking == () and by["EDF"].to_obtain == ("EDF-PIC",)
+    assert outcomes(by["EDF"])["EDF-ESTABLISH"] == outcomes(by["EDF"])["EDF-EXEC-MGMT"] == "met"
+    assert by["EDF"].conditions == ()
     # EDIP the Programme: Ukraine is not an associated country there (EEA EFTA members only)
     assert by["EDIP"].verdict == "blocked"
     assert by["EDIP"].blocking == ("EDIP-ESTABLISH", "EDIP-EXEC-MGMT") and by["EDIP"].to_obtain == ("EDIP-PIC",)
@@ -220,8 +220,8 @@ def test_marking_everything_done_leaves_an_empty_roadmap_and_eligible_cards():
     by, _, plan = run(UA, held)
     assert [s["code"] for s in plan["steps"]] == []
     assert plan["totals"] == {"cost": [], "freeSteps": [], "days": {"min": 0, "max": 0}}
-    # the Ukrainian company stays conditional for the EDF whatever it holds: the association agreement is not confirmed (V2-B2)
-    assert by["EDF"].verdict == "conditional" and by["EDIP-USI"].verdict == "eligible" and by["EDIP"].verdict == "blocked"
+    # WP-167: the Ukrainian company is eligible for the EDF once it holds the PIC (the association is in force since 16 October 2026)
+    assert by["EDF"].verdict == "eligible" and by["EDIP-USI"].verdict == "eligible" and by["EDIP"].verdict == "blocked"
     assert by["NATO-SUPPLY"].verdict == "eligible" and by["EDF"].to_obtain == ()
 
 
@@ -279,11 +279,14 @@ def test_call_timing_when_nothing_is_missing_you_can_apply_now():
 
 
 def test_call_timing_is_not_a_yes_while_a_condition_is_open_even_if_the_steps_fit():
-    # V2-B2: the Ukrainian company's PIC takes no time, but the EU-Ukraine association agreement is not confirmed
-    t = timing(UA, {}, "EDF", 42)
+    # V2-B2: the PIC takes no time, but a condition is open. Since WP-167 the Ukrainian company's association is in force, so the
+    # open condition here is another one: control from a non-associated third country (the guarantees of Article 9(4))
+    controlled = co("ES", third_country_control="other")
+    t = timing(controlled, {}, "EDF", 42)
     assert t["realistic"] == "depends" and t["steps"] == ["REQ-PIC"] and "not a plain yes" in t["text"]
-    t = timing(UA, {"REQ-PIC": "held"}, "EDF", 3)
+    t = timing(controlled, {"REQ-PIC": "held"}, "EDF", 3)
     assert t["realistic"] == "depends" and t["verdict"] == "conditional"
+    assert timing(UA, {}, "EDF", 42)["realistic"] == "yes"
 
 
 def test_call_timing_maybe_and_no_for_a_certificate_that_takes_weeks():
@@ -345,7 +348,7 @@ def test_call_timing_without_a_deadline_is_unknown():
 
 @pytest.mark.parametrize("country,expected", [
     ("ES", "eligible"), ("PL", "eligible"), ("NO", "eligible"),
-    ("UA", "conditional"),           # Ukraine's association to the EDF is not confirmed (V2-B2)
+    ("UA", "eligible"),              # WP-167: Ukraine's association to the EDF is in force since 16 October 2026 (was conditional, V2-B2)
     ("GB", "blocked"), ("XX", "blocked"), ("CH", "blocked"), ("TR", "blocked"), ("US", "blocked"),
 ])
 def test_edf_establishment_by_country(country, expected):
@@ -380,16 +383,17 @@ def test_control_by_a_third_country_is_conditional_where_the_regulation_has_a_de
     assert verdict("ES", "EDF") == verdict("ES", "EDIP") == verdict("ES", "EDIP-USI") == verdict("ES", "SAFE") == "conditional"
     # the Ukraine Support Instrument and SAFE give the exception to an entity established in the Union only
     assert verdict("UA", "EDIP-USI") == "blocked" and verdict("UA", "SAFE") == "blocked"
-    assert verdict("UA", "EDF") == "conditional"          # EDF Article 9(4): any entity in the Union or an associated country (and Ukraine's association is not confirmed)
+    assert verdict("UA", "EDF") == "conditional"          # EDF Article 9(4): any entity in the Union or an associated country (Ukraine is one since 16 October 2026)
 
 
-def test_control_from_ukraine_or_an_eea_efta_state_does_not_count_under_safe_but_needs_a_check_under_edf_edip_and_usi():
+def test_control_from_ukraine_or_an_eea_efta_state_does_not_count_under_safe_and_edf_but_needs_a_check_under_edip_and_usi():
     p = co("ES", third_country_control="ua_eea_only", ua_non_government_controlled_area=False, non_eu_component_cost_pct=0)
     assert assess(p, {"REQ-PIC": "held"}, CONTENT.programmes["SAFE"]).verdict == "eligible"
-    # EDF: an EEA EFTA state is an associated country, Ukraine only if its association agreement applies (not confirmed, V2-B2).
+    # EDF: an EEA EFTA state is an associated country, and Ukraine is one since 16 October 2026 (WP-167; a check before, V2-B2).
+    assert assess(p, {"REQ-PIC": "held"}, CONTENT.programmes["EDF"]).verdict == "eligible"
     # EDIP: Ukraine is a non-associated country; an EEA EFTA state is associated only if it applies the Regulation.
     # The answer cannot tell the two apart, so it is a condition to check, not a pass and not a block.
-    for programme in ("EDF", "EDIP", "EDIP-USI"):
+    for programme in ("EDIP", "EDIP-USI"):
         assert assess(p, {"REQ-PIC": "held"}, CONTENT.programmes[programme]).verdict == "conditional", programme
 
 

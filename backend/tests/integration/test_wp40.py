@@ -108,7 +108,8 @@ def test_the_rules_block_of_the_call_detail_follows_the_kind_of_action_and_carri
     assert "EDIP-CPA-APPLICANT" not in [r["rule"] for r in client.get(f"/v1/funding/{ira}").json()["rulesApply"]["rules"]]
 
     caveats = {r["rule"]: r["caveat"] for r in client.get(f"/v1/funding/{edf}").json()["rulesApply"]["rules"] if r["caveat"]}
-    assert set(caveats) == {"EDF-ESTABLISH", "EDF-EXEC-MGMT"} and all("not confirmed" in c for c in caveats.values())
+    # WP-167: the caveats say the association is in force since 16 October 2026 (they said "not confirmed" before)
+    assert set(caveats) == {"EDF-ESTABLISH", "EDF-EXEC-MGMT"} and all("in force since 16 October 2026" in c for c in caveats.values())
 
 
 def test_wp42_r1_the_ukraine_support_instrument_calls_do_not_say_you_can_apply_now_to_a_company_outside_ukraine(client, conn):

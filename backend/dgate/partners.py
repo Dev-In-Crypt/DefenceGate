@@ -43,7 +43,7 @@ from .listcache import cache_list
 from .normalise import redact_emails
 from .sources import edf_factsheets
 from .suppress import removed
-from .ukraine import NO_FUNDING
+from .ukraine import BEFORE_ASSOCIATION, NO_FUNDING
 
 router = APIRouter()
 
@@ -458,6 +458,9 @@ def facts_of(conn, wanted: list[int]) -> dict[str, Any]:
         if r["open_to_ukraine_reason"] == NO_FUNDING:
             # WP-145: the call document's sentence that Ukrainian entities cannot receive funding (the verdict blocks with it); absent otherwise
             which["ukraineNoFunding"] = redact_emails(r["open_to_ukraine_evidence"])
+        if r["open_to_ukraine_reason"] in BEFORE_ASSOCIATION:
+            # WP-167: an EDF call that closed before Ukraine's association entered into force: the verdict keeps Ukraine a question
+            which["ukraineBeforeAssociation"] = True
         got = read.get(r["id"]) or eligibility.page_rules(r["conditions_raw"])
         if got is None:
             items[str(r["id"])] = {"state": "no_source", "basis": None, "facts": {}, **which}

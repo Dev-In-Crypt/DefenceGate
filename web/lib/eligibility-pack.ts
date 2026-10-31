@@ -16,6 +16,8 @@ export interface PackFit {
   programme?: string;
   topic?: string;
   ukraineNoFunding?: string | null;
+  /** WP-167: an EDF call that closed before Ukraine's association entered into force. */
+  ukraineBeforeAssociation?: boolean;
   facts?: Record<string, { value: unknown; note?: string | null; quote?: string | null; scope?: string }>;
 }
 export interface PackCall {
@@ -30,6 +32,7 @@ export function callFactsOf(f: PackFit | null): CallFacts | null {
   if (!f) return null;
   return {
     state: f.state, programme: f.programme ?? '', topic: f.topic ?? '', ukraineNoFunding: f.ukraineNoFunding ?? null,
+    ukraineBeforeAssociation: f.ukraineBeforeAssociation === true,
     facts: Object.fromEntries(Object.entries(f.facts ?? {}).map(([k, v]) => [k, {
       value: v.value, note: v.note ?? null, quote: v.quote ?? '', confidence: 1, scope: v.scope as EligibilityFact['scope'],
     }])),

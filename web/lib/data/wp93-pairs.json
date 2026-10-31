@@ -4757,7 +4757,7 @@
     {
      "programme": "EDF",
      "name": "European Defence Fund (EDF)",
-     "verdict": "conditional",
+     "verdict": "obtain",
      "blocking": [],
      "rules": [
       {
@@ -4770,19 +4770,19 @@
        "rule": "EDF-ESTABLISH",
        "title": "Established in the Union or an associated country",
        "requirement": null,
-       "outcome": "conditional"
+       "outcome": "met"
       },
       {
        "rule": "EDF-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
        "requirement": null,
-       "outcome": "conditional"
+       "outcome": "met"
       },
       {
        "rule": "EDF-CONTROL",
        "title": "Not controlled by a non-associated third country",
        "requirement": null,
-       "outcome": "conditional"
+       "outcome": "met"
       },
       {
        "rule": "EDF-PIC",
@@ -5360,7 +5360,7 @@
     {
      "programme": "EDF",
      "name": "European Defence Fund (EDF)",
-     "verdict": "conditional",
+     "verdict": "eligible",
      "blocking": [],
      "rules": [
       {
@@ -5385,7 +5385,7 @@
        "rule": "EDF-CONTROL",
        "title": "Not controlled by a non-associated third country",
        "requirement": null,
-       "outcome": "conditional"
+       "outcome": "met"
       },
       {
        "rule": "EDF-PIC",

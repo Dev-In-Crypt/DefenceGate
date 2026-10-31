@@ -237,8 +237,20 @@ ASSOCIATED = {
     "HORIZON": {"name": "Horizon Europe", "yes": ["AL", "AM", "BA", "EG", "FO", "GE", "IS", "IL", "XK", "MD", "ME", "MK", "NO", "RS", "CH", "TN", "TR", "UA"],
                 "no": ["LI"]},
     "EDIP": {"name": "the EDIP Programme", "yes": ["NO"], "no": ["UA"]},
-    "EDF": {"name": "the European Defence Fund", "yes": ["NO"], "no": []},
+    # WP-167: Ukraine since 16 October 2026 (ukraine.EDF_IN_FORCE, the Commission's news of that day); a call that closed before that
+    # day keeps the question (`ukraineBeforeAssociation` in the context)
+    "EDF": {"name": "the European Defence Fund", "yes": ["NO", "UA"], "no": []},
 }
+# WP-167: lib/eligibility-check.ts EDF_UA_AREA, USI_AREA_QUOTE (the USI call document EDF-EDIP-USI-2026-LS-IRA, section 6), word for word
+EDF_UA_AREA = ("No EDF text we hold covers entities in the non-government controlled areas; the EDIP USI calls exclude them from funding "
+               "(call document of EDF-EDIP-USI-2026-LS-IRA, section 6). Ask the contact point of the call before you rely on it.")
+USI_AREA_QUOTE = "Legal entities established in the non-government controlled areas of Ukraine are not eligible for funding"
+# WP-167: lib/eligibility-check.ts EDF_UA_YES, EDF_UA_BEFORE, word for word
+EDF_UA_YES = ("Ukraine is associated to the European Defence Fund since 16 October 2026 (European Commission, DG DEFIS: “The Ukrainian "
+              "association with the European Defence Fund (EDF) and financing under the European Defence Industry Programme (EDIP) "
+              "agreements have come into force.”), and the call is open to the associated countries.")
+EDF_UA_BEFORE = ("This call closed before 16 October 2026, when Ukraine's association with the European Defence Fund entered into force. "
+                 "Its document said participation of entities established in Ukraine was pending the signature of the association agreement.")
 # WP-102: the primary-source clause each Horizon Europe entry rests on (the same in web/lib/eligibility-check.ts ASSOCIATION_SOURCES).
 HE_LIST_URL = "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/common/guidance/list-3rd-country-participation_horizon-euratom_en.pdf"
 ASSOCIATION_SOURCES = {
@@ -289,6 +301,8 @@ def country_status(fact: dict[str, Any], country: str, ctx: dict[str, str] | Non
         return "yes", "EEA countries are eligible under this call."
     if country in named:
         return "yes", "Your country is named among the eligible countries."
+    if opens and assoc == "EDF" and country == "UA":
+        return ("check", EDF_UA_BEFORE) if (ctx or {}).get("ukraineBeforeAssociation") else ("yes", EDF_UA_YES)
     if opens and lst and country in lst["yes"]:
         return "yes", f"Your country is associated to {lst['name']}, and the call is open to the associated countries."
     if opens and lst and country in lst["no"]:
@@ -415,6 +429,10 @@ def check(facts: dict[str, Any], p: dict[str, Any], ctx: dict[str, str] | None =
                            "You said your company is established in a non-government controlled area of Ukraine. Whether the association of "
                            "Ukraine to Horizon Europe covers those areas is not checked here: no text we hold says so. Ask the National "
                            "Contact Point or the call’s helpdesk before you apply.", None))
+    # WP-167: the EDF (not its EDIP calls): Ukraine is associated, but no EDF text covers those areas; a check, never a yes or a no
+    if p["country"] == "UA" and (p.get("more") or {}).get("uaOccupied") == "yes" and (ctx or {}).get("programme") == "EDF" \
+            and "-EDIP-" not in (ctx or {}).get("topic", "").upper():
+        lines.append(_line("territory", "Non-government controlled areas", "check", EDF_UA_AREA, USI_AREA_QUOTE))
 
     rule = size_rule(facts)
     sme = facts.get("sme_only")
@@ -759,7 +777,8 @@ def with_programme(doc: dict[str, Any], prog: dict[str, Any] | None) -> dict[str
 
 def call_fit(call: dict[str, Any] | None, profile: dict[str, Any] | None, assessment: dict[str, Any] | None) -> dict[str, Any]:
     """lib/fit.ts `callFit`: `call` is {state, facts, programme, topic}; `assessment` the assess payload without a call."""
-    ctx = {"programme": call["programme"], "topic": call["topic"], "ukraineNoFunding": call.get("ukraineNoFunding")} if call else None
+    ctx = {"programme": call["programme"], "topic": call["topic"], "ukraineNoFunding": call.get("ukraineNoFunding"),
+           "ukraineBeforeAssociation": call.get("ukraineBeforeAssociation")} if call else None
     doc = fit_of(call["facts"], profile, ctx) if call and call["state"] == "read" else {"fit": "unknown", "result": None, "conditions": [], "blockedBy": []}
     with_rules = with_programme(doc, programme_fit(assessment, programmes_of_call(call["programme"], call["topic"]) if call else []))
     if not call:

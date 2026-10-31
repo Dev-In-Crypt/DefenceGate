@@ -157,9 +157,10 @@ test('7: the tracker links the entry it means, and says when the sources were ch
   const entry = page.locator('li#edf-ukraine-legal-basis');
   await expect(entry).not.toContainText('(next entry)');
   await expect(entry).toContainText('see the entry on Ukraine');
-  const link = entry.getByRole('link', { name: /Ukraine's EDF association, not confirmed in force/ });
-  await expect(link).toHaveAttribute('href', '/regulation#edf-ukraine-in-force-unconfirmed');
-  await expect(page.locator('li#edf-ukraine-in-force-unconfirmed')).toHaveCount(1);
+  // WP-167: the association entry says it is in force since 16 October 2026 (it was "not confirmed in force")
+  const link = entry.getByRole('link', { name: /Ukraine's EDF association, in force since 16 October 2026/ });
+  await expect(link).toHaveAttribute('href', '/regulation#edf-ukraine-association-in-force');
+  await expect(page.locator('li#edf-ukraine-association-in-force')).toHaveCount(1);
   const days = [...new Set((regulation as { entries: { checkedOn: string }[] }).entries.map((e) => e.checkedOn))].sort();
   await expect(page.locator('[data-checked-line]')).toHaveText(days.length === 1
     ? `Newest event first. Every entry’s source was last checked on ${day(days[0])}, none since.`

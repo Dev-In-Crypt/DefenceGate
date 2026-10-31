@@ -28,7 +28,8 @@ assert.ok(xml.includes('A &amp; B &lt;c&gt; &quot;d&quot; ('), 'title escaped, c
 assert.ok(!xml.includes('\u0007'));
 assert.equal((xml.match(/<entry>/g) ?? []).length, 1);
 assert.ok(xml.includes('<id>tag:defencegatehub.com,2026:regulation:x</id>'), 'stable id');
-assert.ok(xml.includes('<updated>2026-10-18T00:00:00Z</updated>'));
+// the entry's own check day, never the request time (WP-167: the newest entry, the one copied above, was checked on 31 October)
+assert.ok(xml.includes(`<updated>${feed.entries[0].checkedOn}T00:00:00Z</updated>`));
 const again = buildRegulationAtom(nasty, { origin: 'https://defencegatehub.com', generatedAt: '2030-01-01T00:00:00Z' });
 assert.equal(xml, again, 'the same entries give the same document whatever the time of the request');
 // U12: newest event first, whatever the order of the seed; ties by code; the input is not changed.

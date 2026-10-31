@@ -62,7 +62,15 @@ export interface Profile {
 
 /** WP-93: the call a check is for, so that "countries associated to the programme" can be read (lib/fit.ts `programmesOfCall` words). */
 /** WP-145: `ukraineNoFunding`, the call document's sentence that Ukrainian entities cannot receive funding under the call (an EDIP call). */
-export interface CallContext { programme: string; topic: string; ukraineNoFunding?: string | null }
+/** WP-167: `ukraineBeforeAssociation`, an EDF call that closed before Ukraine's association entered into force (16 October 2026). */
+export interface CallContext { programme: string; topic: string; ukraineNoFunding?: string | null; ukraineBeforeAssociation?: boolean }
+
+/** WP-167: backend/dgate/verdict.py EDF_UA_AREA, USI_AREA_QUOTE (the USI call document EDF-EDIP-USI-2026-LS-IRA, section 6), word for word. */
+export const EDF_UA_AREA = 'No EDF text we hold covers entities in the non-government controlled areas; the EDIP USI calls exclude them from funding (call document of EDF-EDIP-USI-2026-LS-IRA, section 6). Ask the contact point of the call before you rely on it.';
+export const USI_AREA_QUOTE = 'Legal entities established in the non-government controlled areas of Ukraine are not eligible for funding';
+/** WP-167: backend/dgate/verdict.py EDF_UA_YES, EDF_UA_BEFORE, word for word. */
+export const EDF_UA_YES = 'Ukraine is associated to the European Defence Fund since 16 October 2026 (European Commission, DG DEFIS: “The Ukrainian association with the European Defence Fund (EDF) and financing under the European Defence Industry Programme (EDIP) agreements have come into force.”), and the call is open to the associated countries.';
+export const EDF_UA_BEFORE = `This call closed before 16 October 2026, when Ukraine's association with the European Defence Fund entered into force. Its document said participation of entities established in Ukraine was pending the signature of the association agreement.`;
 
 /** WP-145: backend/dgate/verdict.py UA_NO_FUNDING, UA_NO_FUNDING_REASON, word for word. */
 export const UA_NO_FUNDING = 'No funding for Ukrainian entities';
@@ -122,13 +130,14 @@ export function namedCountries(text: string): Set<string> {
  * the countries associated; the EEA EFTA states Iceland and Norway, and Ukraine: backend/dgate/ukraine.py HORIZON_ANNEX); the EDIP
  * Programme, the call documents of 2026 ("EDIP associated countries (i.e. Norway)", call EDF-EDIP-P-2027-FNLC-CPA) and Regulation (EU)
  * 2025/2643, Articles 9(1) and 2 for Ukraine (ukraine.py EDIP_RECIPIENTS); the EDF, Regulation (EU) 2021/697, Article 5 (the EEA EFTA
- * state Norway; Ukraine pending its agreement, ukraine.py EDF_PENDING, so not listed either way).
+ * state Norway; WP-167: Ukraine, whose association entered into force on 16 October 2026, ukraine.py EDF_IN_FORCE; a call that closed
+ * before that day keeps the question, `CallContext.ukraineBeforeAssociation`).
  */
 export const ASSOCIATED: Record<string, { name: string; yes: string[]; no: string[] }> = {
   // WP-102: the countries associated to the entire programme, and Liechtenstein, which does not intend to associate (ASSOCIATION_SOURCES)
   HORIZON: { name: 'Horizon Europe', yes: ['AL', 'AM', 'BA', 'EG', 'FO', 'GE', 'IS', 'IL', 'XK', 'MD', 'ME', 'MK', 'NO', 'RS', 'CH', 'TN', 'TR', 'UA'], no: ['LI'] },
   EDIP: { name: 'the EDIP Programme', yes: ['NO'], no: ['UA'] },
-  EDF: { name: 'the European Defence Fund', yes: ['NO'], no: [] },
+  EDF: { name: 'the European Defence Fund', yes: ['NO', 'UA'], no: [] },
 };
 
 /** WP-102: the primary-source clause each Horizon Europe entry rests on (backend/dgate/verdict.py ASSOCIATION_SOURCES, word for word). */
@@ -171,6 +180,9 @@ export function countryStatus(fact: EligibilityFact, country: string, ctx?: Call
   if (eu && EU27.has(country)) return { verdict: 'yes', reason: 'An EU Member State is eligible under this call.' };
   if (EEA_EXTRA.has(country) && eeaAll) return { verdict: 'yes', reason: 'EEA countries are eligible under this call.' };
   if (named.has(country)) return { verdict: 'yes', reason: `Your country is named among the eligible countries.` };
+  if (opensToAssociated && assoc === 'EDF' && country === 'UA') {
+    return ctx?.ukraineBeforeAssociation ? { verdict: 'check', reason: EDF_UA_BEFORE } : { verdict: 'yes', reason: EDF_UA_YES };
+  }
   if (opensToAssociated && list?.yes.includes(country)) return { verdict: 'yes', reason: `Your country is associated to ${list.name}, and the call is open to the associated countries.` };
   if (opensToAssociated && list?.no.includes(country)) return { verdict: 'no', reason: `Your country is not associated to ${list.name}, and the call is open only to the Member States and the associated countries it names.` };
   if (fact.scope !== 'general' && eu && !OPEN_LIST.test(text) && (named.size > 0 || /\bEEA\b/.test(text))) {
@@ -488,6 +500,10 @@ export function check(facts: EligibilityFacts, p: Profile, ctx?: CallContext): R
   if (p.country === 'UA' && p.more?.uaOccupied === 'yes' && ctx?.programme === 'HORIZON') {
     lines.push({ key: 'territory', label: 'Non-government controlled areas', verdict: 'check',
       reason: 'You said your company is established in a non-government controlled area of Ukraine. Whether the association of Ukraine to Horizon Europe covers those areas is not checked here: no text we hold says so. Ask the National Contact Point or the call’s helpdesk before you apply.' });
+  }
+  // WP-167: the EDF (not its EDIP calls): Ukraine is associated, but no EDF text covers those areas; a check, never a yes or a no
+  if (p.country === 'UA' && p.more?.uaOccupied === 'yes' && ctx?.programme === 'EDF' && !ctx.topic.toUpperCase().includes('-EDIP-')) {
+    lines.push({ key: 'territory', label: 'Non-government controlled areas', verdict: 'check', reason: EDF_UA_AREA, quote: USI_AREA_QUOTE });
   }
 
   const rule = sizeRule(facts);

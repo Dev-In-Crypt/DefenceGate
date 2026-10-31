@@ -1369,3 +1369,26 @@ Rate limit: 15 tokens (the five list searches as separate requests cost 22).
 - `GET /v1/fit/facts`: an item of such a call has `ukraineNoFunding: string`, the sentence (absent otherwise); the verdict (`verdict.call_fit`,
   `lib/fit.ts callFit`) adds the line `ukraine_funding` "No funding for Ukrainian entities" (no) for an applicant established in
   Ukraine, with the sentence as its quote.
+
+## Changes of 31 October 2026 (WP-167: Ukraine's EDF association in force; the call document's budget total)
+
+- `ukraineBasis.reason` for an EDF call: `edf_association_unconfirmed` is replaced by two values. `edf_association`
+  (`openToUkraine: true`): the call is open on or after 16 October 2026 (or has no deadline), the day the European Commission
+  (DG DEFIS) said Ukraine's association agreement with the EDF had come into force; the evidence quotes that statement and
+  Regulation (EU) 2025/2653, Article 3(1). `edf_closed_before_association` (`openToUkraine: null`): the call closed before that
+  day; the evidence is the sentence of its call document ("pending the signature of the association agreement"). A reason the
+  call's own document gives still comes first. Until the flags are re-run, a row may still carry `edf_association_unconfirmed`;
+  the site reads it as `edf_closed_before_association`.
+- `GET /v1/fit/facts`: an item of such a closed call has `ukraineBeforeAssociation: true` (absent otherwise). The verdict
+  (`verdict.country_status`, `lib/eligibility-check.ts countryStatus`) counts Ukraine among the associated countries of the EDF,
+  except for such a call, where the country line stays a check with the reason.
+- Every call in `/v1/funding` and `/v1/funding/{slug}` may have `documentBudget: { amount, votedEu, currency, documentUrl } | null`:
+  the call document's own "estimated available call budget" where it differs from `budget` (the portal's figure, which stays the
+  budget), and `votedEu`, the part the document says comes from the voted EU budget (null where it does not say). Served only
+  where the two measure the same thing: the document's voted part equals `budget`, or `budgetScope` is `call`. Read from the
+  stored call document (`call.document_budget`, migration 0158, `dgate.ops.call_budgets`, nightly with the cascade flags).
+
+### `GET /v1/regulation`
+
+`edf-ukraine-in-force-unconfirmed` is now `edf-ukraine-association-in-force` (status `in_force`, event 16 October 2026, the DG DEFIS
+news of that day); `edf-ukraine-legal-basis` links to it.
