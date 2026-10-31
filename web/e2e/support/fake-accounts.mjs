@@ -7,6 +7,7 @@
 //
 // Accounts: any address with the password "right password here"; an address starting with "totp" asks for the code 123456. The
 // confirmation and reset token is "k" x 43.
+import { createHmac } from 'node:crypto';
 import { createServer } from 'node:http';
 
 const PORT = Number(process.argv[2] ?? process.env.FAKE_ACCOUNTS_PORT ?? 4011);
@@ -33,6 +34,8 @@ function route(method, path, headers, body, query) {
     if (body.password !== PASSWORD) return [401, { error: 'invalid_credentials', message: 'the e-mail address or the password is wrong' }];
     // WP-157: an address starting with "team" is a Consultant account in a workspace (e2e/wp157.spec.ts)
     if (String(body.email).startsWith('team')) return [200, { ...session()[1], session: TEAM_SESSION }];
+    // WP-161: an address starting with "launch" is a new customer of its own (e2e/wp161.spec.ts)
+    if (String(body.email).startsWith('launch')) return [200, { ...session()[1], session: launchSession(String(body.email)) }];
     return String(body.email).startsWith('totp') ? [200, { secondStep: true, ticket: TICKET }] : session();
   }
   if (method === 'POST' && path === '/v1/account/auth/login/second') {
@@ -46,6 +49,8 @@ function route(method, path, headers, body, query) {
     return policy(body.password) ?? [200, { ok: true }];
   }
   if (headers['x-dg-session'] === TEAM_SESSION) return team(method, path, body, query);
+  if (method === 'POST' && path === '/v1/billing/webhook') return webhook(headers, body);
+  if (LAUNCH.has(headers['x-dg-session'])) return launch(LAUNCH.get(headers['x-dg-session']), method, path, body);
   const signedIn = headers['x-dg-session'] === SESSION;
   if (method === 'POST' && path === '/v1/account/me/totp/setup') {
     if (!signedIn) return [401, { error: 'unauthenticated' }];
@@ -67,6 +72,7 @@ function route(method, path, headers, body, query) {
     return [200, { id: 'u1', email: 'ann@example.test', createdAt: '2026-10-22T08:00:00Z', profile: { role: 'supplier', tracks: ['tenders'], countries: [], scope: 'core', cadence: 'daily' },
       onboarded: true, lastVisitAt: null, terms: { current: true }, security: { hasPassword: true, totp: false }, features: ['api_keys', 'association'] }];
   }
+  if (method === 'POST' && path === '/v1/account/alerts/unsubscribe') return [200, { done: true }];   // WP-161: an alert mail's stop link
   if (method === 'POST' && path === '/v1/account/association/unsubscribe') {
     if (body.token === STOP) DIGEST.on = false;
     return [200, { done: true }];
@@ -190,6 +196,61 @@ function team(method, path, body, query) {
     return [200, { items }];
   }
   if (method === 'PUT' && path.startsWith('/v1/account/shortlist/')) return [200, {}];
+  return [404, { detail: 'not here' }];
+}
+
+// WP-161 (e2e/wp161.spec.ts): launch day's main path for a new customer of its own (an address starting with "launch", one per
+// test run): Free after sign-up; a plan only through a signed billing event forwarded by the site's /api/billing/webhook, as
+// Creem's will be (HMAC-SHA256 of the body under LAUNCH_SECRET; unsigned or forged: 401, nothing changes); then the Team pages
+// and the supplier-map CSV, refused (402) until the plan has it.
+const LAUNCH_SECRET = 'whsec_fake_launch_only';
+const LAUNCH = new Map();                               // session -> the customer's state
+const launchSession = (email) => {
+  const found = [...LAUNCH].find(([, c]) => c.email === email);
+  if (found) return found[0];
+  const s = `L${String(LAUNCH.size + 1).padStart(42, '0')}`;
+  LAUNCH.set(s, { email, plan: 'free', ws: false, invites: [] });
+  return s;
+};
+const TEAM_FEATURES = ['saved_searches', 'email_alerts', 'competitors_full', 'signals_full', 'signals_csv', 'consortium_gaps',
+  'eligibility_export', 'supplier_map_csv', 'team_workspace'];
+
+function webhook(headers, body) {
+  const raw = JSON.stringify(body);
+  const sig = createHmac('sha256', LAUNCH_SECRET).update(raw).digest('hex');
+  if (headers['creem-signature'] !== sig) return [401, { error: 'bad_signature' }];
+  const c = [...LAUNCH.values()].find((x) => x.email === body?.object?.metadata?.email);
+  if (body.eventType === 'checkout.completed' && c) c.plan = body.object.metadata.plan;
+  return [200, { ok: true }];
+}
+
+function launch(c, method, path, body) {
+  const team = c.plan === 'team';
+  if (path === '/v1/account/me') {
+    return [200, { id: 'u3', email: c.email, createdAt: '2026-10-31T08:00:00Z', profile: { role: 'supplier', tracks: ['tenders'], countries: [], scope: 'core', cadence: 'daily' },
+      onboarded: true, lastVisitAt: null, terms: { current: true }, security: { hasPassword: true, totp: false }, plan: { current: c.plan },
+      features: team ? TEAM_FEATURES : [], limits: { savedSearches: team ? 50 : 0, reportsPerMonth: team ? 15 : 0 },
+      workspace: c.ws ? { role: 'owner', active: team } : null }];
+  }
+  if (path === '/v1/account/billing') {
+    return [200, { open: true, testMode: true, plan: c.plan, features: team ? TEAM_FEATURES : [], foundingLeft: 20, foundingCap: 20,
+      subscription: team ? { plan: 'team', period: 'yearly', status: 'active', periodEnd: '2027-10-31T08:00:00Z', refundedAt: null, canManage: true } : null }];
+  }
+  if (path === '/v1/account/workspace') {
+    if (method === 'POST') { if (!team) return [402, { error: 'plan_required' }]; c.ws = true; return [201, { id: 'w2' }]; }
+    return [200, c.ws ? { workspace: { id: 'w2', role: 'owner', active: team, seats: 5, members: [{ id: '00000000-0000-4000-8000-0000000000c1', email: c.email, role: 'owner', joinedAt: '2026-10-31T08:00:00Z', me: true }], invites: c.invites }, canCreate: false, seats: 5 }
+      : { workspace: null, canCreate: team, seats: 5 }];
+  }
+  if (method === 'POST' && path === '/v1/account/workspace/invites') {
+    c.invites.push({ id: `00000000-0000-4000-8000-0000000000d${c.invites.length}`, email: body.email, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 7 * 86400e3).toISOString() });
+    return [201, c.invites.at(-1)];
+  }
+  if (path === '/v1/account/suppliers/export') {
+    return team ? [200, { items: [], total: 0, cap: 5000, placsp: false, asOf: '2026-10-31' }] : [402, { error: 'plan_required' }];
+  }
+  if (path === '/v1/account/searches') return [200, { items: [], limit: team ? 50 : 0 }];
+  if (path === '/v1/account/shortlist' || path === '/v1/account/follows') return [200, { items: [] }];
+  if (path === '/v1/account/clients') return [200, { items: [], limit: 0, allowed: false }];
   return [404, { detail: 'not here' }];
 }
 

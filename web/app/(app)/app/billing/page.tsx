@@ -47,6 +47,9 @@ export default async function BillingPage({ searchParams }: Props) {
           {/* WP-158: a plan with no subscription comes from an association's licence */}
           {!sub && state.plan !== 'free' && me.association
             ? <>Your plan is {PLAN_LABELS[state.plan]}, through your association&apos;s licence (<Link href="/app/association" className="font-semibold">Association</Link>).</>
+            /* WP-161: a member of a team workspace has its owner's plan (it said "Free") */
+            : !sub && state.plan !== 'free' && me.workspace
+            ? <>Your plan is {PLAN_LABELS[state.plan]}, through the team workspace you are a member of (<Link href="/app/team" className="font-semibold">Team</Link>). Its owner manages the subscription.</>
             : <>Your plan is {sub && state.plan !== 'free' ? planName(sub.plan, sub.period) : 'Free'}.</>}
           {sub && <> Status: <span data-status={sub.status}>{STATUS_LABEL[sub.status] ?? sub.status}</span>.</>}
           {sub && periodLine(sub) && <> {periodLine(sub)}</>}

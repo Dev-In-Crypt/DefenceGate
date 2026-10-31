@@ -34,7 +34,12 @@ export default async function SearchesPage({ searchParams }: Props) {
       <Notice code={n} />
       <ClientSwitcher clients={clients} active={active} back="/app/searches" />
       {active && <p className="m-0 text-small text-ink-muted" data-client-filter>The searches of {active.name}.</p>}
-      {searches === null ? <LoadFailed href="/app/searches" /> : searches.length === 0 ? (
+      {searches === null ? <LoadFailed href="/app/searches" /> : searches.length === 0 && me && !me.features.includes('saved_searches') ? (
+        // WP-161: once the plans are on sale a Free account cannot save one; the page said to go and save one
+        <NextStep links={[{ label: 'Billing', href: '/app/billing' }, { label: 'Pricing', href: '/pricing' }]}>
+          Saved searches and their e-mail alerts are part of the Pro, Team and Consultant plans.
+        </NextStep>
+      ) : searches.length === 0 ? (
         <NextStep links={[{ label: 'Open tenders', href: '/tenders' }, { label: 'Open funding calls', href: '/funding' }]}>
           No saved searches yet. Set the filters you care about on the tenders or funding list, then choose Save this search.
         </NextStep>

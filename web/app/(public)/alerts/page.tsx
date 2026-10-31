@@ -31,13 +31,16 @@ const WORKS_TODAY = [
 ];
 
 export default async function AlertsPage() {
-  const { open } = await getAccountStatus();
+  const { open, plansOnSale } = await getAccountStatus();
   return (
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Alerts', href: '/alerts' }]}
       title="Alerts and saved searches"
       lead={open
-        ? 'Stop re-checking portals. Sign in with your e-mail to save searches, follow buyers and get alerts.'
+        ? plansOnSale
+          // WP-161: once the plans are on sale, saved searches and alerts are the paid plans' (following stays free)
+          ? 'Stop re-checking portals. Sign in with your e-mail to follow buyers; saved searches and e-mail alerts come with the Pro, Team and Consultant plans.'
+          : 'Stop re-checking portals. Sign in with your e-mail to save searches, follow buyers and get alerts.'
         : 'Saved searches and e-mail alerts are built, but sign-in is not open yet: it opens soon. What works today needs no account, and it is listed first.'}
     >
       {open && <Button href="/signin" iconRight={ArrowRight} className="self-start">Sign in with e-mail</Button>}

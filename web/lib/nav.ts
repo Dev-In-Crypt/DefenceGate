@@ -11,6 +11,7 @@
  *     the supplier profile.
  * Pricing and the opportunity pack are in the footer only.
  */
+import { BILLING_OPEN } from './pricing';
 export interface NavLinkItem { label: string; href: string }
 export interface NavItem {
   /** The id of its small menu (`sub-<key>`). */
@@ -60,7 +61,8 @@ export const FOOTER_GROUPS: { title: string; links: readonly FooterLink[] }[] = 
     { label: 'About DefenceGate', href: '/about' }, { label: 'Pricing', href: '/pricing' }, { label: 'Opportunity pack', href: '/pack' },
     // WP-154: footer only until the owner places it in the menu
     { label: 'Company signals', href: '/signals' },
-    { label: 'Alerts (not open yet)', href: '/alerts' },
+    // WP-161: "not open yet" was false on launch day; billing open (a build setting) means sign-in is open too
+    { label: BILLING_OPEN ? 'Alerts and saved searches' : 'Alerts (not open yet)', href: '/alerts' },
   ] },
 ];
 /** On the footer's legal line. */

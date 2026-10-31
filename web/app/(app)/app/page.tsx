@@ -16,10 +16,15 @@ export const metadata: Metadata = { title: 'Dashboard', robots: { index: false, 
 const LIST = 'm-0 flex list-none flex-col gap-3 p-0';
 const BROWSE = [{ label: 'Open tenders', href: '/tenders' }, { label: 'Open funding calls', href: '/funding' }];
 
-function NewForSearches({ d }: { d: Dashboard }) {
+function NewForSearches({ d, canSave }: { d: Dashboard; canSave: boolean }) {
   return (
     <Block id="new" title="New for your searches" aside={<Link href="/app/searches" className="text-small font-bold">All saved searches</Link>}>
-      {d.matches.length === 0 ? (
+      {d.matches.length === 0 && !canSave ? (
+        // WP-161: a Free account once the plans are on sale
+        <NextStep links={[{ label: 'Billing', href: '/app/billing' }, { label: 'Pricing', href: '/pricing' }]}>
+          Saved searches and their e-mail alerts are part of the Pro, Team and Consultant plans.
+        </NextStep>
+      ) : d.matches.length === 0 ? (
         <NextStep links={BROWSE}>
           You have no saved searches. Set filters on the tenders or funding list and choose Save this search. New matches show up here.
         </NextStep>
@@ -193,7 +198,7 @@ export default async function DashboardPage() {
       )}
       {d === null ? <LoadFailed href="/app" /> : (
         <>
-          <NewForSearches d={d} />
+          <NewForSearches d={d} canSave={!me || me.features.includes('saved_searches')} />
           <div className="grid items-start gap-6 lg:grid-cols-2">
             <ClosingSoon d={d} />
             <Changes d={d} />

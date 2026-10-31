@@ -521,6 +521,9 @@ export const setAssociationDigest = (digest: { on: boolean; country: string | nu
 /** The link in a digest mail: no session, the token alone switches that mail off. */
 export const unsubscribeDigest = (token: string) =>
   call<{ done: boolean }>('/association/unsubscribe', { method: 'POST', session: false, json: { token } });
+/** WP-161: the stop link of a saved-search alert mail (no sign-in): every alert of that account off. */
+export const unsubscribeAlerts = (token: string) =>
+  call<{ done: boolean }>('/alerts/unsubscribe', { method: 'POST', session: false, json: { token } });
 
 /* ---- dashboard ---- */
 

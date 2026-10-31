@@ -111,8 +111,17 @@ EVENT_STATUS = {
     "subscription.unpaid": "unpaid", "subscription.paused": "paused", "subscription.update": None,
 }
 # Deleting the account while Creem may still charge it would leave a subscription nobody can manage here:
-# deletion waits until the subscription is cancelled (accounts.delete_me).
-ENDED = frozenset({"canceled"})
+# deletion waits until the subscription is over (accounts.delete_me). WP-161: `expired` (the period ended unpaid) is over
+# too, and so is a cancellation at the end of the period once that end has passed (`over`).
+ENDED = frozenset({"canceled", "expired"})
+
+
+def over(status: str | None, period_end: datetime | None, now: datetime | None = None) -> bool:
+    """Creem can charge the subscription no more: none at all, cancelled or expired, or cancelled at the end of a paid
+    period that has ended. The one rule of deleting an account and of buying a plan again (WP-161)."""
+    if status is None or status in ENDED:
+        return True
+    return status == "scheduled_cancel" and period_end is not None and period_end <= (now or datetime.now(timezone.utc))
 
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
 _UUID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
@@ -273,7 +282,7 @@ def founding_left(conn, exclude_account: Any = None) -> int:
         "SELECT (SELECT count(*) FROM billing_subscription WHERE plan = 'founding' AND status <> ALL(%s)) "
         "     + (SELECT count(*) FROM billing_checkout WHERE plan = 'founding' AND completed_at IS NULL "
         "          AND created_at > now() - %s::interval AND account_id IS DISTINCT FROM %s::uuid) AS n",
-        (list(ENDED | {"expired"}), FOUNDING_HOLD, exclude_account)).fetchone()["n"]
+        (list(ENDED), FOUNDING_HOLD, exclude_account)).fetchone()["n"]
     return max(0, FOUNDING_CAP - int(taken))
 
 
@@ -430,7 +439,7 @@ def _checkout_completed(conn, event: dict[str, Any]) -> str:
                         (checkout["account_id"],)).fetchone()
     conn.execute("UPDATE billing_checkout SET completed_at = coalesce(completed_at, now()) WHERE id = %s",
                  (checkout["id"],))
-    if live and live["creem_subscription_id"] not in (None, _id(sub)) and live["status"] not in ENDED | {"expired"}:
+    if live and live["creem_subscription_id"] not in (None, _id(sub)) and not over(live["status"], live["current_period_end"]):
         # Paid twice (two checkouts opened in two tabs): the first stays, the operator refunds the second.
         notify(f"DefenceGate billing: account {checkout['account_id']} paid a second subscription "
                f"({_id(sub)}); refund it in Creem")
@@ -462,9 +471,10 @@ def _subscription_event(conn, event: dict[str, Any]) -> str:
         checkout = _our_checkout(conn, meta.get("checkout_ref"), meta.get("account_id"), product)
         if not checkout or status is None:
             return "unmatched"
-        live = conn.execute("SELECT status, creem_subscription_id FROM billing_subscription WHERE account_id = %s",
+        live = conn.execute("SELECT status, creem_subscription_id, current_period_end FROM billing_subscription "
+                            "WHERE account_id = %s",
                             (checkout["account_id"],)).fetchone()
-        if live and live["creem_subscription_id"] and live["status"] not in ENDED | {"expired"}:
+        if live and live["creem_subscription_id"] and not over(live["status"], live["current_period_end"]):
             return "second_subscription"
         _write(conn, checkout["account_id"], checkout["plan"], checkout["period"], status, customer, sub_id,
                _when(obj.get("current_period_end_date")), event)

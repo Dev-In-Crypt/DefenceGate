@@ -1119,9 +1119,9 @@ def delete_me(body: DeleteAccount, conn=Depends(get_conn), user=Depends(current)
         _require_password(conn, user, body.password or "", _client_ip(x_dg_client_ip))
     # WP-124: a subscription Creem may still charge is cancelled first (Billing, Manage subscription): deleting
     # the account would leave it running with nobody able to manage it here. Once cancelled, the row goes too.
-    from .billing import ENDED
+    from .billing import over
 
-    if user["sub_status"] is not None and user["sub_status"] not in ENDED:
+    if not over(user["sub_status"], user["sub_period_end"]):           # WP-161: expired, or a cancelled period run out
         raise AccountError(409, "subscription_active",
                            "cancel your subscription first (Billing, Manage subscription), then delete the account")
     conn.execute("DELETE FROM app_user WHERE id = %s", (user["id"],))   # cascades to everything owned
@@ -1565,6 +1565,21 @@ def delete_search(search_id: str, conn=Depends(get_conn), user=Depends(current))
     _owned_search(conn, search_id, user)
     conn.execute("DELETE FROM app_saved_search WHERE id = %s AND owner_id = %s", (search_id, user["id"]))
     return Response(status_code=204)
+
+
+class AlertStopIn(BaseModel):
+    token: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+@router.post("/alerts/unsubscribe")
+def stop_alerts(body: AlertStopIn, conn=Depends(get_conn)) -> dict[str, bool]:
+    """WP-161: the stop link of an alert mail (migration 0153), without signing in: every saved search of that account stops
+    mailing (cadence 'off'; the searches stay). The answer is the same for a token that matches nothing."""
+    row = conn.execute("UPDATE app_saved_search SET cadence = 'off' WHERE owner_id = "
+                       "(SELECT id FROM app_user WHERE alerts_stop_token = %s) RETURNING owner_id", (body.token,)).fetchone()
+    if row:
+        _audit("alerts_unsubscribed", row["owner_id"])
+    return {"done": True}
 
 
 # ------------------------------------------------------------------ hydration
