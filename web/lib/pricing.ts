@@ -19,6 +19,12 @@ export interface Plan {
   features: Feature[];
 }
 
+/**
+ * Whether plans can be chosen: NEXT_PUBLIC_BILLING_OPEN=1 (web/.env.example), set at build time; default off. Off: no button anywhere,
+ * the page says "Opens soon". Accounts with payment through a merchant-of-record provider are a later package (owner, 25 Oct 2026).
+ */
+export const BILLING_OPEN = ['1', 'true'].includes(process.env.NEXT_PUBLIC_BILLING_OPEN ?? '');
+
 export const PLANS: Plan[] = [
   // WP-155 (owner, 28 October 2026): the plan split of the company pages, reports, signals and saved searches
   { id: 'free', name: 'Free', audience: 'For everyone', features: [
@@ -29,12 +35,14 @@ export const PLANS: Plan[] = [
     { text: 'Readiness check (answers saved in your browser, not on our server)' },
     { text: 'On every company page: where it wins, its share and its top 5 competitors' },
     { text: 'Company signals: the first 10 rows of each list' },
+    { text: 'Contracts ending soon: the first 10 rows, and each buyer’s next 12 months in full' },
   ] },
   { id: 'pro', name: 'Pro', audience: 'For one bid manager or a small company', monthly: '€59', yearly: '€590', features: [
     { text: 'Up to 10 saved searches', signin: true },
     { text: 'E-mail alerts', signin: true },
     { text: 'Full competitor lists', signin: true },
     { text: 'Company signals: the full lists', signin: true },
+    { text: 'Contracts ending soon: the full list and e-mail alerts', signin: true },
     { text: '3 company reports a month', signin: true },
     { text: 'Export of the eligibility check', signin: true },
     { text: '1 user' },
@@ -46,7 +54,9 @@ export const PLANS: Plan[] = [
     { text: 'Up to 50 saved searches', signin: true },
     { text: '15 company reports a month', signin: true },
     { text: 'Company signals as CSV', signin: true },
-    { text: 'Consortium gap analysis (free on the site today, until plans go on sale)' },
+    { text: 'Contracts ending soon as CSV', signin: true },
+    // WP-161: the 'free today' note is true only while no plan is on sale
+    { text: BILLING_OPEN ? 'Consortium gap analysis' : 'Consortium gap analysis (free on the site today, until plans go on sale)' },
     { text: 'Supplier-map export', signin: true },
   ] },
   { id: 'consultant', name: 'Consultant', audience: 'For grant and tender consultants', monthly: '€299', yearly: '€2,990', features: [
@@ -81,12 +91,6 @@ export const ON_REQUEST: OnRequest[] = [
     { text: 'For one company: which buyers buy its products and which companies win those contracts, in the countries we cover' },
   ] },
 ];
-
-/**
- * Whether plans can be chosen: NEXT_PUBLIC_BILLING_OPEN=1 (web/.env.example), set at build time; default off. Off: no button anywhere,
- * the page says "Opens soon". Accounts with payment through a merchant-of-record provider are a later package (owner, 25 Oct 2026).
- */
-export const BILLING_OPEN = ['1', 'true'].includes(process.env.NEXT_PUBLIC_BILLING_OPEN ?? '');
 
 /** The sign-up of one plan and billing period (the page /signup is built by the accounts package). */
 export const signupHref = (plan: PlanId, billing: Billing) => `/signup?plan=${plan}&billing=${billing}`;
