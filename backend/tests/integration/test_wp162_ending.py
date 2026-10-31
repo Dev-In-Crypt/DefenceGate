@@ -1,7 +1,7 @@
 """WP-162 section 5 wired to WP-160 (merge, 31 Oct 2026): the supplier report lists the contracts under its codes ending in
 the next 12 months by WP-160's rule: stated and computed ends, soonest first, never an estimate, nothing outside the codes."""
 
-# ruff: noqa: F811 - the fixture `client` comes from test_accounts.py
+# ruff: noqa: F811 - the fixtures `client` and `sent` come from test_accounts.py
 from __future__ import annotations
 
 from datetime import timedelta
@@ -9,7 +9,7 @@ from datetime import timedelta
 import pytest
 
 from dgate import sell_report
-from tests.integration.test_accounts import client  # noqa: F401
+from tests.integration.test_accounts import client, sent  # noqa: F401
 from tests.integration.test_wp160 import TODAY, bases
 
 pytestmark = pytest.mark.integration

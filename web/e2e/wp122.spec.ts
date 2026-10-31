@@ -62,7 +62,8 @@ test('/pricing: "Coming" sits only on features that are not live, and Free has n
   await expect(free.locator('[data-coming]')).toHaveCount(0);
   await expect(free.locator('li')).toHaveText(['Browse tenders, funding calls, buyers and companies', 'What changed in the last 14 days',
     'Atom and calendar feeds', 'CSV export of the lists', 'Readiness check (answers saved in your browser, not on our server)',
-    'On every company page: where it wins, its share and its top 5 competitors', 'Company signals: the first 10 rows of each list']);
+    'On every company page: where it wins, its share and its top 5 competitors', 'Company signals: the first 10 rows of each list',
+    'Contracts ending soon: the first 10 rows, and each buyer’s next 12 months in full']);   // WP-160
 });
 
 test('/pricing with billing off: no button, no sign-up or mail link, "Opens soon" on each paid plan', async ({ page }) => {

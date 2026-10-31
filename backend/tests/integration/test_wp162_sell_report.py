@@ -172,7 +172,7 @@ def test_a_report_with_nothing_found_has_every_section_empty_and_honest(conn, cl
                       json=form(cpv=["03111000"], country="PL", held=[])).json()
     m = rep["market"]
     assert m["available"] and m["total"]["procurements"] == 0 and m["buyers"] == [] and m["winners"]["rows"] == []
-    assert rep["open"]["tenders"]["rows"] == [] and rep["ending"] is None
+    assert rep["open"]["tenders"]["rows"] == [] and rep["ending"] == {"rows": []}   # section 5 wired at merge
     assert rep["steps"][0]["key"] == "codes" and rep["sources"]["disclaimer"] == sell_report.DISCLAIMER
 
 

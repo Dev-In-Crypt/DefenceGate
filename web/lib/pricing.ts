@@ -42,7 +42,7 @@ export const PLANS: Plan[] = [
     { text: 'E-mail alerts', signin: true },
     { text: 'Full competitor lists', signin: true },
     { text: 'Company signals: the full lists', signin: true },
-    { text: 'Contracts ending soon: the full list and e-mail alerts', signin: true },
+    { text: 'Contracts ending soon: the full list, with alerts', signin: true },
     { text: '3 company reports a month', signin: true },
     { text: 'Export of the eligibility check', signin: true },
     { text: '1 user' },

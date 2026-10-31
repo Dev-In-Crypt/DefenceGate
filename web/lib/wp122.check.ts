@@ -29,11 +29,13 @@ const coming = [...PLANS, ...ON_REQUEST].flatMap((p) => p.features.filter((f) =>
 // consortium gap analysis is live and free (Partners > Consortium gaps), so it is not "coming"
 // WP-155 (owner's plan split, 28 Oct 2026): the API and the named company reports are built (by licence, with sign-in)
 // WP-156..158 (30 Oct 2026): the exports, the team workspace, client profiles and the association licence are built
+// WP-160 (31 Oct 2026): contracts ending soon, the full list with alerts (Pro) and its CSV (Team)
 assert.deepEqual(coming, ['White-label']);
 assert.deepEqual([...PLANS, ...ON_REQUEST].flatMap((p) => p.features.filter((f) => f.signin).map((f) => f.text)), ['Up to 10 saved searches',
-  'E-mail alerts', 'Full competitor lists', 'Company signals: the full lists', '3 company reports a month', 'Export of the eligibility check',
+  'E-mail alerts', 'Full competitor lists', 'Company signals: the full lists', 'Contracts ending soon: the full list, with alerts', '3 company reports a month',
+  'Export of the eligibility check',
   'Shared workspace: saved searches, shortlist and follows', 'Up to 50 saved searches', '15 company reports a month',
-  'Company signals as CSV', 'Supplier-map export', 'Up to 15 client profiles', 'Unlimited saved searches',
+  'Company signals as CSV', 'Contracts ending soon as CSV', 'Supplier-map export', 'Up to 15 client profiles', 'Unlimited saved searches',
   'Unlimited company reports, with your firm’s name on them']);
 // Sign-up links: plan id and billing period; billing is off unless the setting says so
 assert.equal(signupHref('pro', 'monthly'), '/signup?plan=pro&billing=monthly');
