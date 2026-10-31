@@ -25,8 +25,11 @@ export interface NavItem {
 }
 
 export const MAIN_NAV: readonly NavItem[] = [
+  // WP-166 (owner, 31 Oct 2026: the paying users build consortia for EU calls): Funding leads its menu; Contracts ending soon (WP-160) is
+  // an item of this menu, not of the top level.
   { key: 'open', label: 'Tenders & funding', children: [
-    { label: 'Tenders', href: '/tenders' }, { label: 'Funding', href: '/funding' }, { label: 'Buyers', href: '/buyers' }, { label: 'Market overview', href: '/market' },
+    { label: 'Funding', href: '/funding' }, { label: 'Tenders', href: '/tenders' }, { label: 'Contracts ending soon', href: '/tenders/ending' },
+    { label: 'Buyers', href: '/buyers' }, { label: 'Market overview', href: '/market' },
   ] },
   { key: 'partners', label: 'Partners', also: ['/suppliers', '/organisations', '/networks'], children: [
     { label: 'Companies', href: '/companies' }, { label: 'Ukraine partners', href: '/networks/ukraine-partners' },

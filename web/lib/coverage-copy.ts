@@ -93,3 +93,16 @@ export function coverageLines(countries: string[] | undefined, kind: 'tenders' |
   const codes = [...new Set((countries ?? []).filter((c) => c && c !== 'EU'))];
   return codes.length > max ? [] : codes.map((c) => `${coverageLine(c, kind)}.`);
 }
+
+/**
+ * WP-166 (owner, 31 Oct 2026): every share, "where it wins", market total and competitor share is counted over the award notices of TED
+ * and the national portals we read, which hold only part of defence spending. Shown wherever such a figure is (components/dg/share-note.tsx).
+ */
+export const SHARE_NOTE = 'These figures come from the award notices of TED and the national portals we read. They cover only part of defence spending: '
+  + 'TED holds about a tenth of EU defence spending (ECIPE Policy Brief 20/2025). Shares are indicative.';
+/** Below this many contracts a share is a few contracts one by one (the signals' small-company line, backend signals.SMALL_BELOW). */
+export const FEW_AWARDS = 10;
+/** The line added where a share stands on fewer than FEW_AWARDS contracts; null otherwise. */
+export function fewAwardsLine(contracts: number | null | undefined): string | null {
+  return contracts != null && contracts < FEW_AWARDS ? `Counted from ${contracts} ${contracts === 1 ? 'contract' : 'contracts'} only: too few for a share to say much.` : null;
+}

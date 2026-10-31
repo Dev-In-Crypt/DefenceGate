@@ -42,6 +42,7 @@ from .classify import CORE_SQL, DEFENCE_PROGRAMMES
 from .funding import get_conn, make_slug
 from .listcache import cache_list
 from .normalise import http_url, redact_emails
+from .partners import past_roles
 from .suppress import INDIVIDUAL_NAME, WITHHELD_NAME, not_published, removed
 from .tenders import _buyer_names, _id_of, search_words
 
@@ -1018,6 +1019,7 @@ def consortium_gaps(
                   if len(ps) >= minProjects and not (ps & with_lack) and o not in hidden
                   and country_of[o] != lack), key=lambda kv: (-len(kv[1]), kv[0]))[:100]
     names = _org_rows(conn, {o for o, _ in hit})
+    roles = past_roles(conn, [o for o, _ in hit])      # WP-166: each one's past roles in all its projects
     meta = {a["id"]: a for a in area}
     areas = conn.execute(
         """SELECT p.category AS code, count(*) AS projects FROM project p JOIN programme pr ON pr.id = p.programme_id
@@ -1027,7 +1029,7 @@ def consortium_gaps(
     for o, ps in hit:
         mine = sorted(ps, key=lambda pid: (meta[pid]["year"] or 0, pid), reverse=True)
         items.append({
-            "organisation": org_ref({**names[o], "id": o}), "projects": len(ps),
+            "organisation": org_ref({**names[o], "id": o}), "projects": len(ps), "roles": roles.get(o),
             "partnerCountries": sorted({m["country"] for pid in ps for m in by_project[pid]
                                         if m["org"] != o and m["country"]} - {country_of[o]}),
             "recentProjects": [{**_project_ref(meta[pid]), "category": meta[pid]["category"],

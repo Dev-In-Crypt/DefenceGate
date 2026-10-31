@@ -59,7 +59,8 @@ test('/tenders: the Defence goods only switch travels in the URL and explains it
 
 test('a tender detail page', async ({ page }) => {
   await visit(page, '/tenders', { title: /tenders/i, h1: 'Tenders' });
-  const first = page.locator('a[href^="/tenders/"]:not([href$=".csv"])').first();
+  // WP-166: the menu now links /tenders/ending (Contracts ending soon), which is no tender page
+  const first = page.locator('a[href^="/tenders/"]:not([href$=".csv"]):not([href^="/tenders/ending"])').first();
   const href = await first.getAttribute('href');
   expect(href, 'a tender link on /tenders').toMatch(/^\/tenders\/\d+/);
   await visit(page, href!, { title: /DefenceGate/, h1: /.+/, text: ['Version history'] });

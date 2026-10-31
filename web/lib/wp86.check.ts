@@ -8,7 +8,9 @@ import { FOOTER_GROUPS, LEGAL_LINKS, MAIN_NAV } from './nav';
 // The owner-approved menu, in this order (WP-117, 25 Oct 2026: four items, by the three questions and What's new).
 assert.deepEqual(MAIN_NAV.map((n) => n.label), ['Tenders & funding', 'Partners', 'Check my company', 'What’s new']);
 // Market sits with the lists under Tenders & funding; pricing and the pack are not in the header.
-assert.deepEqual(MAIN_NAV.find((n) => n.key === 'open')!.children!.map((c) => c.href), ['/tenders', '/funding', '/buyers', '/market']);
+// WP-166 (owner, 31 Oct 2026): Funding first; Contracts ending soon is an item of this menu, never a top-level one.
+assert.deepEqual(MAIN_NAV.find((n) => n.key === 'open')!.children!.map((c) => c.href), ['/funding', '/tenders', '/tenders/ending', '/buyers', '/market']);
+assert.ok(!MAIN_NAV.some((n) => n.href === '/tenders/ending'), 'Contracts ending soon is not a top-level item');
 assert.deepEqual(MAIN_NAV.find((n) => n.key === 'partners')!.children!.map((c) => c.href), ['/companies', '/networks/ukraine-partners', '/networks/consortium-gaps']);
 // A group whose label is no page's h1 is only the button of its small menu; Check my company is the h1 of /check.
 for (const k of ['open', 'partners', 'new']) assert.equal(MAIN_NAV.find((n) => n.key === k)!.href, undefined, `${k} has no page of its own`);

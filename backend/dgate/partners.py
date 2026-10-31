@@ -322,6 +322,7 @@ def partners_of(conn, topic_code: str | None, *, country: str | None = None, pre
                     key=lambda o: (bool(prefer) and not country and o["country"] != prefer, -topical.get(o["id"], 0),
                                    -o["projects"], -(o["last"] or 0), -o["coordinated"], o["id"]))[:limit]
     evidence = _evidence(conn, [r["id"] for r in found], {o["id"]: o["members"] for o in listed}, topical_ids) if listed else {}
+    roles = past_roles(conn, [o["id"] for o in listed])
     countries = [{"country": c, "organisations": n} for c, n in sorted(by_country.items(), key=lambda kv: (-kv[1], kv[0]))[:40]]
     # A call of the Ukraine Support Instrument asks for a Ukrainian entity: Ukraine is in the choice even when no Ukrainian
     # organisation took part in an earlier project of the area (it then says 0).
@@ -342,6 +343,7 @@ def partners_of(conn, topic_code: str | None, *, country: str | None = None, pre
             "country": o["country"], "projects": o["projects"], "coordinated": o["coordinated"],
             "firstYear": o["first"], "lastYear": o["last"], "evidence": evidence[o["id"]],
             "topical": topical.get(o["id"], 0),
+            "roles": roles.get(o["id"]),
         } for o in listed],
         "countries": countries,
         "total": by_country.get(country, 0) if country else len(orgs),
@@ -353,6 +355,27 @@ def partners_of(conn, topic_code: str | None, *, country: str | None = None, pre
                  ("This topic has no earlier counterpart by area, and no EDF project title shares a word of its title, so these "
                   "are the organisations that took part most often in any EDF project.")) if area.generic else None,
     }
+
+
+ROLE_KEYS = {"coordinator": "coordinator", "participant": "participant", "third_party": "thirdParty"}
+
+
+def past_roles(conn, heads: list[int]) -> dict[int, dict[str, int]]:
+    """WP-166: for each live organisation, in how many projects (any programme of CORDIS or the EDF factsheets) it took each role,
+    through `merged_into` as `_organisations`. The source's other roles (partner, associated partner, international partner)
+    are summed as `other`. A project where two merged rows held different roles counts under both (rare; said nowhere)."""
+    if not heads:
+        return {}
+    rows = conn.execute(
+        """SELECT COALESCE(o.merged_into, o.id) AS head, pa.role, count(DISTINCT pa.project_id) AS n
+             FROM organisation o JOIN participation pa ON pa.organisation_id = o.id AND pa.active
+            WHERE (o.id = ANY(%s) OR o.merged_into = ANY(%s)) AND NOT o.suppressed AND o.individual_reason IS NULL
+            GROUP BY 1, 2""", (heads, heads)).fetchall()
+    out = {h: {"coordinator": 0, "participant": 0, "thirdParty": 0, "other": 0} for h in heads}
+    for r in rows:
+        if r["head"] in out:
+            out[r["head"]][ROLE_KEYS.get(r["role"], "other")] += r["n"]
+    return out
 
 
 def _topical_counts(conn, project_ids: set[int]) -> dict[int, int]:

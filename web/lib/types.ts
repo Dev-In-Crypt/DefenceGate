@@ -1101,6 +1101,8 @@ export interface Partner {
   lastYear: number | null;
   /** The newest projects, at most three. */
   evidence: PartnerEvidence[];
+  /** WP-166: its past roles over all its projects (coordinator, participant, third party, other). Absent on older API builds. */
+  roles?: import('./networks').PastRoles | null;
 }
 export interface PartnersAnswer {
   call: { id: string; slug: string; topic: string | null };

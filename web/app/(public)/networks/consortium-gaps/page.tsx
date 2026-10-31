@@ -5,7 +5,8 @@ import { getAccountStatus, getUserState } from '@/lib/account';
 import { getConsortiumGaps } from '@/lib/networks-api';
 import { buildMetadata } from '@/lib/seo';
 import { BUYER_COUNTRIES, countryName } from '@/lib/taxonomy';
-import { EDF_CATEGORY_WORDS, GAP_PROGRAMMES } from '@/lib/networks';
+import { EDF_CATEGORY_WORDS, GAP_PROGRAMMES, UA_MARK, pastRolesWords } from '@/lib/networks';
+import { Tag } from '@/components/dg/tag';
 import { Select } from '@/components/dg/form';
 import { FilterNotices } from '@/components/dg/filter-notices';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
@@ -112,6 +113,10 @@ export default async function ConsortiumGapsPage({ searchParams }: Props) {
               {data.projectsInArea} projects are in this area. {data.items.length} {data.items.length === 1 ? 'organisation was' : 'organisations were'} funded {data.minProjects} or more times in it
               with no participant from {countryName(data.lacking)}.
             </p>
+            {/* WP-166: the other side of the gap, the Ukrainian organisations themselves */}
+            {data.lacking === 'UA' && (
+              <p className="m-0 text-body" data-ua-partners-link>The Ukrainian organisations of EU-funded projects, with how many they coordinated:<Link href="/networks/ukraine-partners" className="font-semibold">Ukraine partners</Link>.</p>
+            )}
             {data.areas.length > 0 && (
               <>
                 <p className="m-0 text-small text-ink-muted">EDF capability categories, with the number of projects:</p>
@@ -151,7 +156,10 @@ export default async function ConsortiumGapsPage({ searchParams }: Props) {
                   <tbody>
                     {data.items.map((i) => (
                       <tr key={i.organisation.id ?? i.organisation.name} className="border-b border-line align-top last:border-0">
-                        <th scope="row" className="py-2 pr-4 font-normal"><OrgLink org={i.organisation} />{i.organisation.country ? <span className="text-ink-muted"> ({i.organisation.country})</span> : null}</th>
+                        <th scope="row" className="py-2 pr-4 font-normal"><OrgLink org={i.organisation} />{i.organisation.country ? <span className="text-ink-muted"> ({i.organisation.country})</span> : null}
+                          {/* WP-166: a Ukrainian organisation is marked; its past roles over all its projects, where the data holds them */}
+                          {i.organisation.country === 'UA' && <span className="ml-1" data-ua-mark><Tag>{UA_MARK}</Tag></span>}
+                          {pastRolesWords(i.roles) && <span className="block text-ink-muted" data-past-roles>Past roles: {pastRolesWords(i.roles)}</span>}</th>
                         <td data-label="Projects in the area" className="py-2 pr-4 text-right font-mono tabular-nums">{i.projects}</td>
                         <td data-label="Partner countries seen" className="py-2 pr-4 font-mono">{i.partnerCountries.join(', ') || 'None'}</td>
                         <td data-label="Projects" className="py-2"><ul className="m-0 list-none p-0">{i.recentProjects.map((p) => <li key={p.slug}><Link href={`/projects/${p.slug}`}>{p.acronym ?? p.title}</Link> <span className="text-ink-muted">{p.year}</span></li>)}</ul></td>

@@ -9,6 +9,8 @@ import { AutoGrid } from './auto-grid';
 import { NoteLine } from './blocks';
 import { Card } from './card';
 import { DataTable } from './data-table';
+import { ShareNote } from './share-note';
+import { fewAwardsLine } from '@/lib/coverage-copy';
 
 /**
  * WP-152: a company's competitor intelligence (backend/dgate/competition.py) on its supplier page and in its company report. Server
@@ -95,6 +97,7 @@ export function WhereItWins({ c, name }: { c: SupplierCompetition; name: string 
           <NoteLine>A contract with codes of two classes is in both.</NoteLine>
         </Card>
       </AutoGrid>
+      <ShareNote contracts={c.contracts} />
     </section>
   );
 }
@@ -102,7 +105,7 @@ export function WhereItWins({ c, name }: { c: SupplierCompetition; name: string 
 function ShareRows({ rows, label }: { rows: CompetitionShare[]; label: (key: string) => string }) {
   return rows.map((s) => (
     <tr key={s.key} data-share>
-      <th scope="row" className="font-normal">{label(s.key)}</th>
+      <th scope="row" className="font-normal">{label(s.key)}{fewAwardsLine(s.total) && <span className="block text-small text-ink-muted" data-few-awards>{fewAwardsLine(s.total)}</span>}</th>
       <td className="font-mono tabular-nums">{countShare(s)}</td>
       <td className="font-mono tabular-nums">{valueShare(s) ?? 'No value stated'}</td>
     </tr>
@@ -130,6 +133,7 @@ export function ShareCard({ c, name }: { c: SupplierCompetition; name: string })
         however many companies won it. Values are contract values in the commonest currency there, never converted, and many contracts state none. Contracts awarded
         outside these sources are in neither number.
       </NoteLine>
+      <ShareNote />
     </Card>
   );
 }

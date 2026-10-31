@@ -131,7 +131,8 @@ export interface UkrainePartners {
 export interface ConsortiumGaps {
   programme: string[]; topic: string | null; lacking: string; minProjects: number; projectsInArea: number;
   definition: string;
-  items: { organisation: OrgRef; projects: number; partnerCountries: string[]; recentProjects: (ProjectRef & { category: string | null; countries: string[] })[] }[];
+  /** WP-166: `roles`, its past roles over all its projects (absent on older API builds). */
+  items: { organisation: OrgRef; projects: number; roles?: import('./networks').PastRoles | null; partnerCountries: string[]; recentProjects: (ProjectRef & { category: string | null; countries: string[] })[] }[];
   areas: { code: string; projects: number }[];
   limits: string[]; sources: SourceNote[];
 }

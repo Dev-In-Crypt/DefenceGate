@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { Users } from 'lucide-react';
 import { formatDateUtc, formatNumber, plural } from '@/lib/format';
 import { countryName } from '@/lib/taxonomy';
+import { UA_MARK, pastRolesWords } from '@/lib/networks';
+import { Tag } from '@/components/dg/tag';
 import type { PartnersAnswer } from '@/lib/types';
 import { Button } from '@/components/dg/button';
 import { Select } from '@/components/dg/form';
@@ -110,6 +112,17 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
       )}
     </div>
   );
+  // WP-166: the Ukrainian organisations of the area, one press away (the same server filter as the country choice). "None" is said only
+  // when the API's country list is whole (it sends the 40 largest countries).
+  const uaHere = d.countries.find((c) => c.country === 'UA')?.organisations ?? 0;
+  const uaFilter = d.area !== null && (uaHere > 0 || country === 'UA'
+    ? (
+      <Button type="button" variant="secondary" aria-pressed={country === 'UA'} onClick={() => setCountry(country === 'UA' ? '' : 'UA')}
+        className="self-start whitespace-normal text-left" data-ua-filter>
+        {country === 'UA' ? 'Show organisations of all countries' : `Ukrainian organisations only (${uaHere})`}
+      </Button>
+    )
+    : d.countries.length < 40 && <p className="m-0 text-small text-ink-muted" data-ua-none>No Ukrainian organisation took part in an earlier project of this area.</p>);
   return (
     <div className="flex flex-col gap-4">
       {d.area === null ? (
@@ -144,20 +157,23 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
             </p>
           )}
           {!wide && picker}
+          {uaFilter}
           {partners.length === 0 ? (
             <p className="m-0 text-body text-ink-muted">{d.note ?? (country ? `No organisation from ${countryName(country)} took part in an earlier project of this area.` : 'No organisation found.')}</p>
           ) : (
             <ol className="m-0 flex list-none flex-col gap-3 p-0">
               {partners.map((p) => (
                 <li key={p.organisationId} className="flex flex-col gap-1 rounded-md border border-line p-4">
-                  <p className="m-0 text-body font-semibold break-words">
+                  <p className="m-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-body font-semibold break-words">
                     <Link href={`/organisations/${p.slug}`}>{p.name}</Link>
-                    <span className="ml-2 font-normal text-ink-muted">{countryName(p.country)}</span>
+                    <span className="font-normal text-ink-muted">{countryName(p.country)}</span>
+                    {p.country === 'UA' && <span data-ua-mark><Tag>{UA_MARK}</Tag></span>}
                   </p>
                   <p className="m-0 text-small">
                     {p.projects} {p.projects === 1 ? 'project' : 'projects'} in this area{p.coordinated > 0 ? `, ${p.coordinated} as coordinator` : ''}
                     {p.lastYear ? `, latest ${p.lastYear}` : ''}{p.topical ? `; ${p.topical} on this call’s topic` : ''}.
                   </p>
+                  {pastRolesWords(p.roles) && <p className="m-0 text-small" data-past-roles>Past roles, all its projects: {pastRolesWords(p.roles)}.</p>}
                   {p.evidence.length > 0 && (
                     <p className="m-0 break-words text-small text-ink-muted">
                       Projects: {p.evidence.map((e) => `${e.acronym ?? e.title}${e.year ? ` (${e.year}${e.role === 'coordinator' ? ', coordinator' : ''})` : e.role === 'coordinator' ? ' (coordinator)' : ''}`).join('; ')}

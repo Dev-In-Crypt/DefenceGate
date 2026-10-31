@@ -326,7 +326,10 @@ test('U15: the home page names the three parts in the first screen', async ({ pa
   await expect(page.getByRole('heading', { name: 'Three questions, three parts' })).toHaveCount(0);
   const top = await parts.evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
   const at = (name: string | RegExp) => page.getByRole('heading', { name }).evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
-  expect(top, 'in the first screen').toBeLessThan(page.viewportSize()!.height);
+  // WP-166 (owner, 31 Oct 2026; moved on purpose): the consortium path is the first screen's part; the three parts follow it
+  const path = await page.locator('[data-consortium-path]').evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
+  expect(path, 'the consortium path in the first screen').toBeLessThan(page.viewportSize()!.height);
+  expect(top, 'right after the consortium path').toBeGreaterThan(path);
   expect(top, 'before the closing lists').toBeLessThan(await at('Tenders closing soon'));
   await expect(page.getByRole('heading', { name: 'Why DefenceGate' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'What is in here' })).toHaveCount(0);

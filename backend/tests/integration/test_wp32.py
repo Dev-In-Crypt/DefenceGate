@@ -21,7 +21,8 @@ pytestmark = pytest.mark.integration
 service_roles = test_readiness_api.service_roles       # the fixture of the read-only roles, shared
 
 PARTNER_KEYS = {"organisationId", "slug", "name", "country", "projects", "coordinated", "firstYear", "lastYear", "evidence",
-                "topical"}       # WP-91: how many of its projects of the area share a topic word of the call
+                "topical",       # WP-91: how many of its projects of the area share a topic word of the call
+                "roles"}         # WP-166: its past roles, projects per role (organisation facts)
 
 
 @pytest.fixture(autouse=True)
