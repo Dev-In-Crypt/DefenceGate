@@ -2,6 +2,7 @@
 
     python -m dgate.ops.backup_keys generate --out-dir DIR
     python -m dgate.ops.backup_keys decrypt --private-key FILE --in X.sql.gz.enc --out X.sql.gz
+    python -m dgate.ops.backup_keys sql --in X.sql.gz | psql -v ON_ERROR_STOP=1 ...
 
 `generate` makes the RSA-4096 pair. Only the PUBLIC key (`backup-public.pem`)
 goes to the server (DGATE_BACKUP_PUBLIC_KEY). The private key stays with the
@@ -10,12 +11,15 @@ undo the point of encrypting before the dump leaves the host. That is why key
 generation lives here and nothing under the worker imports it.
 
 `decrypt` is the restore drill: it streams, authenticates every frame, and
-leaves no output file unless the whole input verified.
+leaves no output file unless the whole input verified. `sql` is the restore
+itself (docs/RESTORE.md): the decrypted dump's SQL through the restore filter,
+so psql never sees a meta-command or a statement pg_dump does not write.
 """
 
 from __future__ import annotations
 
 import argparse
+import gzip
 import os
 import sys
 from pathlib import Path
@@ -25,8 +29,10 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 from .backup import (
     BackupFormatError,
+    UnsafeDump,
     check_manifest,
     decrypt_stream,
+    filter_dump,
     key_fingerprint,
     load_private_key,
     manifest_path,
@@ -100,7 +106,20 @@ def main(argv: list[str] | None = None) -> int:
     dec.add_argument("--private-key", type=Path, required=True)
     dec.add_argument("--in", dest="source", type=Path, required=True)
     dec.add_argument("--out", type=Path, required=True)
+    flt = sub.add_parser("sql", help="a decrypted .sql.gz through the restore filter, to stdout")
+    flt.add_argument("--in", dest="source", type=Path, required=True)
     args = parser.parse_args(argv)
+
+    if args.command == "sql":
+        # A refused line stops the stream before psql sees it; the partial restore is discarded.
+        try:
+            with gzip.open(args.source, "rb") as src:
+                for chunk in filter_dump(src):
+                    sys.stdout.buffer.write(chunk)
+        except UnsafeDump as exc:
+            print(f"refused: {exc}", file=sys.stderr)
+            return 1
+        return 0
 
     if args.command == "generate":
         private_path, public_path, fingerprint = generate(args.out_dir)

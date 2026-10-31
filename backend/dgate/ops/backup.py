@@ -726,7 +726,10 @@ _COPY_START = re.compile(rb"COPY [\w.\"]+(?: \([\w\", ]+\))? FROM stdin;")
 _RESTRICT = re.compile(rb"\\(?:restrict|unrestrict) [A-Za-z0-9]+")      # pg_dump >= 17.6
 _CONNECT = re.compile(rb"\\connect (\S+)")
 _EXTENSION = re.compile(rb"CREATE\s+EXTENSION\b(?:\s+IF\s+NOT\s+EXISTS)?\s+\"?([\w-]+)\"?", re.I)
-SAFE_EXTENSIONS = frozenset({"plpgsql", "pg_trgm", "unaccent", "citext", "btree_gin", "btree_gist"})
+# pg_stat_statements: production preloads it (infra/docker-compose.yml) and every dump since
+# WP-114 creates it; without it the filter refused production's own dump (WP-163 drill).
+SAFE_EXTENSIONS = frozenset({"plpgsql", "pg_trgm", "unaccent", "citext", "btree_gin", "btree_gist",
+                             "pg_stat_statements"})
 _ALLOWED_EXACT = frozenset({b"SET standard_conforming_strings = on;"})
 _DENY = re.compile(
     rb"\bPROGRAM\b|\bALTER\s+SYSTEM\b|\bpg_(?:read_(?:binary_)?file|ls_dir|stat_file|"
