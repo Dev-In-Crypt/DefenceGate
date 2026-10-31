@@ -65,6 +65,9 @@ export interface Profile {
 /** WP-167: `ukraineBeforeAssociation`, an EDF call that closed before Ukraine's association entered into force (16 October 2026). */
 export interface CallContext { programme: string; topic: string; ukraineNoFunding?: string | null; ukraineBeforeAssociation?: boolean }
 
+/** WP-167: backend/dgate/verdict.py EDF_UA_AREA, USI_AREA_QUOTE (the USI call document EDF-EDIP-USI-2026-LS-IRA, section 6), word for word. */
+export const EDF_UA_AREA = 'No EDF text we hold covers entities in the non-government controlled areas; the EDIP USI calls exclude them from funding (call document of EDF-EDIP-USI-2026-LS-IRA, section 6). Ask the contact point of the call before you rely on it.';
+export const USI_AREA_QUOTE = 'Legal entities established in the non-government controlled areas of Ukraine are not eligible for funding';
 /** WP-167: backend/dgate/verdict.py EDF_UA_YES, EDF_UA_BEFORE, word for word. */
 export const EDF_UA_YES = 'Ukraine is associated to the European Defence Fund since 16 October 2026 (European Commission, DG DEFIS: “The Ukrainian association with the European Defence Fund (EDF) and financing under the European Defence Industry Programme (EDIP) agreements have come into force.”), and the call is open to the associated countries.';
 export const EDF_UA_BEFORE = `This call closed before 16 October 2026, when Ukraine's association with the European Defence Fund entered into force. Its document said participation of entities established in Ukraine was pending the signature of the association agreement.`;
@@ -497,6 +500,10 @@ export function check(facts: EligibilityFacts, p: Profile, ctx?: CallContext): R
   if (p.country === 'UA' && p.more?.uaOccupied === 'yes' && ctx?.programme === 'HORIZON') {
     lines.push({ key: 'territory', label: 'Non-government controlled areas', verdict: 'check',
       reason: 'You said your company is established in a non-government controlled area of Ukraine. Whether the association of Ukraine to Horizon Europe covers those areas is not checked here: no text we hold says so. Ask the National Contact Point or the call’s helpdesk before you apply.' });
+  }
+  // WP-167: the EDF (not its EDIP calls): Ukraine is associated, but no EDF text covers those areas; a check, never a yes or a no
+  if (p.country === 'UA' && p.more?.uaOccupied === 'yes' && ctx?.programme === 'EDF' && !ctx.topic.toUpperCase().includes('-EDIP-')) {
+    lines.push({ key: 'territory', label: 'Non-government controlled areas', verdict: 'check', reason: EDF_UA_AREA, quote: USI_AREA_QUOTE });
   }
 
   const rule = sizeRule(facts);

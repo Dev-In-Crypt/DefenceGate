@@ -28,15 +28,31 @@ Owner decisions of 31 October 2026 on the WP-166 USI check (docs/verification/fe
 | `web/lib/ukraine.ts` `ukraineSentence` | "Conditional on the association agreement, not confirmed..." | `edf_association`: "Ukrainian entities may take part in this call: Ukraine is an associated country of the European Defence Fund since 16 October 2026, ..."; closed before (and the old reason name until the re-flag): "This call closed before 16 October 2026, when Ukraine’s association ... entered into force. Its call document said ... pending ...". The call page links the DG DEFIS page next to the evidence. |
 | `web/lib/glossary.ts` (open to Ukraine), `web/components/funding/rules-apply.tsx` (basis labels), `web/lib/mock/calls.ts`, generated `web/lib/mock/regulation.json`, `requirements.json`, `web/e2e/fixtures/assess-*.json`, `web/lib/data/wp93-pairs.json`, `wp102-pairs.json` | old wording / old verdicts | regenerated (`dgate.readiness.export`, `dgate.regulation --export`, `tests.wp93_golden derive`, `tests.wp102_golden derive`: the pairs stay 58/58 correct; only the programme verdicts of the Ukrainian profiles moved from conditional to obtain/eligible); the *97 fixtures (not written by the export) got the three rules' new texts |
 
-Decision taken here, consistent with the project's earlier reading (profile p11: "The texts of EDF and SAFE do not mention the area:
-SAFE eligible on its rules"): no condition is invented for the non-government controlled areas of Ukraine under the EDF; with the
-association in force the EDF is "eligible" for that profile as SAFE is. Tried and reverted: an EDF territory condition (no text says it).
+The non-government controlled areas (coordinator's change, 31 October 2026, commit after b63cc6b): a Ukrainian company there is never
+"eligible" for the EDF. We never decide without a source, and the closest official text we hold, the USI call documents (section 6), says
+"Legal entities established in the non-government controlled areas of Ukraine are not eligible for funding". So:
+- readiness: EDF-ESTABLISH is met for UA only with `ua_non_government_controlled_area` false, and conditional (needs confirmation, never
+  met, never not met) when it is true, with the reason "No EDF text we hold covers entities in the non-government controlled areas; the
+  EDIP USI calls exclude them from funding", the USI quote and the document's link; an unanswered area is unknown, never a yes.
+- the call check (`verdict.check`, `eligibility-check.ts check`): for an EDF call (not its EDIP topics) a `territory` line, verdict
+  check, with that reason and the USI sentence as its quote (the WP-99 Horizon path, reused).
+- the rules block summary for the Ukrainian group now asks the area; its line says "To be confirmed if ...: no EDF text we hold covers
+  those areas" (the USI's "Not if ..." line is kept for the USI only).
+My first build had the same condition and I reverted it, not because it failed (the engine gave p11 "conditional" as intended) but
+because I read the project's p11 reasoning ("the texts of EDF and SAFE do not mention the area: SAFE eligible on its rules") as asking for
+no condition without a text, and because the rules-block summary for Ukraine then reads "check the call's rules" plus a "Not if" line
+written for the USI. The coordinator's rule (no decision without a source; the closest text excludes) settles it; the summary line is
+reworded for the EDF. Pinned by `test_wp167.py::test_a_ukrainian_company_in_a_non_government_controlled_area_is_never_eligible_for_the_edf`,
+`wp167.check.ts`, profile p11 (EDF conditional), `test_wp40`, `test_wp91`. Golden pairs rerun: 58/58, no verdict of the sets changed (their
+Ukrainian profiles answer the area "no" or are not Ukrainian). Reruns: unit 4217 passed, ruff clean, integration (readiness_api, wp36,
+wp40, wp167, wp32, wp91, wp93) 110 passed; web tsc, checks, build 0, Playwright 201 passed (wp167, readiness, wp131, wp53, fit, wp91,
+wp93, wp99, ux, routes).
 
 Tests: `tests/unit/test_wp167.py` (open EDF call -> true with the quote, also on the boundary 16 Oct 00:00 Brussels; closed 29 Sep and
 15 Oct 23:59 Brussels -> unchanged with "closed before"; the document first; the verdict yes / check-before / EDIP no; web words equal);
 `tests/integration/test_wp167.py` (report then write, the old reason re-flagged, a second run writes nothing, `/v1/fit/facts` flag);
 updated: `test_wp36`, `test_wp40` (the real EDF calls of the WP-40 export: closed before -> unchanged, read open -> true),
-`test_readiness_profiles` (p02 obtain, p10/p11/p30 eligible), `test_readiness_roadmap`, `test_readiness_api`, `test_wp32`, `test_wp91`,
+`test_readiness_profiles` (p02 obtain, p10/p30 eligible, p11 conditional), `test_readiness_roadmap`, `test_readiness_api`, `test_wp32`, `test_wp91`,
 `test_wp73_verdict`, `test_readiness_export`; `web/lib/wp167.check.ts`, `ukraine.check.ts`, `regulation.check.ts`;
 `e2e/readiness.spec.ts`, `e2e/wp131.spec.ts`, new `e2e/wp167.spec.ts`.
 

@@ -1,7 +1,7 @@
 // WP-167 self-check: Ukraine's EDF association in force since 16 October 2026 (the call check, the sentence, the old reason name), and the
 // call document's budget total next to the portal's figure. Run: node scripts/run-checks.mjs
 import assert from 'node:assert/strict';
-import { EDF_UA_BEFORE, EDF_UA_YES, check, countryStatus, type EligibilityFact } from './eligibility-check';
+import { EDF_UA_AREA, EDF_UA_BEFORE, EDF_UA_YES, USI_AREA_QUOTE, check, countryStatus, type EligibilityFact } from './eligibility-check';
 import { documentBudgetLine, millions } from './format';
 import { EDF_IN_FORCE, EDF_IN_FORCE_URL, beforeAssociation } from './ukraine';
 
@@ -17,6 +17,11 @@ assert.equal(countryStatus(fact, 'NO', { ...ctx, ukraineBeforeAssociation: true 
 assert.equal(countryStatus({ ...fact, value: 'EU Member States and EDIP associated countries' }, 'UA', { programme: 'EDF', topic: 'EDF-EDIP-P-2027-FNLC-CPA-X' }).verdict, 'no');
 const line = check({ eligible_countries: fact }, { country: 'UA', orgType: '', hasPartners: '', controlledAbroad: '' }, ctx).lines.find((l) => l.key === 'country')!;
 assert.equal(line.verdict, 'yes');
+
+// a Ukrainian company in a non-government controlled area: a check with the USI call documents' sentence, never a yes (coordinator, 31 Oct)
+const occupied = check({ eligible_countries: fact }, { country: 'UA', orgType: '', hasPartners: '', controlledAbroad: '', more: { uaOccupied: 'yes' } } as Parameters<typeof check>[1], ctx).lines;
+assert.deepEqual(occupied.find((l) => l.key === 'territory'), { key: 'territory', label: 'Non-government controlled areas', verdict: 'check', reason: EDF_UA_AREA, quote: USI_AREA_QUOTE });
+assert.notEqual(check({ eligible_countries: fact }, { country: 'UA', orgType: '', hasPartners: '', controlledAbroad: '', more: { uaOccupied: 'yes' } } as Parameters<typeof check>[1], ctx).verdict, 'yes');
 
 // the reason names: the new one and the old one (until the flags are re-run) both mean "closed before the day"
 assert.ok(beforeAssociation('edf_closed_before_association') && beforeAssociation('edf_association_unconfirmed'));

@@ -241,6 +241,10 @@ ASSOCIATED = {
     # day keeps the question (`ukraineBeforeAssociation` in the context)
     "EDF": {"name": "the European Defence Fund", "yes": ["NO", "UA"], "no": []},
 }
+# WP-167: lib/eligibility-check.ts EDF_UA_AREA, USI_AREA_QUOTE (the USI call document EDF-EDIP-USI-2026-LS-IRA, section 6), word for word
+EDF_UA_AREA = ("No EDF text we hold covers entities in the non-government controlled areas; the EDIP USI calls exclude them from funding "
+               "(call document of EDF-EDIP-USI-2026-LS-IRA, section 6). Ask the contact point of the call before you rely on it.")
+USI_AREA_QUOTE = "Legal entities established in the non-government controlled areas of Ukraine are not eligible for funding"
 # WP-167: lib/eligibility-check.ts EDF_UA_YES, EDF_UA_BEFORE, word for word
 EDF_UA_YES = ("Ukraine is associated to the European Defence Fund since 16 October 2026 (European Commission, DG DEFIS: “The Ukrainian "
               "association with the European Defence Fund (EDF) and financing under the European Defence Industry Programme (EDIP) "
@@ -425,6 +429,10 @@ def check(facts: dict[str, Any], p: dict[str, Any], ctx: dict[str, str] | None =
                            "You said your company is established in a non-government controlled area of Ukraine. Whether the association of "
                            "Ukraine to Horizon Europe covers those areas is not checked here: no text we hold says so. Ask the National "
                            "Contact Point or the call’s helpdesk before you apply.", None))
+    # WP-167: the EDF (not its EDIP calls): Ukraine is associated, but no EDF text covers those areas; a check, never a yes or a no
+    if p["country"] == "UA" and (p.get("more") or {}).get("uaOccupied") == "yes" and (ctx or {}).get("programme") == "EDF" \
+            and "-EDIP-" not in (ctx or {}).get("topic", "").upper():
+        lines.append(_line("territory", "Non-government controlled areas", "check", EDF_UA_AREA, USI_AREA_QUOTE))
 
     rule = size_rule(facts)
     sme = facts.get("sme_only")

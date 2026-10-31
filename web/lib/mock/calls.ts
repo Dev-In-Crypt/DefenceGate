@@ -168,7 +168,7 @@ function mockDetail(r: RawCall): Partial<Call> {
       byCountry: {
         EU: [LEGAL('EDF'), o('EDF-ESTABLISH', 'Established in the Union or an associated country', 'met', [], 'Your company is established in an EU Member State or an EEA EFTA state. These are the Union and an associated country of the EDF.'), MGMT('EDF', 'an associated country')],
         EEA_EFTA: [LEGAL('EDF'), o('EDF-ESTABLISH', 'Established in the Union or an associated country', 'met', [], 'Your company is established in an EU Member State or an EEA EFTA state. These are the Union and an associated country of the EDF.'), MGMT('EDF', 'an associated country')],
-        UA: [LEGAL('EDF'), o('EDF-ESTABLISH', 'Established in the Union or an associated country', 'met', [], 'Your company is established in an EU Member State, an EEA EFTA state or Ukraine. These are the Union and the associated countries of the EDF (Ukraine\'s association is in force since 16 October 2026).'), MGMT('EDF', 'an associated country')],
+        UA: [LEGAL('EDF'), o('EDF-ESTABLISH', 'Established in the Union or an associated country', 'unknown', ['ua_non_government_controlled_area'], 'Answer the questions that are missing to see whether this applies to you.'), MGMT('EDF', 'an associated country')],
         OTHER: [LEGAL('EDF'), o('EDF-ESTABLISH', 'Established in the Union or an associated country', 'not_met', [], 'Your company is established outside the EU, the EEA EFTA states and Ukraine. EDF recipients must be established in the Union or in an associated country.'), MGMT('EDF', 'an associated country')],
       },
       forCompany: [],

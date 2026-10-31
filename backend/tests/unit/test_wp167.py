@@ -108,3 +108,39 @@ def test_the_verdict_counts_ukraine_as_associated_to_the_edf_except_for_a_call_c
                                   "UA", {"programme": "EDF", "topic": "EDF-EDIP-P-2027-FNLC-CPA-X"})[0] == "no"
     web = (ROOT / "web" / "lib" / "eligibility-check.ts").read_text(encoding="utf-8")
     assert verdict.EDF_UA_YES in web and verdict.EDF_UA_BEFORE in web, "the browser says the same words"
+
+
+# ---------------------------------------------------------------- the non-government controlled areas (coordinator, 31 October 2026)
+
+def test_a_ukrainian_company_in_a_non_government_controlled_area_is_never_eligible_for_the_edf():
+    """No EDF text we hold covers those areas, and the closest official text (the USI call documents, section 6) excludes them from
+    funding: the readiness rule is a condition to confirm (never met, never not met), and the call check adds a check line with the quote."""
+    from dgate.readiness.engine import Profile, assess
+    from dgate.readiness.seed import load_file
+
+    content = load_file()
+
+    def edf(area):
+        p = Profile(country="UA", legal_form="legal_person", executive_management_country="UA", third_country_control="no",
+                    ua_non_government_controlled_area=area, non_eu_component_cost_pct=10, restricted_third_country_component=False,
+                    components_from_ua_or_eea_efta=False, safe_role="contractor", handles_classified=False, product_regime="none",
+                    export_intent="none")
+        return assess(p, {"REQ-PIC": "held"}, content.programmes["EDF"])
+
+    occupied = edf(True)
+    rule = next(r for r in occupied.rules if r.rule == "EDF-ESTABLISH")
+    assert occupied.verdict == "conditional" and rule.outcome == "conditional"
+    assert "No EDF text we hold covers entities in the non-government controlled areas; the EDIP USI calls exclude them from funding" in rule.reason
+    assert verdict.USI_AREA_QUOTE in rule.reason and "call-fiche_edf-edip-usi-2026-ls-ira_en.pdf" in rule.reason
+    assert edf(False).verdict == "eligible" and edf(None).verdict != "eligible", "unanswered is unknown, never a yes"
+
+    fact = {**EDF_FACT["eligible_countries"], "value": EDF_FACT["eligible_countries"]["quote"]}
+    p = {"country": "UA", "orgType": "", "hasPartners": "", "controlledAbroad": "", "more": {"uaOccupied": "yes", "managementCountry": "UA", "legalPerson": "yes", "company": "yes", "uaPartner": "",
+                                                                                   "seapPartner": ""}}
+    lines = verdict.check({"eligible_countries": fact}, p, {"programme": "EDF", "topic": "EDF-2027-DA-X"})["lines"]
+    area = next(x for x in lines if x["key"] == "territory")
+    assert area["verdict"] == "check" and area["reason"] == verdict.EDF_UA_AREA and area["quote"] == verdict.USI_AREA_QUOTE
+    usi = verdict.check({"eligible_countries": fact}, p, {"programme": "EDF", "topic": "EDF-EDIP-USI-2027-LS-IRA-X"})["lines"]
+    assert not any(x["reason"] == verdict.EDF_UA_AREA for x in usi), "the USI has its own rule"
+    web = (ROOT / "web" / "lib" / "eligibility-check.ts").read_text(encoding="utf-8")
+    assert verdict.EDF_UA_AREA in web and verdict.USI_AREA_QUOTE in web

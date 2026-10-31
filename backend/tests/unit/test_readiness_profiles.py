@@ -44,7 +44,7 @@ REASONS = {
     "p09-de-management-in-us": "Executive management structures must be in the Union or an associated country (EDF Art 9(2), EDIP Art 9(1), USI Art 26(1)) or the Union, an EEA EFTA state or Ukraine (SAFE Art 16(3)).",
     "p10-de-controlled-by-ua-or-eea": "SAFE Art 16(3) does not count control by an EEA EFTA State or Ukraine. EDF Art 9(3) does not count control by an associated country: an EEA EFTA State is one, and Ukraine is one since its association entered into force on 16 October 2026 (WP-167): eligible. "
                                  "EDIP Art 9(5) and USI Art 26(5) name only associated countries (EEA EFTA states that apply it) and, for USI, Ukraine: conditional for the same reason.",
-    "p11-ua-non-government-controlled-area": "USI Art 26(1), second subparagraph: entities in non-government controlled areas of Ukraine are not eligible. EDIP: blocked (Ukraine is not associated). The texts of EDF and SAFE do not mention the area: SAFE eligible on its rules, and EDF eligible since Ukraine's association entered into force on 16 October 2026 (WP-167; conditional before, V2-B2).",
+    "p11-ua-non-government-controlled-area": "USI Art 26(1), second subparagraph: entities in non-government controlled areas of Ukraine are not eligible. EDIP: blocked (Ukraine is not associated). The texts of EDF and SAFE do not mention the area: SAFE eligible on its rules. EDF: Ukraine is associated since 16 October 2026 (WP-167), but no EDF text we hold covers those areas and the EDIP USI calls exclude them from funding: conditional (needs confirmation), never eligible.",
     "p12-fr-exactly-35pct": "'Not higher than 35 %': exactly 35 % passes (SAFE Art 16(10), EDIP Art 10(3), USI Art 27(3)). No Ukrainian or EEA EFTA component is reported, so the denominators of the three Articles agree.",
     "p13-fr-35-01pct": "35.01 % is higher than 35 %: SAFE Art 16(10), EDIP Art 10(3)-(4) and USI Art 27(3)-(4) are not met. EDF has no origin rule.",
     "p14-fr-restricted-component": "SAFE Art 16(10) second sentence, EDIP Art 10(3) and USI Art 27(3) second sentences: no component from a third country that contravenes the security and defence interests of the Union. A categorical ban; EDF has none.",
@@ -119,6 +119,7 @@ def test_the_verifiers_wrong_eligible_verdicts_are_gone():
     # WP-167: the Commission said so on 16 October 2026, so it is one now
     ua = next(p for p in PROFILES if p["id"] == "p30-ua-with-pic")
     assert verdicts(ua)["EDF"] == "eligible"
+    assert verdicts(next(p for p in PROFILES if p["id"] == "p11-ua-non-government-controlled-area"))["EDF"] == "conditional"
 
 
 def test_a_missing_pic_alone_is_obtain_and_never_blocked():

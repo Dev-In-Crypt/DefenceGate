@@ -317,7 +317,12 @@ def rule(programme: str, code: str):
 def test_the_edf_rules_count_ukraine_as_an_associated_country_since_16_october_2026():
     """WP-167: was conditional on the association agreement (V2-B2); the agreement is in force since 16 October 2026."""
     est = rule("EDF", "EDF-ESTABLISH")
-    assert est.condition == {"field": "country", "in": ["EU", "EEA_EFTA", "UA"]} and est.conditional_when is None
+    ua = {"field": "country", "is": "UA"}
+    assert est.condition == {"any": [{"field": "country", "in": ["EU", "EEA_EFTA"]},
+                                     {"all": [ua, {"field": "ua_non_government_controlled_area", "is": False}]}]}
+    # no EDF text covers the non-government controlled areas, and the USI calls exclude them: needs confirmation, never "eligible"
+    assert est.conditional_when == {"all": [ua, {"field": "ua_non_government_controlled_area", "is": True}]}
+    assert "No EDF text we hold covers entities in the non-government controlled areas" in est.texts["conditional"]
     assert rule("EDF", "EDF-EXEC-MGMT").condition == {"field": "executive_management_country", "in": ["EU", "EEA_EFTA", "UA"]}
     assert rule("EDF", "EDF-EXEC-MGMT").conditional_when is None
     # control from Ukraine or an EEA EFTA state is control from an associated country; from elsewhere, the guarantees decide
