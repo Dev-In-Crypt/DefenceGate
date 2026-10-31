@@ -12,6 +12,7 @@ import { ProfileFields } from '@/components/account/profile-fields';
 import { TotpSettings } from '@/components/account/totp-settings';
 import { AppHeader, Block, LoadFailed, Notice } from '@/components/account/ui';
 import { changeMyPassword, deleteAccount, endOtherSessions, endSession, saveReportName, saveSettings, signOutEverywhere } from '../actions';
+import { deleteReportLogo, saveReportLogo } from './logo-actions';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Settings', robots: { index: false, follow: false } };
@@ -53,6 +54,15 @@ export default async function SettingsPage({ searchParams }: Props) {
             <TextInput name="reportName" label="Name on reports" defaultValue={me.profile.reportName ?? ''} maxLength={80}
               hint="Printed in the head of your company reports, beside our logo: your firm's name, for example. Plain text, at most 80 characters; leave empty to print none." />
             <div><Button type="submit">Save name</Button></div>
+          </form>
+          {/* WP-162: the logo on the cover of the "Who to sell to" reports, instead of ours */}
+          <form action={saveReportLogo} className="flex max-w-form flex-col gap-4" data-report-logo-form>
+            <TextInput name="logo" type="file" accept="image/png,image/jpeg" label="Logo on supplier reports (optional)"
+              hint="Printed on the cover of your “Who to sell to” reports instead of ours: a PNG or JPEG of at most 10 KB." />
+            <div className="flex flex-wrap gap-3">
+              <Button type="submit" variant="secondary">Upload logo</Button>
+              <Button type="submit" variant="secondary" formAction={deleteReportLogo}>Remove logo</Button>
+            </div>
           </form>
         </Block>
       )}

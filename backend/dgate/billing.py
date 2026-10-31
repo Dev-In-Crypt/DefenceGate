@@ -70,6 +70,9 @@ FEATURES: dict[str, frozenset[str]] = {
     # WP-157: a workspace of up to SEATS users sharing the owner's plan, searches, shortlist and follows (workspace.py)
     "team_workspace": TEAM,
     "client_profiles": frozenset({"consultant"}),   # up to CLIENTS client profiles in the workspace
+    # WP-162: the "Who to sell to" supplier report (sell_report.py), REPORTS_PER_MONTH as the company report; exists only
+    # with DGATE_COMPANY_REPORT_OPEN=1 (`may`)
+    "sell_report": PRO,
 }
 # How many: None is no plan limit.
 REPORTS_PER_MONTH: dict[str, int | None] = {"pro": 3, "founding": 3, "team": 15, "consultant": None}
@@ -201,7 +204,7 @@ def may(user: dict[str, Any], feature: str) -> bool:
     nothing is withheld: accounts keep saved searches and alerts as WP-123 built them (owner decision
     to confirm, docs/verification/accounts/wp124-selfcheck.md). Once the plans exist, the plan decides. WP-152: the
     company report (and with it the name on reports) is nobody's while its switch (DGATE_COMPANY_REPORT_OPEN) is off."""
-    if feature in ("company_report", "branded_reports") and not settings().company_report_open:
+    if feature in ("company_report", "branded_reports", "sell_report") and not settings().company_report_open:
         return False
     if not plans_on_sale():
         return True
@@ -252,6 +255,7 @@ MESSAGES = {
     "supplier_map_csv": "the supplier map as CSV is part of Team and Consultant: choose a plan under Billing",
     "team_workspace": "the team workspace is part of Team and Consultant: choose a plan under Billing",
     "client_profiles": "client profiles are part of Consultant: choose a plan under Billing",
+    "sell_report": "supplier reports are part of Pro: choose a plan under Billing",
 }
 
 

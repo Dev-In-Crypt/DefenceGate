@@ -1233,6 +1233,13 @@ from .exports import account_router as _exports_account_router  # noqa: E402
 
 app.include_router(_exports_account_router)
 
+# WP-162: the "Who to sell to" supplier report (sell_report.py): the public sample and the counted account reports.
+from .sell_report import account_router as _sell_report_account_router  # noqa: E402
+from .sell_report import router as _sell_report_router  # noqa: E402
+
+app.include_router(_sell_report_router)
+app.include_router(_sell_report_account_router)
+
 
 @app.exception_handler(RequestValidationError)
 async def _validation_error(request: Request, exc: RequestValidationError):

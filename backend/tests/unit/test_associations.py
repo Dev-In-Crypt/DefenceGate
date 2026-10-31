@@ -32,8 +32,8 @@ def test_the_larger_of_the_subscription_and_the_association_is_in_force():
 def test_on_sale_a_member_has_the_pro_set_and_the_admin_the_team_set(on_sale):
     member, admin, nobody = user(None, "pro"), user(None, "team"), user()
     for f in billing.FEATURES:
-        if f in ("company_report", "branded_reports"):
-            continue                                     # behind their own switch (WP-152)
+        if f in ("company_report", "branded_reports", "sell_report"):
+            continue                                     # behind their own switch (WP-152; WP-162 the supplier report)
         assert billing.may(member, f) is billing.allows("pro", f), f
         assert billing.may(admin, f) is billing.allows("team", f), f
     assert billing.may(member, "saved_searches") and not billing.may(member, "signals_csv")
@@ -47,7 +47,7 @@ def test_on_sale_a_member_has_the_pro_set_and_the_admin_the_team_set(on_sale):
 def test_while_no_plan_is_on_sale_nobody_is_refused(monkeypatch):
     monkeypatch.setattr(billing, "plans_on_sale", lambda: False)
     for u in (user(), user(None, "pro"), user(None, "team")):
-        assert all(billing.may(u, f) for f in billing.FEATURES if f not in ("company_report", "branded_reports"))
+        assert all(billing.may(u, f) for f in billing.FEATURES if f not in ("company_report", "branded_reports", "sell_report"))
     assert "association" in billing.features(user(None, "pro"))
 
 

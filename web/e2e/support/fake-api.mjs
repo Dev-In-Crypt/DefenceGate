@@ -11,6 +11,7 @@
 // Every path it does not know answers 404 (the site treats that as "no such record"). Dates are relative to the pinned site clock
 // (NEXT_PUBLIC_DG_NOW=2026-10-12T08:00:00Z, the CI build): the calendar's deadlines are from 20 October on.
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
 
 const PORT = Number(process.argv[2] ?? process.env.FAKE_API_PORT ?? 4010);
 const NOW = '2026-10-12T08:00:00Z';
@@ -161,7 +162,7 @@ const REPORT_SLUG = '152001-fake-defence-gmbh';
 // reports, the signals CSV, the gap analysis), "d" x 43 is Pro with this month's reports used. 155001 is a company with eight competitors,
 // five of them public, and the sample report (open to everyone).
 // WP-156: Pro has the eligibility pack, Consultant the supplier map's CSV as well
-const PRO = ['saved_searches', 'email_alerts', 'company_report', 'competitors_full', 'signals_full', 'eligibility_export'];
+const PRO = ['saved_searches', 'email_alerts', 'company_report', 'competitors_full', 'signals_full', 'eligibility_export', 'sell_report'];
 const REPORT_SESSIONS = {
   ['a'.repeat(43)]: PRO, ['b'.repeat(43)]: ['saved_searches', 'email_alerts'],
   ['c'.repeat(43)]: [...PRO, 'signals_csv', 'consortium_gaps', 'branded_reports', 'supplier_map_csv'], ['d'.repeat(43)]: PRO,
@@ -228,10 +229,32 @@ const reportMe = (features, session) => ({ id: 'u152', email: 'ann@example.test'
   onboarded: true, lastVisitAt: null,
   terms: { current: true }, security: { hasPassword: true, totp: false }, plan: { current: PLAN_OF[session] ?? 'consultant' }, features });
 
+// ---- WP-162 (e2e/wp162-api.spec.ts): the "Who to sell to" report. The sample is the API's answer for the demo company (production,
+// 31 October 2026, anonymous view); FAKE_SELL_REPORT names another answer file to serve instead (web/scripts/sell-report-pdf.mjs prints
+// it to PDF). The account's report is the named one; a form with CPV 03111000 gets the report with every section empty.
+const fixture = (name) => JSON.parse(readFileSync(new URL(`../fixtures/${name}`, import.meta.url), 'utf-8'));
+const SELL = { sample: () => (process.env.FAKE_SELL_REPORT ? JSON.parse(readFileSync(process.env.FAKE_SELL_REPORT, 'utf-8')) : fixture('sell-report-sample.json')),
+  named: () => fixture('sell-report-named.json'), empty: () => fixture('sell-report-empty.json') };
+
+function sellRoute(p, session, method, body) {
+  const features = REPORT_SESSIONS[session] ?? [];
+  if (p === '/v1/account/sell-report/sample') return [200, { ...SELL.named(), sample: true }];
+  if (p === '/v1/account/sell-report/profile') return [404, { error: 'not_found' }];
+  if (p !== '/v1/account/sell-report' || method !== 'POST') return [404, { error: 'not_found' }];
+  if (!features.includes('sell_report')) return [402, { error: 'plan_required', message: 'supplier reports are part of Pro: choose a plan under Billing' }];
+  if (session === 'd'.repeat(43)) return [402, { error: 'report_quota', message: 'no supplier reports left this month: 3 of 3 used; the count starts again on 2026-11-01 (UTC)' }];
+  let form = {};
+  try { form = JSON.parse(body || '{}'); } catch { /* not JSON */ }
+  const report = (form.cpv ?? []).includes('03111000') ? SELL.empty() : SELL.named();
+  const brand = features.includes('branded_reports') ? { name: 'Acme Advisory Ltd', logo: null } : null;
+  return [200, { ...report, sample: false, brand, quota: { used: 1, limit: PLAN_OF[session] === 'pro' ? 3 : null, left: 2, per: 'month', counted: true } }];
+}
+
 /** WP-155: the account routes of the plan split (the API's competition.py and signals.py), by session. */
-function accountRoute(p, q, session, method) {
+function accountRoute(p, q, session, method, body) {
   const features = REPORT_SESSIONS[session];
   if (!features) return [401, { error: 'unauthenticated' }];
+  if (p.startsWith('/v1/account/sell-report')) return sellRoute(p, session, method, body);
   const m = /^\/v1\/account\/suppliers\/([^/]+)\/(competition|report)$/.exec(p);
   if (m && m[2] === 'competition') {
     if (!features.includes('competitors_full')) return [402, { error: 'plan_required', message: 'the full list of competitors is part of Pro' }];
@@ -263,7 +286,7 @@ function accountRoute(p, q, session, method) {
   return [404, { error: 'not_found' }];
 }
 
-function route(url, headers = {}, method = 'GET') {
+function route(url, headers = {}, method = 'GET', body = '') {
   const p = url.pathname;
   const q = url.searchParams;
   stats.requests.push(`${p}?${q}`);
@@ -281,7 +304,8 @@ function route(url, headers = {}, method = 'GET') {
     const features = REPORT_SESSIONS[headers['x-dg-session']];
     return features ? [200, reportMe(features, headers['x-dg-session'])] : [401, { error: 'unauthenticated' }];
   }
-  if (p.startsWith('/v1/account/')) return accountRoute(p, q, headers['x-dg-session'], method);
+  if (p.startsWith('/v1/account/')) return accountRoute(p, q, headers['x-dg-session'], method, body);
+  if (p === '/v1/sell-report/sample') return [200, SELL.sample()];
   if (p === '/v1/tenders/calendar') return [200, calendar()];
   // WP-127: counts that answer after 5 s (a search word the time box cannot count): the page must not wait for them
   if (p === '/v1/tenders/scope-counts' && q.get('q') === 'slowcounts') return [503, { detail: 'the count took too long; narrow the request' }, 5000];
@@ -329,10 +353,13 @@ function route(url, headers = {}, method = 'GET') {
 }
 
 createServer((req, res) => {
-  const [status, body, delay = 0, headers = {}] = route(new URL(req.url ?? '/', 'http://x'), req.headers, req.method);
-
-  setTimeout(() => {
-    res.writeHead(status, { 'content-type': 'application/json', ...headers });
-    res.end(JSON.stringify(body));
-  }, delay);
+  let sent = '';
+  req.on('data', (c) => { sent += c; });
+  req.on('end', () => {
+    const [status, body, delay = 0, headers = {}] = route(new URL(req.url ?? '/', 'http://x'), req.headers, req.method, sent);
+    setTimeout(() => {
+      res.writeHead(status, { 'content-type': 'application/json', ...headers });
+      res.end(JSON.stringify(body));
+    }, delay);
+  });
 }).listen(PORT, '127.0.0.1', () => console.log(`fake API on ${PORT}`));

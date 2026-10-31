@@ -27,6 +27,8 @@ TABLE = {
     # WP-157: the team workspace (Team, and Consultant as "Everything in Team") and the client profiles
     "team_workspace": {"team", "consultant"},
     "client_profiles": {"consultant"},
+    # WP-162: the "Who to sell to" supplier report (Pro 3, Team 15, Consultant unlimited, as the company report)
+    "sell_report": {"pro", "team", "consultant", "founding"},
 }
 
 
