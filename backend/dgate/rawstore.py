@@ -833,19 +833,29 @@ def sftp_connector(host: str, port: int, user: str, key_file: str,
         import paramiko
 
         client = paramiko.SSHClient()
-        client.load_host_keys(known_hosts)
-        client.set_missing_host_key_policy(paramiko.RejectPolicy())
-        client.connect(host, port=port, username=user,
-                       key_filename=key_file, look_for_keys=False, allow_agent=False,
-                       timeout=30, banner_timeout=30, auth_timeout=30)
-        transport = client.get_transport()
-        if transport is not None:
-            transport.set_keepalive(30)
-        sftp = client.open_sftp()
+        try:
+            client.load_host_keys(known_hosts)
+            client.set_missing_host_key_policy(paramiko.RejectPolicy())
+            client.connect(host, port=port, username=user,
+                           key_filename=key_file, look_for_keys=False, allow_agent=False,
+                           timeout=30, banner_timeout=30, auth_timeout=30)
+            transport = client.get_transport()
+            if transport is not None:
+                transport.set_keepalive(30)
+            sftp = client.open_sftp()
+        except BaseException:
+            # A session that logged in but could not open SFTP stays open on the Box otherwise: the Box allows
+            # 10 connections for the whole account (shared with another project), and leaked ones refuse the rest.
+            client.close()
+            raise
         sftp._ssh = client          # keeps the SSH session alive as long as the SFTP one
         return sftp
 
     return connect
+
+
+_SFTP_STORES: dict[tuple, RawStore] = {}
+_SFTP_LOCK = threading.Lock()
 
 
 def build_store(backend: str | None = None) -> RawStore:
@@ -866,11 +876,19 @@ def build_store(backend: str | None = None) -> RawStore:
             # that fell back to the container's own disk would keep reporting
             # success, which is the failure that hides itself.
             raise ValueError(f"the sftp backend needs {', '.join(missing)}")
-        return SftpRawStore(
-            cfg.sftp_root,
-            sftp_connector(cfg.sftp_host, cfg.sftp_port, cfg.sftp_user,
-                           cfg.sftp_key_file, cfg.sftp_known_hosts),
-            connections=cfg.sftp_connections)
+        key = (cfg.sftp_root, cfg.sftp_host, cfg.sftp_port, cfg.sftp_user, cfg.sftp_key_file,
+               cfg.sftp_known_hosts, cfg.sftp_connections)
+        # One store (one connection pool) per process and configuration: a new pool per call left its sessions open,
+        # and the worker reached 183 open sessions against the Box's limit of 10.
+        with _SFTP_LOCK:
+            store = _SFTP_STORES.get(key)
+            if store is None:
+                store = _SFTP_STORES[key] = SftpRawStore(
+                    cfg.sftp_root,
+                    sftp_connector(cfg.sftp_host, cfg.sftp_port, cfg.sftp_user,
+                                   cfg.sftp_key_file, cfg.sftp_known_hosts),
+                    connections=cfg.sftp_connections)
+        return store
     raise ValueError(f"unknown raw storage backend: {backend!r}")
 
 

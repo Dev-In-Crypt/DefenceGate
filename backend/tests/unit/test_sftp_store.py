@@ -379,3 +379,42 @@ def test_the_backend_is_built_from_configuration_without_connecting(monkeypatch)
         assert config.settings().sftp_port == 23 and config.settings().sftp_connections == 4
     finally:
         config.reset_cache()
+
+
+def test_the_process_shares_one_store_so_sessions_do_not_pile_up(monkeypatch):
+    # Each call used to build a new pool whose sessions stayed open: the worker reached 183 against the Box's 10.
+    monkeypatch.setenv("DGATE_RAW_BACKEND", "sftp")
+    monkeypatch.setenv("DGATE_SFTP_HOST", "u1.example.test")
+    monkeypatch.setenv("DGATE_SFTP_USER", "u1-sub1")
+    monkeypatch.setenv("DGATE_SFTP_KEY_FILE", "/run/secrets/box_key")
+    monkeypatch.setenv("DGATE_SFTP_KNOWN_HOSTS", "/run/secrets/known_hosts")
+    monkeypatch.setenv("DGATE_SFTP_ROOT", "store")
+    config.reset_cache()
+    try:
+        assert build_store() is build_store()
+        monkeypatch.setenv("DGATE_SFTP_ROOT", "other")
+        config.reset_cache()
+        assert build_store().root == "other"            # another configuration, another store
+    finally:
+        config.reset_cache()
+
+
+def test_a_session_that_cannot_open_sftp_is_closed(monkeypatch, tmp_path):
+    import paramiko
+
+    from dgate.rawstore import sftp_connector
+
+    closed = []
+
+    class Client:
+        def load_host_keys(self, path): pass
+        def set_missing_host_key_policy(self, policy): pass
+        def connect(self, *a, **kw): pass
+        def get_transport(self): return None
+        def open_sftp(self): raise paramiko.SSHException("EOF during negotiation")
+        def close(self): closed.append(True)
+
+    monkeypatch.setattr(paramiko, "SSHClient", Client)
+    with pytest.raises(paramiko.SSHException):
+        sftp_connector("h", 23, "u", "k", str(tmp_path / "kh"))()
+    assert closed == [True]
