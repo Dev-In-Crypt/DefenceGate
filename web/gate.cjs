@@ -9,30 +9,35 @@
  * fast as the API lets it, instead of every render waiting for all the others. It cannot tell a visitor from the flood: in a flood
  * a visitor gets the quick 503 as often as a crawler does (a challenge that tells them apart needs a front service: the owner's).
  *
- * Not counted: the static files (/_next/static, images, icons), requests from the container itself (its healthcheck, the feed
- * warmer), and a signed-in visitor (the session cookie). Sizes (DG_GATE_ACTIVE, DG_GATE_QUEUE, DG_GATE_WAIT_MS; set in
- * infra/docker-compose.yml): the server has 2 cores and the API 24 database connections, a page asks the API 3 to 6 times; 12 at
- * about 0.5 s each are 24 pages a second, six times the busiest normal hour (~4 a second). Lab measurements: the WP-143 self-check.
+ * Not counted: the static files (/_next/static, /_next/image, /brand, the icons, robots.txt: matched on the path, never the query
+ * string, and only under those prefixes, since any other path, `/tenders/1.js` too, is a page render), and requests from the
+ * container itself (its healthcheck, the feed warmer). A request with a session cookie is counted in its own pool, half the size:
+ * the gate cannot check a session (only the API can), so a made-up cookie must not buy an unlimited render. Sizes (DG_GATE_ACTIVE,
+ * DG_GATE_QUEUE, DG_GATE_WAIT_MS; set in infra/docker-compose.yml): the server has 2 cores and the API 24 database connections, a
+ * page asks the API 3 to 6 times; 12 at about 0.5 s each are 24 pages a second, six times the busiest normal hour (~4 a second).
+ * Lab measurements: the WP-143 self-check.
  */
 'use strict';
 const http = require('node:http');
 
-const SKIP = /^\/(?:_next\/static\/|_next\/image|favicon|icon|apple-icon|robots\.txt|.*\.(?:css|js|png|svg|ico|woff2?|txt|webmanifest)$)/;
-const SESSION = '__Host-dg_session=';
+const SKIP = /^\/(?:_next\/static\/|_next\/image|brand\/|favicon|icon|apple-icon|robots\.txt)/;
+const DOTS = /\.\.|%2e|\\/i;      // a path that a parser could resolve elsewhere is never a static file
+const SESSION = /(?:^|;)\s*__Host-dg_session=[^;\s]/;
 
 function createGate({ active = 12, queue = 24, waitMs = 5000, retryAfter = 30, countLoopback = false } = {}) {
-  let running = 0;
-  const waiting = [];
+  const pool = (size, wait) => ({ active: size, queue: wait, running: 0, waiting: [] });
+  const anonymous = pool(active, queue);
+  const session = pool(Math.max(1, Math.ceil(active / 2)), Math.ceil(queue / 2));
   const stats = { admitted: 0, queued: 0, refused: 0, timedOut: 0 };
 
-  function release() {
-    running -= 1;
-    while (waiting.length > 0 && running < active) {
-      const next = waiting.shift();
+  function release(p) {
+    p.running -= 1;
+    while (p.waiting.length > 0 && p.running < p.active) {
+      const next = p.waiting.shift();
       if (next.done) continue;
       next.done = true;
       clearTimeout(next.timer);
-      running += 1;
+      p.running += 1;
       next.go();
     }
   }
@@ -43,42 +48,45 @@ function createGate({ active = 12, queue = 24, waitMs = 5000, retryAfter = 30, c
     res.end('The site is busy. Please try again in a minute.');
   }
 
-  function counted(req) {
+  /** The pool a request is counted in, or null when it is not counted. */
+  function poolOf(req) {
     const addr = req.socket && req.socket.remoteAddress;
     // countLoopback: the load lab only (its clients are on the same machine)
-    if (!countLoopback && (addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1')) return false;
-    if (SKIP.test(req.url || '/')) return false;
-    if ((req.headers.cookie || '').includes(SESSION)) return false;
-    return true;
+    if (!countLoopback && (addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1')) return null;
+    const path = (req.url || '/').split('?')[0];
+    if (SKIP.test(path) && !DOTS.test(path)) return null;
+    return SESSION.test(req.headers.cookie || '') ? session : anonymous;
   }
 
   /** Wraps a request listener: the listener runs when the render is admitted. */
   function wrap(listener) {
     return function gated(req, res) {
-      if (!counted(req)) return listener.call(this, req, res);
+      const p = poolOf(req);
+      if (!p) return listener.call(this, req, res);
       const self = this;
       const go = () => {
         stats.admitted += 1;
         let freed = false;
-        const free = () => { if (!freed) { freed = true; release(); } };
+        const free = () => { if (!freed) { freed = true; release(p); } };
         res.once('finish', free);
         res.once('close', free);
         return listener.call(self, req, res);
       };
-      if (running < active) { running += 1; return go(); }
-      if (waiting.length >= queue) return refuse(res, 'refused');
+      if (p.running < p.active) { p.running += 1; return go(); }
+      if (p.waiting.length >= p.queue) return refuse(res, 'refused');
       stats.queued += 1;
       const entry = { done: false, go, timer: null };
-      const leave = () => { entry.done = true; clearTimeout(entry.timer); const at = waiting.indexOf(entry); if (at >= 0) waiting.splice(at, 1); };
+      const leave = () => { entry.done = true; clearTimeout(entry.timer); const at = p.waiting.indexOf(entry); if (at >= 0) p.waiting.splice(at, 1); };
       entry.timer = setTimeout(() => { if (!entry.done) { leave(); refuse(res, 'timedOut'); } }, waitMs);
       // a client that gave up while waiting leaves the queue
       res.once('close', () => { if (!entry.done) leave(); });
-      waiting.push(entry);
+      p.waiting.push(entry);
       return undefined;
     };
   }
 
-  return { wrap, stats, state: () => ({ running, waiting: waiting.length }) };
+  const count = (p) => ({ running: p.running, waiting: p.waiting.length });
+  return { wrap, stats, state: () => count(anonymous), sessionState: () => count(session) };
 }
 
 module.exports = { createGate };

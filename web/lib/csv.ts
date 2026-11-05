@@ -2,15 +2,21 @@
 
 export type Cell = string | number | null | undefined;
 
-/** A cell that a spreadsheet would read as a formula gets a leading apostrophe (OWASP CSV injection). */
-const FORMULA_START = /^[=+\-@\t\r]/;
+/**
+ * A cell that a spreadsheet would read as a formula gets an apostrophe before the formula sign (OWASP CSV injection): at the start
+ * (after any spaces too, and the full-width signs), and after every `;` or tab inside the cell, since Excel in most EU locales
+ * splits a .csv at `;` and the part after it starts a cell of its own. A cell with a `;` is also quoted.
+ */
+const SIGN = '=+\\-@\\uFF1D\\uFF0B\\uFF0D\\uFF20';
+const FORMULA_START = new RegExp(`^(?:[\\t\\r]|\\s*[${SIGN}])`);
+const FORMULA_INSIDE = new RegExp(`([;\\t]\\s*)(?=[${SIGN}])`, 'g');
 
 export function csvCell(v: Cell): string {
   if (v === null || v === undefined) return '';
   if (typeof v === 'number') return Number.isFinite(v) ? String(v) : '';
   let s = FORMULA_START.test(v) ? `'${v}` : v;
-  s = s.replace(/[\r\n]+/g, ' ');
-  return /[",]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  s = s.replace(/[\r\n]+/g, ' ').replace(FORMULA_INSIDE, "$1'");
+  return /[",;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 /**

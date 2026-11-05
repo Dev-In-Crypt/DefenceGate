@@ -35,6 +35,8 @@ test('a visitor is asked to sign in, an account without the feature is told it i
 test('an account with the feature gets the report, ready to print', { tag: '@fake-api' }, async ({ page, context, baseURL }) => {
   await signIn(context, baseURL, 'a'.repeat(43));
   await visit(page, REPORT, TITLE);
+  // opening the page counts nothing: the button opens (and counts) the report (security review of 5 Nov 2026, report-count-api.spec.ts)
+  await page.getByRole('button', { name: 'Open the report' }).click();
   await expect(page.locator('[data-company-report]')).toBeVisible();
   await expect(page.locator('section[aria-labelledby="competitors"] [data-competitor]')).toHaveCount(2);
   await expect(page.locator('[data-same-name]')).toHaveCount(1);
