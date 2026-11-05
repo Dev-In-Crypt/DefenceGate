@@ -88,7 +88,7 @@ def sign_in(client, box, email="ann@example.com", ip="203.0.113.7") -> tuple[str
     if canonical not in client.registered:
         r = register(client, email, ip=ip)
         assert r.status_code == 202, r.text
-        v = client.post("/v1/account/auth/verify", json={"token": _token(box)})
+        v = client.post("/v1/account/auth/verify", json={"password": PW, "token": _token(box)})
         assert v.status_code == 200, v.text
         client.registered.add(canonical)
     r = login(client, email, ip=ip)
@@ -191,8 +191,8 @@ def test_a_sign_in_goes_to_the_welcome_until_the_profile_is_filled(client, sent)
 def test_a_link_works_once(client, sent):
     register(client)
     token = _token(sent)
-    assert client.post("/v1/account/auth/verify", json={"token": token}).status_code == 200
-    again = client.post("/v1/account/auth/verify", json={"token": token})
+    assert client.post("/v1/account/auth/verify", json={"password": PW, "token": token}).status_code == 200
+    again = client.post("/v1/account/auth/verify", json={"password": PW, "token": token})
     assert again.status_code == 400 and again.json()["error"] == "invalid_or_expired"
 
 
@@ -202,7 +202,7 @@ def test_a_link_expires(client, sent, conn):
     assert expires == timedelta(hours=24)
     conn.execute("UPDATE app_auth_token SET expires_at = now() - interval '1 minute'")
     conn.commit()
-    assert client.post("/v1/account/auth/verify", json={"token": _token(sent)}).status_code == 400
+    assert client.post("/v1/account/auth/verify", json={"password": PW, "token": _token(sent)}).status_code == 400
     assert login(client).json()["error"] == "not_verified"
 
 
@@ -210,7 +210,7 @@ def test_the_link_alone_signs_nobody_in(client, sent):
     """It replaces the binding of the old link to a browser: whoever holds the confirmation
     link (a mail scanner, a forwarded mail) gets no session from it, only the password does."""
     register(client)
-    v = client.post("/v1/account/auth/verify", json={"token": _token(sent)})
+    v = client.post("/v1/account/auth/verify", json={"password": PW, "token": _token(sent)})
     assert v.json() == {"ok": True} and "session" not in v.text
     assert login(client, password="not the password at all").status_code == 401
     assert login(client).status_code == 200
@@ -219,7 +219,7 @@ def test_the_link_alone_signs_nobody_in(client, sent):
 def test_only_hashes_are_stored(client, sent, conn):
     register(client)
     token = _token(sent)
-    client.post("/v1/account/auth/verify", json={"token": token})
+    client.post("/v1/account/auth/verify", json={"password": PW, "token": token})
     session = login(client).json()["session"]
     stored = [bytes(r["token_hash"]) for r in conn.execute("SELECT token_hash FROM app_auth_token").fetchall()]
     stored += [bytes(r["id_hash"]) for r in conn.execute("SELECT id_hash FROM app_session").fetchall()]

@@ -42,7 +42,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -95,10 +95,16 @@ LIMIT_PER_ADDRESS = 5          # account mails per hour, per address (A3)
 LIMIT_PER_ADDRESS_PER_IP = 3   # ... of which one client (IPv6: one /64) may ask for 3
 LIMIT_PER_IP = 20              # per client IP
 LIMIT_PER_IP_CROWDED = 3       # per client IP once half of LIMIT_GLOBAL is spent
-LIMIT_GLOBAL = 120             # in total; beyond it the operator is told
-LOGIN_FREE = 5                 # A8: failed sign-ins per address in an hour before the delay
+LIMIT_GLOBAL = 120             # in total; beyond it the operator is told (owner: 120 an hour)
+LIMIT_GLOBAL_REPEAT = 80       # ... of which a client that already sent in the hour may use this much: the rest is kept
+                               # for clients asking for the first time (a reset or a confirmation still goes out)
+LOGIN_FREE = 5                 # A8: failed sign-ins of one address from one client in an hour before the delay (to 1 h)
+LOGIN_FREE_ADDR = 20           # ... of one address from every client: then a short delay (slows, never locks)
+LOGIN_ADDR_DELAY_MAX = 60      # seconds: the most the per-address delay waits
 LOGIN_FREE_IP = 30             # ... per client IP
 LOGIN_DELAY = 30               # seconds after the first counted failure, doubling each time
+MAX_RUNNING = 2                # reports, exports and full lists one account may have running at once
+SEARCH_PAGE = 50               # saved searches listed (and run) per request
 MAX_SEARCHES = 1000            # what an export lists: every plan's ceiling (billing.SEARCH_CEILING, equal by test)
 MAX_SHORTLIST = 500
 MAX_FOLLOWS = 100
@@ -241,18 +247,29 @@ def _secret() -> str:
 
 
 def _client_ip(value: str | None) -> str:
-    """The throttle key of a client: its address, an IPv6 one as its /64 (a subscriber is
-    handed 2^64 addresses; counted one by one the per-IP limits were no limit)."""
+    """The throttle key of a client: its address, an IPv6 one as its /48 (`hardening.client_key`:
+    a /48 is handed out for free, so every /56 and /64 inside it shares the key)."""
     try:
         return client_key(str(ipaddress.ip_address((value or "").strip())))
     except ValueError:
         return "unknown"
 
 
+def _client_tag(ip: str) -> str:
+    """The client in the security log: a keyed hash of its throttle key, never the address (privacy notice: the log holds
+    no IP address). Lines of one client can be told together; the address cannot be read back without the server key."""
+    return _event_key("log", ip).hex()[:12]
+
+
 # ------------------------------------------------------------------ plumbing
-def get_conn():
+def account_conn():
+    """A connection of the accounts role, inside the process bound."""
     cfg = settings()
-    with db.bounded_connect(cfg.app_dsn or cfg.dsn, cfg.app_connections, cfg.pool_wait_ms / 1000) as conn:
+    return db.bounded_connect(cfg.app_dsn or cfg.dsn, cfg.app_connections, cfg.pool_wait_ms / 1000)
+
+
+def get_conn():
+    with account_conn() as conn:
         yield conn
 
 
@@ -355,6 +372,33 @@ def throttled(user: dict[str, Any] = Depends(current)) -> dict[str, Any]:
         raise AccountError(429, "rate_limited", "too many requests, try again shortly",
                            {"Retry-After": str(max(1, math.ceil(wait)))})
     return user
+
+
+_running: dict[str, int] = {}
+_running_lock = threading.Lock()
+
+
+def released(request: Request, x_dg_session: str | None = Header(None)):
+    """`throttled` for the routes whose work is on the data connection (reports, exports, full lists): the session is read
+    on an accounts connection that is closed before the route runs, so a slow build never holds one of the accounts
+    role's few connections; and one account has at most MAX_RUNNING of these running at once (429 beyond).
+    ponytail: an in-process count, like the buckets (one API process)."""
+    with account_conn() as conn:
+        user = current(request, conn, x_dg_session)
+    user = throttled(user)
+    key = str(user["id"])
+    with _running_lock:
+        if _running.get(key, 0) >= MAX_RUNNING:
+            raise AccountError(429, "busy", "another report or export of this account is running: try again when it is done",
+                               {"Retry-After": "5"})
+        _running[key] = _running.get(key, 0) + 1
+    try:
+        yield user
+    finally:
+        with _running_lock:
+            _running[key] -= 1
+            if not _running[key]:
+                del _running[key]
 
 
 # ------------------------------------------------------------------ models
@@ -528,24 +572,28 @@ _last_global_page = 0.0
 _page_lock = threading.Lock()
 
 
-def _recent(conn, kind: str, key: str) -> int:
-    """How many accepted requests this key has in the last hour. Read only: a request that
-    is refused must leave nothing behind, or an attacker could fill the table and keep a
-    victim's counter hot with requests that were never served."""
+def _recent(conn, kind: str, key: str, window: str = "1 hour") -> int:
+    """How many accepted requests this key has in the window (at most a day: older rows are
+    pruned). Read only: a request that is refused must leave nothing behind, or an attacker
+    could fill the table and keep a victim's counter hot with requests that were never served."""
     return conn.execute(
         "SELECT count(*) AS n FROM app_auth_event WHERE kind = %s AND key_hash = %s "
-        "AND at > now() - interval '1 hour'", (kind, _event_key(kind, key))).fetchone()["n"]
+        "AND at > now() - %s::interval", (kind, _event_key(kind, key), window)).fetchone()["n"]
 
 
-def _retry_after(conn, kind: str, key: str) -> int:
-    """Seconds until the oldest counted request of this key leaves the hour: the first
+def _retry_after(conn, kind: str, key: str, window: str = "1 hour") -> int:
+    """Seconds until the oldest counted request of this key leaves the window: the first
     moment a request of the same kind can be accepted again."""
     row = conn.execute(
-        "SELECT extract(epoch FROM min(at) + interval '1 hour' - now()) AS wait "
+        "SELECT extract(epoch FROM min(at) + %s::interval - now()) AS wait "
         "FROM app_auth_event WHERE kind = %s AND key_hash = %s "
-        "AND at > now() - interval '1 hour'", (kind, _event_key(kind, key))).fetchone()
+        "AND at > now() - %s::interval", (window, kind, _event_key(kind, key), window)).fetchone()
     wait = row["wait"] if row and row["wait"] is not None else 3600
-    return max(1, min(3600, math.ceil(wait)))
+    return max(1, min(86400, math.ceil(wait)))
+
+
+def _count_event(conn, kind: str, key: str) -> None:
+    conn.execute("INSERT INTO app_auth_event (kind, key_hash) VALUES (%s, %s)", (kind, _event_key(kind, key)))
 
 
 def _page_operator(message: str) -> None:
@@ -568,61 +616,86 @@ def _throttle_mail(conn, canonical: str, ip: str) -> None:
       - an address has LIMIT_PER_ADDRESS an hour in all (the mail-bomb ceiling)
       - a client has LIMIT_PER_IP an hour, and LIMIT_PER_IP_CROWDED once half of the
         global budget is gone: six clients with twenty each can no longer switch the
-        mails off for everyone, they run into their share first"""
+        mails off for everyone, they run into their share first
+      - the global ceiling (LIMIT_GLOBAL) holds for everyone, but a client that has sent in
+        the hour already stops at LIMIT_GLOBAL_REPEAT: the rest of the ceiling is kept for
+        clients asking for the first time, so a few dozen bulk senders cannot deny a person
+        their reset or confirmation mail
+    Invitations (workspace.py) go through here too: every account mail counts."""
     pair = f"{canonical}|{ip}"
     total = _recent(conn, "all", "all")
-    if total >= LIMIT_GLOBAL:
-        _page_operator(f"Account mail requests are over {LIMIT_GLOBAL} an hour: possible abuse.")
+    if total >= LIMIT_GLOBAL_REPEAT:
+        _page_operator(f"Account mail requests are over {LIMIT_GLOBAL_REPEAT} of {LIMIT_GLOBAL} an hour: possible abuse.")
     ip_cap = LIMIT_PER_IP if total < LIMIT_GLOBAL // 2 else LIMIT_PER_IP_CROWDED
     for kind, value, cap in (("ip", ip, ip_cap),
                              ("addr_ip", pair, LIMIT_PER_ADDRESS_PER_IP),
                              ("addr", canonical, LIMIT_PER_ADDRESS)):
         if _recent(conn, kind, value) >= cap:
+            _audit("mail_refused", None, limit=kind, client=_client_tag(ip))
             raise AccountError(429, "rate_limited", "too many requests, try again later",
                                {"Retry-After": str(_retry_after(conn, kind, value))})
-    if total >= LIMIT_GLOBAL:
+    repeat = total >= LIMIT_GLOBAL_REPEAT and _recent(conn, "ip", ip) > 0
+    if total >= LIMIT_GLOBAL or repeat:
+        _audit("mail_refused", None, limit="all", client=_client_tag(ip))
         raise AccountError(429, "rate_limited", "too many requests, try again later",
                            {"Retry-After": str(_retry_after(conn, "all", "all"))})
     for kind, value in (("addr", canonical), ("addr_ip", pair), ("ip", ip), ("all", "all")):
-        conn.execute("INSERT INTO app_auth_event (kind, key_hash) VALUES (%s, %s)",
-                     (kind, _event_key(kind, value)))
+        _count_event(conn, kind, value)
 
 
-def login_wait(failures: int, since_last: float, free: int) -> int:
+def login_wait(failures: int, since_last: float, free: int, cap: int = 3600) -> int:
     """A8: seconds before the next attempt is answered. `free` failures in the hour cost
-    nothing; from there each one doubles the wait after the last, from LOGIN_DELAY up to an
-    hour (12 failures of one address in an hour: locked until the hour has passed)."""
+    nothing; from there each one doubles the wait after the last, from LOGIN_DELAY up to
+    `cap` (an hour: 12 failures in an hour lock until the hour has passed)."""
     if failures < free:
         return 0
-    wait = min(3600, LOGIN_DELAY * 2 ** min(failures - free, 12))
+    wait = min(cap, LOGIN_DELAY * 2 ** min(failures - free, 12))
     return max(0, math.ceil(wait - since_last))
 
 
-def _login_gate(conn, canonical: str, ip: str) -> None:
-    """Refuses before any password is checked while the address or the client has to wait.
+def _login_gate(conn, canonical: str, ip: str, *, session: bool = False) -> None:
+    """Refuses before any password is checked while this client has to wait for this address.
     Keyed by the address typed, whether or not it has an account, so the delay itself tells
-    nothing; the counters are HMACs as for the mail limits."""
-    for kind, value, free in (("login_addr", canonical, LOGIN_FREE), ("login_ip", ip, LOGIN_FREE_IP)):
+    nothing; the counters are HMACs as for the mail limits. Four counters:
+      - `login_pair` (address, client): LOGIN_FREE, then doubling up to an hour (the lockout)
+      - `login_code` (address): wrong second-step codes, the same; only someone who has the
+        password can add to it, so it cannot be used to lock an account out
+      - `login_addr` (address, every client): LOGIN_FREE_ADDR, then at most LOGIN_ADDR_DELAY_MAX:
+        a stranger elsewhere slows an address down but cannot lock its owner out
+      - `login_ip` (client, every address): LOGIN_FREE_IP
+    A signed-in session that re-enters its password (`session`) meets its own client's counter
+    only: what others do to the address never blocks a password change, a deletion or the keys."""
+    gates = [("login_pair", f"{canonical}|{ip}", LOGIN_FREE, 3600)]
+    if not session:
+        gates += [("login_code", canonical, LOGIN_FREE, 3600), ("login_addr", canonical, LOGIN_FREE_ADDR, LOGIN_ADDR_DELAY_MAX),
+                  ("login_ip", ip, LOGIN_FREE_IP, 3600)]
+    for kind, value, free, cap in gates:
         row = conn.execute(
             "SELECT count(*) AS n, extract(epoch FROM now() - max(at)) AS since FROM app_auth_event "
             "WHERE kind = %s AND key_hash = %s AND at > now() - interval '1 hour'",
             (kind, _event_key(kind, value))).fetchone()
-        wait = login_wait(row["n"], float(row["since"] or 0), free)
+        wait = login_wait(row["n"], float(row["since"] or 0), free, cap)
         if wait:
+            _audit("sign_in_held", None, limit=kind, wait=wait, client=_client_tag(ip))
             raise AccountError(429, "rate_limited", "too many failed attempts, try again later",
                                {"Retry-After": str(wait)})
 
 
-def _login_failed(conn, canonical: str, ip: str) -> None:
-    for kind, value in (("login_addr", canonical), ("login_ip", ip)):
-        conn.execute("INSERT INTO app_auth_event (kind, key_hash) VALUES (%s, %s)",
-                     (kind, _event_key(kind, value)))
+def _login_failed(conn, canonical: str, ip: str, *, code: bool = False) -> None:
+    """A wrong password (or, with `code`, a wrong second-step code) of this address from this client."""
+    for kind, value in (("login_pair", f"{canonical}|{ip}"), ("login_addr", canonical), ("login_ip", ip)) + (
+            (("login_code", canonical),) if code else ()):
+        _count_event(conn, kind, value)
     conn.commit()                     # the error that follows rolls the request back
 
 
-def _login_succeeded(conn, canonical: str) -> None:
-    conn.execute("DELETE FROM app_auth_event WHERE kind = 'login_addr' AND key_hash = %s",
-                 (_event_key("login_addr", canonical),))
+def _login_succeeded(conn, canonical: str, ip: str | None = None) -> None:
+    """The address's counters, and this client's, cleared (another client's lockout stays)."""
+    keys = [_event_key("login_addr", canonical), _event_key("login_code", canonical)]
+    if ip is not None:
+        keys.append(_event_key("login_pair", f"{canonical}|{ip}"))
+    conn.execute("DELETE FROM app_auth_event WHERE kind IN ('login_addr', 'login_code', 'login_pair') "
+                 "AND key_hash = ANY(%s)", (keys,))
 
 
 # ------------------------------------------------------------------ helpers
@@ -784,13 +857,34 @@ def register(body: Register, background: BackgroundTasks, conn=Depends(get_conn)
 
 
 @router.post("/auth/verify")
-def verify(body: TokenIn, conn=Depends(get_conn)) -> dict[str, Any]:
-    """Confirms the address. It does not sign in: the password does that, so a link
-    forwarded or opened by a mail scanner gives nobody a session. The answer carries the plan
-    chosen at registration, so the page can say it again (WP-123); nothing else."""
+def verify(body: ResetConfirm, conn=Depends(get_conn),
+           x_dg_client_ip: str | None = Header(None)) -> dict[str, Any]:
+    """Confirms the address, with the password of the registration the link belongs to: only
+    someone who holds the mailbox and that password confirms it. A registration of the address
+    by someone else (another password) cannot be confirmed by the mailbox's owner by mistake;
+    they register again instead, which replaces it. It does not sign in: the password does
+    that, so a link forwarded or opened by a mail scanner gives nobody a session. A wrong
+    password does not use the link up and counts as a failed sign-in. The answer carries the
+    plan chosen at registration, so the page can say it again (WP-123); nothing else."""
+    fail = AccountError(400, "invalid_or_expired", "this link is not valid")
+    if not _TOKEN.match(body.token or ""):
+        raise fail
+    pending = conn.execute(
+        "SELECT u.id, u.email_canonical, u.password_hash FROM app_auth_token t JOIN app_user u ON u.id = t.user_id "
+        "WHERE t.token_hash = %s AND t.purpose = 'verify' AND t.used_at IS NULL AND t.expires_at > now()",
+        (_hash(body.token),)).fetchone()
+    if not pending:
+        raise fail
+    ip = _client_ip(x_dg_client_ip)
+    _login_gate(conn, pending["email_canonical"], ip)
+    if not credentials.verify_password(body.password, pending["password_hash"]):
+        _login_failed(conn, pending["email_canonical"], ip)
+        _audit("confirm_refused", pending["id"], client=_client_tag(ip))
+        raise AccountError(403, "wrong_password", "that is not the password this account was created with: "
+                                                  "create the account again to choose one")
     row = _spend(conn, body.token, "verify")
     if not row:
-        raise AccountError(400, "invalid_or_expired", "this link is not valid")
+        raise fail
     chosen = conn.execute(
         "UPDATE app_user SET email_verified_at = coalesce(email_verified_at, now()) "
         "WHERE id = %s RETURNING plan_choice, billing_choice", (row["user_id"],)).fetchone()
@@ -817,7 +911,7 @@ def login(body: Login, conn=Depends(get_conn),
                         "FROM app_user WHERE email_canonical = %s", (canonical,)).fetchone()
     if not credentials.verify_password(body.password, user["password_hash"] if user else None):
         _login_failed(conn, canonical, ip)
-        _audit("sign_in_failed", user["id"] if user else None)
+        _audit("sign_in_failed", user["id"] if user else None, client=_client_tag(ip))
         raise AccountError(401, "invalid_credentials", "the e-mail address or the password is wrong")
     if user["email_verified_at"] is None:
         raise AccountError(403, "not_verified",
@@ -825,10 +919,10 @@ def login(body: Login, conn=Depends(get_conn),
     if user["totp_enabled_at"] is not None:
         # The failures stay until the code is right too: a password alone must not buy a
         # fresh set of free guesses at the code.
-        _audit("password_ok_second_step", user["id"])
+        _audit("password_ok_second_step", user["id"], client=_client_tag(ip))
         return {"secondStep": True, "ticket": _issue(conn, user["id"], "mfa", MFA_TTL)}
-    _login_succeeded(conn, canonical)
-    _audit("signed_in", user["id"])
+    _login_succeeded(conn, canonical, ip)
+    _audit("signed_in", user["id"], client=_client_tag(ip))
     return _new_session(conn, user["id"], not user["onboarded"])
 
 
@@ -865,12 +959,12 @@ def login_second(body: SecondStep, conn=Depends(get_conn),
     ip = _client_ip(x_dg_client_ip)
     _login_gate(conn, row["email_canonical"], ip)
     if not _second_factor(conn, row, body.code):
-        _login_failed(conn, row["email_canonical"], ip)
-        _audit("second_step_failed", row["user_id"])
+        _login_failed(conn, row["email_canonical"], ip, code=True)
+        _audit("second_step_failed", row["user_id"], client=_client_tag(ip))
         raise AccountError(401, "invalid_code", "that code is not valid")
     conn.execute("UPDATE app_auth_token SET used_at = now() WHERE token_hash = %s", (row["token_hash"],))
-    _login_succeeded(conn, row["email_canonical"])
-    _audit("signed_in", row["user_id"], second_step=True)
+    _login_succeeded(conn, row["email_canonical"], ip)
+    _audit("signed_in", row["user_id"], second_step=True, client=_client_tag(ip))
     return _new_session(conn, row["user_id"], not row["onboarded"])
 
 
@@ -908,9 +1002,11 @@ def reset_request(body: ResetRequest, background: BackgroundTasks, conn=Depends(
 
 
 @router.post("/auth/reset/confirm")
-def reset_confirm(body: ResetConfirm, background: BackgroundTasks, conn=Depends(get_conn)) -> dict[str, bool]:
-    """Sets the password, confirms the address (the link reached it) and signs out every
-    session. A refused password does not use the link up. TOTP stays as it was: a mailbox
+def reset_confirm(body: ResetConfirm, background: BackgroundTasks, conn=Depends(get_conn),
+                  x_dg_client_ip: str | None = Header(None)) -> dict[str, bool]:
+    """Sets the password, confirms the address (the link reached it), signs out every
+    session and revokes the account's API keys (whoever had the old password could have made
+    one). A refused password does not use the link up. TOTP stays as it was: a mailbox
     alone does not pass the second step. The account is told by mail, as for a change."""
     fail = AccountError(400, "invalid_or_expired", "this link is not valid")
     if not _TOKEN.match(body.token):
@@ -932,19 +1028,31 @@ def reset_confirm(body: ResetConfirm, background: BackgroundTasks, conn=Depends(
                  (user_id,))
     conn.execute("DELETE FROM app_session WHERE user_id = %s", (user_id,))
     conn.execute("DELETE FROM app_auth_token WHERE user_id = %s AND purpose IN ('reset', 'mfa')", (user_id,))
+    revoked = revoke_api_keys(conn, user_id)
     if row["totp_enabled_at"] is None:     # with a second step, the mailbox does not reset its delay
-        _login_succeeded(conn, row["email_canonical"])
-    _audit("password_reset", user_id)
+        _login_succeeded(conn, row["email_canonical"], _client_ip(x_dg_client_ip))
+    _audit("password_reset", user_id, keys_revoked=revoked, client=_client_tag(_client_ip(x_dg_client_ip)))
     background.add_task(_mail, row["email_display"], "changed")
     return OK
 
 
+def revoke_api_keys(conn, user_id: Any) -> int:
+    """Every live API key of the account revoked, each with its event (WP-153 log); how many."""
+    rows = conn.execute("UPDATE api_key SET revoked_at = now() WHERE owner_id = %s AND revoked_at IS NULL "
+                        "RETURNING id", (user_id,)).fetchall()
+    for r in rows:
+        conn.execute("INSERT INTO api_key_event (key_id, owner_id, event) VALUES (%s, %s, 'revoked')", (r["id"], user_id))
+    return len(rows)
+
+
 # ------------------------------------------------------------------ password and TOTP in settings
 def _require_password(conn, user: dict[str, Any], password: str, ip: str) -> None:
-    """Re-entry of the current password, under the same delay as a sign-in."""
-    _login_gate(conn, user["email_canonical"], ip)
+    """Re-entry of the current password, under this client's own sign-in delay (`_login_gate`
+    with `session`: failures elsewhere never block a signed-in session)."""
+    _login_gate(conn, user["email_canonical"], ip, session=True)
     if not credentials.verify_password(password, user["password_hash"]):
         _login_failed(conn, user["email_canonical"], ip)
+        _audit("password_check_failed", user["id"], client=_client_tag(ip))
         raise AccountError(403, "wrong_password", "the current password is wrong")
 
 
@@ -977,15 +1085,16 @@ def totp_setup(body: PasswordOnly, conn=Depends(get_conn), user=Depends(current)
 @router.post("/me/totp/enable")
 def totp_enable(body: CodeIn, conn=Depends(get_conn), user=Depends(current),
                 x_dg_client_ip: str | None = Header(None)) -> dict[str, list[str]]:
-    """Switches the key on with a first code and hands out the recovery codes, once."""
+    """Switches the key on with a first code and hands out the recovery codes, once. Every other
+    session of the account ends: from now on a session needs the second step."""
     if user["totp_enabled_at"] is not None or user["totp_secret_enc"] is None:
         raise AccountError(409, "totp_state", "start the set-up again")
     ip = _client_ip(x_dg_client_ip)
-    _login_gate(conn, user["email_canonical"], ip)
+    _login_gate(conn, user["email_canonical"], ip, session=True)
     secret = credentials.unseal(user["totp_secret_enc"], _server_key(), str(user["id"]))
     step = credentials.totp_step(secret, body.code, time.time(), None) if secret else None
     if step is None:
-        _login_failed(conn, user["email_canonical"], ip)
+        _login_failed(conn, user["email_canonical"], ip, code=True)
         raise AccountError(422, "invalid_code", "that code is not valid")
     codes = credentials.new_recovery_codes()
     conn.execute("DELETE FROM app_recovery_code WHERE user_id = %s", (user["id"],))
@@ -994,14 +1103,27 @@ def totp_enable(body: CodeIn, conn=Depends(get_conn), user=Depends(current),
                      (user["id"], credentials.recovery_code_hash(code, _server_key())))
     conn.execute("UPDATE app_user SET totp_enabled_at = now(), totp_last_step = %s WHERE id = %s",
                  (step, user["id"]))
+    conn.execute("DELETE FROM app_session WHERE user_id = %s AND id_hash <> %s", (user["id"], user["id_hash"]))
     _audit("totp_on", user["id"])
     return {"recoveryCodes": codes}
 
 
+class TotpOff(_Body):
+    password: str = Field(max_length=1024)
+    code: str = Field(max_length=32)
+
+
 @router.post("/me/totp/disable")
-def totp_disable(body: PasswordOnly, conn=Depends(get_conn), user=Depends(current),
+def totp_disable(body: TotpOff, conn=Depends(get_conn), user=Depends(current),
                  x_dg_client_ip: str | None = Header(None)) -> dict[str, bool]:
-    _require_password(conn, user, body.password, _client_ip(x_dg_client_ip))
+    """Two-step sign-in off: the password and a code of the app (or a recovery code), not the
+    password alone."""
+    ip = _client_ip(x_dg_client_ip)
+    _require_password(conn, user, body.password, ip)
+    if user["totp_enabled_at"] is not None and not _second_factor(conn, {**user, "user_id": user["id"]}, body.code):
+        _login_failed(conn, user["email_canonical"], ip, code=True)
+        _audit("totp_off_refused", user["id"], client=_client_tag(ip))
+        raise AccountError(403, "invalid_code", "that code is not valid")
     conn.execute("UPDATE app_user SET totp_secret_enc = NULL, totp_enabled_at = NULL, totp_last_step = NULL "
                  "WHERE id = %s", (user["id"],))
     conn.execute("DELETE FROM app_recovery_code WHERE user_id = %s", (user["id"],))
@@ -1167,7 +1289,15 @@ def export(conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
                           "creemSubscriptionId": r["creem_subscription_id"], "updatedAt": r["updated_at"]}
                          for r in conn.execute("SELECT * FROM billing_subscription WHERE account_id = %s",
                                                (uid,)).fetchall()],
+        "checkouts": [{"plan": r["plan"], "period": r["period"], "productId": r["product_id"],
+                       "creemCheckoutId": r["creem_checkout_id"], "createdAt": r["created_at"],
+                       "completedAt": r["completed_at"]}
+                      for r in conn.execute("SELECT * FROM billing_checkout WHERE account_id = %s "
+                                            "ORDER BY created_at LIMIT 1000", (uid,)).fetchall()],
         "apiKeys": _api_keys_export(conn, uid),
+        "apiKeyEvents": [{"event": r["event"], "at": r["at"], "keyPrefix": r["prefix"]} for r in conn.execute(
+            "SELECT e.event, e.at, k.prefix FROM api_key_event e JOIN api_key k ON k.id = e.key_id "
+            "WHERE e.owner_id = %s ORDER BY e.at, e.id LIMIT 1000", (uid,)).fetchall()],
         "workspace": _workspace_export(conn, user),        # WP-157
         "apiLicensedAt": user.get("api_licensed_at"),
         "association": _association_export(conn, uid),
@@ -1506,17 +1636,23 @@ def _client_filter(conn, user: dict[str, Any], client: str | None) -> tuple[str,
 
 
 @router.get("/searches")
-def list_searches(client: str | None = None, conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, Any]:
-    from .billing import SEARCH_CEILING, search_limit
+def list_searches(client: str | None = None, page: int = Query(1, ge=1, le=1000), conn=Depends(get_conn),
+                  user=Depends(throttled)) -> dict[str, Any]:
+    """A page of SEARCH_PAGE searches, newest first, each run for its counts: one request runs at most a page of them."""
+    from .billing import search_limit
 
     where, params = shared_scope(user)
     extra, extra_params = _client_filter(conn, user, client)
     # WP-157: the workspace's searches too, each ranked among its author's (the plan's number counts per author)
     rows = conn.execute(
-        "SELECT * FROM (SELECT s.*, row_number() OVER (PARTITION BY s.owner_id ORDER BY s.created_at, s.id) - 1 AS plan_rank "
-        f"FROM app_saved_search s WHERE {where}) ranked WHERE true{extra} ORDER BY created_at DESC LIMIT %s",
-        (*params, *extra_params, SEARCH_CEILING)).fetchall()
-    return {"items": [_search_out(conn, r, user) for r in rows], "limit": search_limit(user)}
+        "SELECT *, count(*) OVER () AS total FROM (SELECT s.*, row_number() OVER (PARTITION BY s.owner_id "
+        f"ORDER BY s.created_at, s.id) - 1 AS plan_rank FROM app_saved_search s WHERE {where}) ranked WHERE true{extra} "
+        "ORDER BY created_at DESC, id LIMIT %s OFFSET %s",
+        (*params, *extra_params, SEARCH_PAGE, (page - 1) * SEARCH_PAGE)).fetchall()
+    total = rows[0]["total"] if rows else conn.execute(
+        f"SELECT count(*) AS n FROM app_saved_search WHERE {where}{extra}", (*params, *extra_params)).fetchone()["n"]
+    return {"items": [_search_out(conn, r, user) for r in rows], "limit": search_limit(user),
+            "total": total, "page": page, "pageSize": SEARCH_PAGE}
 
 
 @router.post("/searches", status_code=201)

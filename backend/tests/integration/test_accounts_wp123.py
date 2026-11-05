@@ -100,7 +100,7 @@ def test_the_totp_key_is_sealed_with_the_account_key_not_the_shared_secret(clien
 
 def test_the_chosen_plan_is_remembered_through_confirmation_and_grants_nothing(client, sent, conn):
     assert register(client, plan="pro", billing="monthly").status_code == 202
-    v = client.post("/v1/account/auth/verify", json={"token": _token(sent)})
+    v = client.post("/v1/account/auth/verify", json={"password": PW, "token": _token(sent)})
     assert v.json() == {"ok": True, "plan": "pro", "billing": "monthly"}
     session = login(client).json()["session"]
     assert client.get("/v1/account/me", headers=H(session)).json()["plan"] == \
@@ -198,6 +198,6 @@ def test_account_mails_are_text_and_html_from_defencegate_with_the_same_link(cli
     html = msg.get_body(("html",)).get_content()
     link = re.search(r"https://site\.test/auth/verify\?token=[A-Za-z0-9_-]{43}", plain).group(0)
     assert f'href="{link}"' in html and "<img" not in html
-    assert client.post("/v1/account/auth/verify", json={"token": link.rsplit("=", 1)[1]}).status_code == 200
+    assert client.post("/v1/account/auth/verify", json={"password": PW, "token": link.rsplit("=", 1)[1]}).status_code == 200
     config.reset_cache()
     mailer.reset_check()

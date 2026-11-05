@@ -24,7 +24,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query
 
 from . import accounts, billing
-from .accounts import throttled
+from .accounts import released
 from .funding import get_conn, list_funding
 from .partners import facts_of
 from .suppliers import supplier_rows
@@ -45,7 +45,7 @@ def supplier_export(
     group: str | None = Query(None, max_length=40),
     sort: str = Query("awards", pattern="^(awards|name|value-[A-Z]{3})$"),
     source: str | None = Query(None, pattern="^ted$"),
-    user=Depends(throttled), conn=Depends(get_conn),
+    user=Depends(released), conn=Depends(get_conn),
 ):
     billing.require(user, "supplier_map_csv")
     out = supplier_rows(conn, q, country, cpv, buyerCountry, group, sort, source, EXPORT_MAX, 0)
@@ -71,7 +71,7 @@ def open_calls(conn) -> tuple[list[dict[str, Any]], int]:
 
 
 @account_router.get("/eligibility/calls")
-def eligibility_calls(user=Depends(throttled), conn=Depends(get_conn)):
+def eligibility_calls(user=Depends(released), conn=Depends(get_conn)):
     billing.require(user, "eligibility_export")
     calls, total = open_calls(conn)
     accounts._audit("eligibility_export", user["id"], rows=len(calls))         # O3

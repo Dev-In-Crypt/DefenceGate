@@ -144,6 +144,7 @@ def test_invitations_are_limited_by_seats_and_by_time(client, sent, conn):
     again = client.post("/v1/account/workspace/invites", headers=H(a), json={"email": "m0@example.com"})
     assert again.status_code == 429 and again.headers["retry-after"] == "3600"
     conn.execute("UPDATE workspace_invite SET created_at = now() - interval '2 hours'")
+    conn.execute("UPDATE app_auth_event SET at = at - interval '2 hours'")      # Nov 2026: the hour is counted there
     conn.commit()
     assert client.post("/v1/account/workspace/invites", headers=H(a), json={"email": "m0@example.com"}).status_code == 201
     assert conn.execute("SELECT count(*) AS n FROM workspace_invite").fetchone()["n"] == billing.SEATS["team"] - 1
@@ -224,8 +225,9 @@ def test_a_member_leaves_or_is_removed_with_its_rows_and_the_owner_dissolves(cli
     assert client.get("/v1/account/shortlist", headers=H(a)).json()["items"] == []
     assert client.get("/v1/account/shortlist", headers=H(b)).json()["items"][0]["note"] == "Bob's"
     assert client.get("/v1/account/workspace", headers=H(b)).json()["workspace"] is None
-    # invited again and removed by the owner
+    # invited again (an hour later: one invitation an hour to one address) and removed by the owner
     conn.execute("DELETE FROM workspace_invite")
+    conn.execute("UPDATE app_auth_event SET at = at - interval '2 hours'")
     conn.commit()
     client.post("/v1/account/workspace/invites", headers=H(a), json={"email": BOB})
     client.post("/v1/account/workspace/join", headers=H(b), json={"token": invite_token(sent, BOB)})

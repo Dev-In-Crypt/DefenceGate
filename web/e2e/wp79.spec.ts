@@ -167,6 +167,7 @@ test.describe('against the fake account API', () => {
   test('confirmation: opening the link does nothing until the button is pressed', async ({ page }) => {
     await page.goto(`/auth/verify?token=${'k'.repeat(43)}`);
     await expect(page.getByRole('button', { name: 'Confirm my address' })).toBeVisible();
+    await page.getByLabel('The password you chose for this account').fill('a long enough passphrase');
     await page.getByRole('button', { name: 'Confirm my address' }).click();
     await expect(page.getByRole('heading', { name: 'Your address is confirmed' })).toBeVisible();
   });

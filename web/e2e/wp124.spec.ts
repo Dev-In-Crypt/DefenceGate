@@ -71,6 +71,7 @@ async function register(page: Page, email: string, from = '/signup') {
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page.getByRole('heading', { name: 'Check your mail' })).toBeVisible();
   await page.goto(await confirmPath(page, email));
+  await page.getByLabel('The password you chose for this account').fill(PASSWORD);
   await page.getByRole('button', { name: 'Confirm my address' }).click();
   await expect(page.getByRole('heading', { name: 'Your address is confirmed' })).toBeVisible();
 }

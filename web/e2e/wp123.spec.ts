@@ -109,10 +109,15 @@ test.describe('against the real account API', () => {
     expect(confirm.raw).not.toMatch(/<img/i);
     const verifyPath = linkIn(confirm, '/auth/verify');
     await page.goto(verifyPath);
+    await page.getByLabel('The password you chose for this account').fill('not the password at all');
+    await page.getByRole('button', { name: 'Confirm my address' }).click();              // another password: refused
+    await expect(page.getByText('That is not the password this account was created with')).toBeVisible();
+    await page.getByLabel('The password you chose for this account').fill(first);
     await page.getByRole('button', { name: 'Confirm my address' }).click();
     await expect(page.getByRole('heading', { name: 'Your address is confirmed' })).toBeVisible();
     await expect(page.locator('[data-plan-choice]')).toHaveText('You chose Pro, monthly. Payment opens soon.');
     await page.goto(verifyPath);                                                     // a link works once
+    await page.getByLabel('The password you chose for this account').fill(first);
     await page.getByRole('button', { name: 'Confirm my address' }).click();
     await expect(page.getByRole('heading', { name: 'This link is no longer valid' })).toBeVisible();
 
@@ -180,6 +185,7 @@ test.describe('against the real account API', () => {
     await page.getByRole('button', { name: 'Create account' }).click();
     await expect(page.getByRole('heading', { name: 'Check your mail' })).toBeVisible();
     await page.goto(linkIn(await mailTo(page, email, 'Confirm your DefenceGate account'), '/auth/verify'));
+    await page.getByLabel('The password you chose for this account').fill(PASSWORDS[0]);
     await page.getByRole('button', { name: 'Confirm my address' }).click();
     await expect(page.getByRole('heading', { name: 'Your address is confirmed' })).toBeVisible();
 

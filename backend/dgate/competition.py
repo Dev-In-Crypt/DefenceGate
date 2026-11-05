@@ -35,7 +35,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from . import accounts, billing, money
-from .accounts import AccountError, throttled
+from .accounts import AccountError, released, throttled
 from .config import settings
 from .funding import get_conn, make_slug
 from .listcache import cache_list
@@ -264,7 +264,7 @@ def competition(conn, slug: str, limit: int) -> dict[str, Any]:
 # ------------------------------------------------------------------ the paid part (WP-155)
 
 @account_router.get("/{slug}/competition", response_model=Competition)
-def full_competition(slug: str, conn=Depends(get_conn), user=Depends(throttled)):
+def full_competition(slug: str, conn=Depends(get_conn), user=Depends(released)):
     """Every competitor of the list (COMPETITORS), for an account whose plan has it (every account while none is on sale)."""
     billing.require(user, "competitors_full")
     return competition(conn, slug, COMPETITORS)

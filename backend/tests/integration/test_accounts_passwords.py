@@ -19,7 +19,7 @@ NEW_PW = "lantern orbit cobalt river"
 
 
 def _verify(client, box) -> None:
-    assert client.post("/v1/account/auth/verify", json={"token": _token(box)}).status_code == 200
+    assert client.post("/v1/account/auth/verify", json={"password": PW, "token": _token(box)}).status_code == 200
 
 
 def _users(conn) -> int:
@@ -66,8 +66,8 @@ def test_a_newer_registration_of_an_unconfirmed_address_replaces_the_earlier_one
     stranger_link = _token(sent)
     register(client, password=PW, ip="198.51.100.5")
     owner_link = _token(sent)
-    assert client.post("/v1/account/auth/verify", json={"token": stranger_link}).status_code == 400
-    assert client.post("/v1/account/auth/verify", json={"token": owner_link}).status_code == 200
+    assert client.post("/v1/account/auth/verify", json={"password": PW, "token": stranger_link}).status_code == 400
+    assert client.post("/v1/account/auth/verify", json={"password": PW, "token": owner_link}).status_code == 200
     assert login(client, password="stranger's long password").status_code == 401
     assert login(client).status_code == 200
     assert _users(conn) == 1
@@ -96,28 +96,33 @@ def test_an_unknown_address_a_wrong_password_and_an_account_without_one_get_one_
 
 
 def test_failed_sign_ins_delay_the_address_doubling_and_a_success_clears_them(client, sent, conn):
+    """Since the November 2026 fixes the delay is per address and client (another client's failures slow an address
+    down but do not lock it: test_nov2026_fixes.py)."""
     sign_in(client, sent)
-    for i in range(accounts.LOGIN_FREE):
-        assert login(client, password="wrong but long enough", ip=f"192.0.2.{i}").status_code == 401
-    held = login(client, ip="198.51.100.80")                 # the right password, from anywhere
+    for _ in range(accounts.LOGIN_FREE):
+        assert login(client, password="wrong but long enough", ip="192.0.2.1").status_code == 401
+    held = login(client, ip="192.0.2.1")                     # the right password, from that client
     assert held.status_code == 429 and 1 <= int(held.headers["retry-after"]) <= accounts.LOGIN_DELAY
     conn.execute("UPDATE app_auth_event SET at = at - interval '31 seconds' WHERE kind LIKE 'login%%'")
     conn.commit()
-    assert login(client, password="wrong but long enough").status_code == 401   # the next failure
-    doubled = login(client)
+    assert login(client, password="wrong but long enough", ip="192.0.2.1").status_code == 401   # the next failure
+    doubled = login(client, ip="192.0.2.1")
     assert doubled.status_code == 429 and int(doubled.headers["retry-after"]) > accounts.LOGIN_DELAY
     conn.execute("UPDATE app_auth_event SET at = at - interval '61 seconds' WHERE kind LIKE 'login%%'")
     conn.commit()
-    assert login(client).status_code == 200
+    assert login(client, ip="192.0.2.1").status_code == 200
     for _ in range(accounts.LOGIN_FREE - 1):                 # cleared: the free attempts are back
-        assert login(client, password="wrong but long enough").status_code == 401
-    assert login(client).status_code == 200
+        assert login(client, password="wrong but long enough", ip="192.0.2.1").status_code == 401
+    assert login(client, ip="192.0.2.1").status_code == 200
 
 
 def test_the_delay_is_the_same_for_an_address_with_no_account(client, sent):
-    codes = [login(client, "nobody@example.com", password="wrong but long enough", ip=f"192.0.2.{i}").status_code
-             for i in range(accounts.LOGIN_FREE + 1)]
+    codes = [login(client, "nobody@example.com", password="wrong but long enough", ip="192.0.2.1").status_code
+             for _ in range(accounts.LOGIN_FREE + 1)]
     assert codes == [401] * accounts.LOGIN_FREE + [429]
+    spread = [login(client, "nobody2@example.com", password="wrong but long enough", ip=f"192.0.2.{i}").status_code
+              for i in range(10, 11 + accounts.LOGIN_FREE_ADDR)]
+    assert spread == [401] * accounts.LOGIN_FREE_ADDR + [429]       # every client together: the softer delay
 
 
 def test_one_client_is_delayed_across_addresses(client, sent):
@@ -330,8 +335,9 @@ def test_the_totp_key_and_the_recovery_codes_are_not_stored_usable(client, sent,
 
 
 def test_turning_totp_off_needs_the_password_and_a_reset_does_not_turn_it_off(client, sent, conn):
+    """Since the November 2026 fixes it needs a code too (test_nov2026_fixes.py: the password alone is refused)."""
     session, _ = sign_in(client, sent)
-    secret, _ = _enable_totp(client, session)
+    secret, codes = _enable_totp(client, session)
     assert client.post("/v1/account/me/totp/setup", headers=H(session), json={"password": PW}).status_code == 409
     client.post("/v1/account/auth/reset/request", json={"email": "ann@example.com"})
     client.post("/v1/account/auth/reset/confirm", json={"token": _token(sent, "/auth/reset"), "password": NEW_PW})
@@ -340,9 +346,9 @@ def test_turning_totp_off_needs_the_password_and_a_reset_does_not_turn_it_off(cl
     session = client.post("/v1/account/auth/login/second",
                           json={"ticket": ticket, "code": _next_code(secret)}).json()["session"]
     assert client.post("/v1/account/me/totp/disable", headers=H(session),
-                       json={"password": PW}).status_code == 403
+                       json={"password": PW, "code": codes[0]}).status_code == 403
     assert client.post("/v1/account/me/totp/disable", headers=H(session),
-                       json={"password": NEW_PW}).status_code == 200
+                       json={"password": NEW_PW, "code": codes[0]}).status_code == 200
     assert "session" in login(client, password=NEW_PW).json()
     assert conn.execute("SELECT count(*) AS n FROM app_recovery_code").fetchone()["n"] == 0
     assert conn.execute("SELECT totp_secret_enc FROM app_user").fetchone()["totp_secret_enc"] is None

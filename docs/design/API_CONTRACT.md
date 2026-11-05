@@ -702,7 +702,8 @@ Organisations that took part in earlier funded projects of the call's **area** (
 ISO-2 code (422 otherwise) and keeps only that country. `prefer` is one ISO-2 code and keeps every country but lists that
 country's organisations first (then the usual order); `country` wins when both are given (WP-38, U1: a browser can only re-sort the
 first `limit` rows, and an organisation of a small country is never among the largest twenty of the whole area). `limit` 1 to 50 (default 20). 404 for an unknown call, 410 for one removed on request. Kept
-ten minutes in memory.
+ten minutes in memory under the call's id (any text after the id in the slug is the same entry); priced like an organisation's
+partner tab in the limiter (5 tokens, 7 with a country).
 
 "Same area" (stated in `area.rule`, and measured by hand on real calls in `docs/verification/product/wp32-selfcheck.md`):
 

@@ -277,9 +277,12 @@ export const authRegister = (email: string, password: string, tick: TermsTick, c
     json: { email, password, acceptTerms: true, ...tick, ...(choice ? { plan: choice.plan, billing: choice.billing } : {}) },
   });
 
-/** Confirms an address. It opens no session: the password does. The answer carries the plan chosen at registration, if any. */
-export const authVerify = (token: string) =>
-  call<PlanChoice | null>('/auth/verify', { method: 'POST', json: { token }, session: false },
+/**
+ * Confirms an address, with the password chosen at registration (a registration of the address by someone else cannot be
+ * confirmed by mistake). It opens no session: signing in does. The answer carries the plan chosen at registration, if any.
+ */
+export const authVerify = (token: string, password: string) =>
+  call<PlanChoice | null>('/auth/verify', { method: 'POST', json: { token, password }, session: false },
     (raw) => (isRecord(raw) ? readPlanChoice(raw.plan, raw.billing) : null));
 
 /** A signed-in account accepts the current texts (the re-prompt after a new version). */
@@ -325,8 +328,9 @@ export const totpEnable = (code: string) =>
     if (codes.length === 0 || !codes.every((c) => typeof c === 'string')) throw new Error('bad codes');
     return codes as string[];
   });
-export const totpDisable = (password: string) =>
-  call<void>('/me/totp/disable', { method: 'POST', json: { password } });
+/** Off with the password and a code of the app or a recovery code: the password alone is refused. */
+export const totpDisable = (password: string, code: string) =>
+  call<void>('/me/totp/disable', { method: 'POST', json: { password, code } });
 
 export const authLogout = () => call<void>('/auth/logout', { method: 'POST' });
 
@@ -368,8 +372,19 @@ export const revokeOtherSessions = () => call<void>('/sessions', { method: 'DELE
 /* ---- saved searches ---- */
 
 /** WP-157: `client`, only the searches of that client profile. */
-export const listSearches = (client?: string | null) =>
-  call<SavedSearch[]>(`/searches${client ? `?client=${encodeURIComponent(client)}` : ''}`, {}, (raw) => items<SavedSearch>(raw));
+/** A page of the saved searches, newest first (the API runs one page of them per request); `total` is all of them. */
+export const listSearches = (client?: string | null, page = 1) => {
+  const q = new URLSearchParams();
+  if (client) q.set('client', client);
+  if (page > 1) q.set('page', String(page));
+  const qs = q.toString();
+  return call<{ items: SavedSearch[]; total: number; pageSize: number }>(`/searches${qs ? `?${qs}` : ''}`, {}, (raw) => {
+    const list = items<SavedSearch>(raw);
+    const r = isRecord(raw) ? raw : {};
+    return { items: list, total: typeof r.total === 'number' ? r.total : list.length,
+             pageSize: typeof r.pageSize === 'number' && r.pageSize > 0 ? r.pageSize : Math.max(1, list.length) };
+  });
+};
 export const createSearch = (s: { name: string; kind: SearchKind; filters: SearchFilters; cadence?: Cadence }) =>
   call<SavedSearch>('/searches', { method: 'POST', json: s });
 export const updateSearch = (id: string, patch: { name?: string; cadence?: Cadence; clientId?: string | null }) =>

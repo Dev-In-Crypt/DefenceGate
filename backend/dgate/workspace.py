@@ -13,7 +13,9 @@ client's name (competition.open_report).
 Invitations, built to docs/SECURITY_REQUIREMENTS.md like the account links (A2): the owner types an address, the mail carries
 a 256-bit random token of which the database holds only the SHA-256; it works once, for 7 days, and only for a signed-in
 account whose address is the one invited (a forwarded link is no use to anyone else). The answer is the same whether or not
-the address has an account. At most INVITES_PER_DAY invitations a day per workspace and one mail an hour to one address.
+the address has an account. At most INVITES_PER_DAY invitations a day per inviting account and per workspace and one mail
+an hour to one address, counted where a cancel cannot undo them, and every invitation counts toward the limits of the
+account mails (accounts._throttle_mail: per address, per client, the global ceiling).
 O1: every query is scoped in SQL by the workspace of the authenticated account; another workspace's member, invitation or
 client is a 404. O2: ids are UUIDs. Accounts and their mails stay closed while `accounts.accounts_problem` says so.
 """
@@ -24,7 +26,7 @@ import re
 from datetime import timedelta
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, Header
 from fastapi.responses import Response
 from pydantic import Field
 
@@ -38,9 +40,14 @@ from .accounts import (
     _address,
     _audit,
     _Body,
+    _client_ip,
+    _count_event,
     _hash,
     _open,
+    _recent,
+    _retry_after,
     _secret,
+    _throttle_mail,
     current,
     get_conn,
     internal_only,
@@ -50,8 +57,8 @@ from .config import settings
 from .ops import mailer
 
 INVITE_TTL = timedelta(days=7)
-INVITES_PER_DAY = 20              # per workspace
-RESEND_AFTER = timedelta(hours=1)  # one invitation mail an hour to one address
+INVITES_PER_DAY = 20              # per inviting account, and per workspace
+RESEND_WINDOW = "1 hour"          # one invitation mail an hour to one address, whatever the workspace
 CLIENT_NAME_MAX = 120
 MAX_CPV = 20
 
@@ -188,7 +195,7 @@ class InviteIn(_Body):
 
 @router.post("/workspace/invites", status_code=201)
 def invite(body: InviteIn, background: BackgroundTasks, conn=Depends(get_conn),
-           user=Depends(current)) -> dict[str, Any]:
+           user=Depends(current), x_dg_client_ip: str | None = Header(None)) -> dict[str, Any]:
     ws = _owner(user)
     billing.require(user, "team_workspace")
     _open()                                     # no mail relay, no notice for accounts: no invitation either
@@ -203,17 +210,24 @@ def invite(body: InviteIn, background: BackgroundTasks, conn=Depends(get_conn),
     counts = conn.execute(
         """SELECT (SELECT count(*) FROM workspace_member WHERE workspace_id = %(ws)s) AS members,
                   (SELECT count(*) FROM workspace_invite WHERE workspace_id = %(ws)s AND used_at IS NULL
-                      AND expires_at > now() AND email_canonical <> %(c)s) AS pending,
-                  (SELECT count(*) FROM workspace_invite WHERE workspace_id = %(ws)s
-                      AND created_at > now() - interval '1 day') AS today,
-                  (SELECT created_at > now() - %(resend)s::interval FROM workspace_invite
-                    WHERE workspace_id = %(ws)s AND email_canonical = %(c)s) AS recent""",
-        {"ws": ws, "c": canonical, "resend": RESEND_AFTER}).fetchone()
+                      AND expires_at > now() AND email_canonical <> %(c)s) AS pending""",
+        {"ws": ws, "c": canonical}).fetchone()
     seats = billing.seat_limit(user)
     if counts["members"] + counts["pending"] >= seats:
         raise AccountError(409, "seats_full", f"the workspace has {seats} places, members and open invitations together")
-    if counts["today"] >= INVITES_PER_DAY or counts["recent"]:
-        raise AccountError(429, "rate_limited", "too many invitations: try again later", {"Retry-After": "3600"})
+    # The limits are counted on the throttle table, not on the invitation rows (which a cancel or the end of the workspace
+    # deletes): per inviting account and per workspace a day, per invited address an hour; then the limits every account
+    # mail has (per address, per client, the global ceiling), so invitations count toward those as well.
+    for kind, value, cap, window in (("inv_account", str(user["id"]), INVITES_PER_DAY, "1 day"),
+                                     ("inv_workspace", str(ws), INVITES_PER_DAY, "1 day"),
+                                     ("inv_address", canonical, 1, RESEND_WINDOW)):
+        if _recent(conn, kind, value, window) >= cap:
+            _audit("invite_refused", user["id"], limit=kind)
+            raise AccountError(429, "rate_limited", "too many invitations: try again later",
+                               {"Retry-After": str(_retry_after(conn, kind, value, window))})
+    _throttle_mail(conn, canonical, _client_ip(x_dg_client_ip))
+    for kind, value in (("inv_account", str(user["id"])), ("inv_workspace", str(ws)), ("inv_address", canonical)):
+        _count_event(conn, kind, value)
     token = _secret()
     row = conn.execute(
         """INSERT INTO workspace_invite (workspace_id, email_canonical, email_display, token_hash, expires_at)
@@ -340,9 +354,15 @@ def _client_values(fields: dict[str, Any]) -> dict[str, Any]:
 
 
 def _owned_client(conn, user: dict[str, Any], cid: str) -> None:
-    if not user.get("ws_id") or not _UUID.match(cid) or not conn.execute(
-            "SELECT 1 FROM app_client WHERE id = %s AND workspace_id = %s", (cid, user["ws_id"])).fetchone():
+    """A client profile of the account's workspace that this account may change: the owner's
+    are the owner's; a member changes the ones it made (migration 0159). 404 for another
+    workspace's, 403 for a teammate's."""
+    row = conn.execute("SELECT created_by FROM app_client WHERE id = %s AND workspace_id = %s",
+                       (cid, user["ws_id"])).fetchone() if user.get("ws_id") and _UUID.match(cid) else None
+    if not row:
         raise AccountError(404, "not_found", "no such client")
+    if user.get("ws_role") != "owner" and row["created_by"] != user["id"]:
+        raise AccountError(403, "owner_only", "only the workspace's owner or the client's author can change it")
 
 
 @router.get("/clients")
@@ -365,8 +385,10 @@ def create_client(body: ClientIn, conn=Depends(get_conn), user=Depends(current))
     if n >= limit:
         raise AccountError(409, "limit_reached", f"at most {limit} client profiles on your plan")
     row = conn.execute(
-        "INSERT INTO app_client (workspace_id, name, country, cpv_codes, note) VALUES (%s, %s, %s, %s, %s) RETURNING *",
-        (ws, values["name"], values.get("country"), values.get("cpv_codes", []), values.get("note", ""))).fetchone()
+        "INSERT INTO app_client (workspace_id, name, country, cpv_codes, note, created_by) "
+        "VALUES (%s, %s, %s, %s, %s, %s) RETURNING *",
+        (ws, values["name"], values.get("country"), values.get("cpv_codes", []), values.get("note", ""),
+         user["id"])).fetchone()
     return _client_out(row)
 
 

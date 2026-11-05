@@ -49,6 +49,7 @@ from .accounts import (
     _audit,
     _Body,
     _client_ip,
+    _client_tag,
     _require_password,
     current,
     get_conn,
@@ -99,26 +100,42 @@ def presented(request: Request) -> str | None:
 
 
 # ------------------------------------------------------------------ authentication (the public API side)
+# The key lookup's own bound: a flood of keys never takes the accounts pool. With the accounts bound (DGATE_APP_CONNECTIONS,
+# 8) it stays within the accounts role's CONNECTION LIMIT 10 (migration 0027).
+KEY_CONNECTIONS = 2
+FAILED_KEYS_PER_MINUTE = 20      # refused keys one address may present a minute; beyond, refused without a lookup
+_failed = TokenBuckets(FAILED_KEYS_PER_MINUTE, FAILED_KEYS_PER_MINUTE / 60)
+
+
+def _key_conn():
+    cfg = settings()
+    return db.bounded_connect(cfg.app_dsn or cfg.dsn, KEY_CONNECTIONS, cfg.pool_wait_ms / 1000, "apikey")
+
+
 def authenticate(raw: str) -> dict[str, Any] | None:
-    """The key's row when the key is valid now (shape, hash, not revoked, not expired), else None. A valid one is
-    counted (`api_key_usage`) and its `last_used_at` moved (at most once a minute)."""
+    """The key's row when the key is valid now (shape, hash, not revoked, not expired), else None. One read on a
+    connection of the key lookup's own bound; nothing is written (`record_use` counts a request the limits admitted)."""
     m = _KEY.match(raw)
     if not m:
         return None
-    cfg = settings()
-    with db.bounded_connect(cfg.app_dsn or cfg.dsn, cfg.app_connections, cfg.pool_wait_ms / 1000) as conn:
+    with _key_conn() as conn:
         row = conn.execute(
             "SELECT k.id, k.key_hash, k.scopes, k.rate_per_minute, k.daily_quota FROM api_key k "
             "JOIN app_user u ON u.id = k.owner_id AND u.api_licensed_at IS NOT NULL "
             "WHERE k.prefix = %s AND k.revoked_at IS NULL AND k.expires_at > now()", (m.group(1),)).fetchone()
-        if not row or not hmac.compare_digest(bytes(row["key_hash"]), _hash(raw)):
-            return None
-        conn.execute("UPDATE api_key SET last_used_at = now() WHERE id = %s "
-                     "AND (last_used_at IS NULL OR last_used_at < now() - interval '1 minute')", (row["id"],))
-        conn.execute("INSERT INTO api_key_usage (key_id, day, requests) VALUES (%s, current_date, 1) "
-                     "ON CONFLICT (key_id, day) DO UPDATE SET requests = api_key_usage.requests + 1", (row["id"],))
-        conn.commit()
+    if not row or not hmac.compare_digest(bytes(row["key_hash"]), _hash(raw)):
+        return None
     return row
+
+
+def record_use(key_id: Any) -> None:
+    """An admitted request: counted (`api_key_usage`) and `last_used_at` moved (at most once a minute). A request
+    refused by the key's rate or quota writes nothing."""
+    with _key_conn() as conn:
+        conn.execute("UPDATE api_key SET last_used_at = now() WHERE id = %s "
+                     "AND (last_used_at IS NULL OR last_used_at < now() - interval '1 minute')", (key_id,))
+        conn.execute("INSERT INTO api_key_usage (key_id, day, requests) VALUES (%s, current_date, 1) "
+                     "ON CONFLICT (key_id, day) DO UPDATE SET requests = api_key_usage.requests + 1", (key_id,))
 
 
 # Buckets per (rate, quota): a key's limits are its row's. ponytail: in memory, like the address buckets (one API
@@ -148,9 +165,16 @@ async def dispatch(request: Request, call_next, raw: str, address_buckets: Token
     """A request that presents a key, from `hardening.RateLimit`: the key decides the limits and what may be read."""
     if not settings().api_keys_open:
         return _refuse(401, "api_keys_closed", "API keys are not open")
+    client = client_key(peer)
+    ok, wait = _failed.peek(client, 1)
+    if not ok:                       # this address keeps presenting bad keys: refused before any lookup
+        return _refuse(429, "rate_limited", "too many refused keys from this address",
+                       {"Retry-After": str(max(1, math.ceil(wait)))})
     key = await run_in_threadpool(authenticate, raw) if raw else None
     if key is None:
-        address_buckets.take(client_key(peer), FAILED_COST)
+        _failed.take(client, 1)
+        address_buckets.take(client, FAILED_COST)
+        _audit("api_key_refused", None, client=_client_tag(client))
         return _refuse(401, "invalid_key", "the key is unknown, revoked or expired",
                        {"WWW-Authenticate": 'Bearer error="invalid_token"'})
     path = request.url.path
@@ -168,6 +192,7 @@ async def dispatch(request: Request, call_next, raw: str, address_buckets: Token
     if wait:
         return _refuse(429, "rate_limited", "the key's rate limit or daily quota is spent",
                        {"Retry-After": str(max(1, math.ceil(wait)))})
+    await run_in_threadpool(record_use, key["id"])
     # The licence filter, as the routes' own parameter: the answer and the list cache both key on it.
     request.scope["query_string"] = urlencode(
         [(k, v) for k, v in params if k != "source"] + [("source", ",".join(asked or allowed))]).encode("latin-1")

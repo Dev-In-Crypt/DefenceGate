@@ -48,7 +48,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from . import accounts, award_set, billing, demand
-from .accounts import AccountError, throttled
+from .accounts import AccountError
 from .config import settings
 from .funding import get_conn
 from .listcache import cache_list
@@ -174,14 +174,16 @@ def profile_of_org(conn, slug: str) -> dict[str, Any]:
 
 
 def _profile(inp: ReportIn, org: dict[str, Any] | None) -> dict[str, Any]:
+    """Mode A reads the company's own codes and country, whatever the request carries: a report of other codes is a mode B
+    report and is counted as one (mode A is counted once per company and month)."""
     from .tenders import cpv_titles
 
-    codes = inp.cpv or ([c["code"] for c in org["wonCodes"]] if org else [])
+    codes = [c["code"] for c in org["wonCodes"]] if org else inp.cpv
     return {
         "mode": "A" if org else "B", "name": (org or {}).get("name") or inp.name, "slug": (org or {}).get("slug"),
         "href": (org or {}).get("href"),
-        "country": inp.country or (org or {}).get("country"), "cpv": codes, "cpvTitles": cpv_titles(codes),
-        "cpvFrom": "request" if inp.cpv else ("awards" if org and codes else None),
+        "country": org["country"] if org else inp.country, "cpv": codes, "cpvTitles": cpv_titles(codes),
+        "cpvFrom": ("awards" if codes else None) if org else ("request" if codes else None),
         "nace": inp.nace, "size": inp.size or None, "held": list(inp.held),
         "classified": inp.classified or None, "exports": inp.exports or None, "usComponents": inp.usComponents or None,
         "awards": (org or {}).get("awards"), "projects": (org or {}).get("projects", []),
@@ -683,7 +685,7 @@ def get_sample(conn=Depends(get_conn)):
 
 
 @account_router.get("/sample")
-def get_named_sample(conn=Depends(get_conn), user=Depends(throttled)):
+def get_named_sample(conn=Depends(get_conn), user=Depends(accounts.released)):
     """The same sample for a signed-in account: companies named under the mosaic rule; never counted."""
     if not settings().company_report_open:
         raise AccountError(404, "not_open", "supplier reports are not open")
@@ -691,9 +693,11 @@ def get_named_sample(conn=Depends(get_conn), user=Depends(throttled)):
 
 
 @account_router.post("")
-def generate(body: ReportIn, conn=Depends(get_conn), aconn=Depends(accounts.get_conn), user=Depends(throttled)):
+def generate(body: ReportIn, conn=Depends(get_conn), user=Depends(accounts.released)):
     """One report for the account (mode A with `org`, mode B with the form), counted (`quota`). The form is kept only with
-    `consent` (one per account, replaced by the next consented one); otherwise nothing of it outlives this request."""
+    `consent` (one per account, replaced by the next consented one); otherwise nothing of it outlives this request.
+    The accounts database is used in two short transactions, before and after the build, never held through it (the
+    build runs on the data connection only); `accounts.released` caps an account's reports running at once."""
     _require_open(user)
     org = None
     if body.org:
@@ -702,15 +706,18 @@ def generate(body: ReportIn, conn=Depends(get_conn), aconn=Depends(accounts.get_
         org = live_organisation(conn, body.org)["id"]          # 404 / 410 before anything is counted
     if not body.org and not body.country:
         raise AccountError(422, "invalid", "country: the country where the company is established")
-    quota(aconn, user, org, count=False)                       # refused before the work when none is left
-    report = build(conn, body, names=True, brand=brand_of(aconn, user))
-    used = quota(aconn, user, org, count=True)
-    if body.consent and not body.org:
-        aconn.execute(
-            "INSERT INTO sell_profile (account_id, body) VALUES (%s, %s) "
-            "ON CONFLICT (account_id) DO UPDATE SET body = EXCLUDED.body, saved_at = now()",
-            (user["id"], json.dumps(body.model_dump(exclude={"consent", "org"}))))
-        accounts._audit("sell_profile_saved", user["id"])
+    with accounts.account_conn() as aconn:
+        quota(aconn, user, org, count=False)                   # refused before the work when none is left
+        brand = brand_of(aconn, user)
+    report = build(conn, body, names=True, brand=brand)
+    with accounts.account_conn() as aconn:
+        used = quota(aconn, user, org, count=True)             # a parallel one may have taken the last: 402 then
+        if body.consent and not body.org:
+            aconn.execute(
+                "INSERT INTO sell_profile (account_id, body) VALUES (%s, %s) "
+                "ON CONFLICT (account_id) DO UPDATE SET body = EXCLUDED.body, saved_at = now()",
+                (user["id"], json.dumps(body.model_dump(exclude={"consent", "org"}))))
+            accounts._audit("sell_profile_saved", user["id"])
     accounts._audit("sell_report", user["id"], mode="A" if org else "B")       # O3: no field of the form
     return {**report, "quota": used}
 

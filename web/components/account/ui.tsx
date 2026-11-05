@@ -48,6 +48,7 @@ const NOTICES: Record<string, { text: string; error?: true }> = {
   weak: { text: 'Choose another new password: at least 12 characters, and not a common or easily guessed one.', error: true },
   rate_limited: { text: 'Too many attempts. Wait a little and try again.', error: true },
   totp_off: { text: 'Two-step sign-in is off.' },
+  invalid_code: { text: 'That code is not valid. Two-step sign-in stays on.', error: true },
   // WP-153
   key_revoked: { text: 'The key is revoked. Requests with it are refused from now on.' },
   // WP-124
