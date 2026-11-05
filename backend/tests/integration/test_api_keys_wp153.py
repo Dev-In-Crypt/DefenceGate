@@ -38,6 +38,7 @@ def on(client, monkeypatch):
     config.reset_cache()
     apikeys._minute.clear()
     apikeys._day.clear()
+    apikeys._failed.clear()
     return client
 
 

@@ -9,6 +9,7 @@ import { clientContext } from '@/lib/workspace';
 import { Button } from '@/components/dg/button';
 import { Select } from '@/components/dg/form';
 import { Tag } from '@/components/dg/tag';
+import { Pagination } from '@/components/dg/pagination';
 import { ClientSwitcher } from '@/components/account/client-switcher';
 import { AppHeader, LoadFailed, NextStep, Notice } from '@/components/account/ui';
 import { removeSearch, setSearchCadence } from '../actions';
@@ -17,15 +18,17 @@ import { setSearchClient } from '../team/actions';
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Saved searches', robots: { index: false, follow: false } };
 
-type Props = { searchParams: Promise<{ n?: string | string[] }> };
+type Props = { searchParams: Promise<{ n?: string | string[]; page?: string | string[] }> };
 
 const CADENCE_OPTIONS = (Object.keys(CADENCE_LABEL) as Cadence[]).map((c) => ({ value: c, label: CADENCE_LABEL[c] }));
 
 export default async function SearchesPage({ searchParams }: Props) {
-  const [me, { n }] = await Promise.all([getCurrentUser(), searchParams]);
+  const [me, { n, page: pageParam }] = await Promise.all([getCurrentUser(), searchParams]);
+  const page = Math.min(1000, Math.max(1, Number.parseInt(String(pageParam ?? '1'), 10) || 1));
   // WP-157: the client profile worked on (Consultant) narrows the list; a teammate's search is shown, changed by its author only
   const { clients, active } = await clientContext(me?.features ?? []);
-  const searches = dataOrNull(await listSearches(active?.id));
+  const listed = dataOrNull(await listSearches(active?.id, page));
+  const searches = listed?.items ?? null;
   const clientName = (id?: string | null) => clients.find((c) => c.id === id)?.name;
   const clientOptions = [{ value: '', label: 'No client' }, ...clients.map((c) => ({ value: c.id, label: c.name }))];
   return (
@@ -96,6 +99,7 @@ export default async function SearchesPage({ searchParams }: Props) {
           ))}
         </ul>
       )}
+      {listed && <Pagination page={page} total={listed.total} pageSize={listed.pageSize} hrefFor={(p) => `/app/searches${p > 1 ? `?page=${p}` : ''}`} />}
     </>
   );
 }

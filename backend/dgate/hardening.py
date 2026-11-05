@@ -127,8 +127,10 @@ MAX_COST = 30
 #   analytics (Ukraine, gaps)  0.5-1.4 s cold, kept fifteen minutes
 #   /v1/changes                1.2-2.1 s cold (the archive's last 14 days; its answer is kept five minutes)
 # One address at the allowed two requests a second held three to ten of the API's thirty connections.
-PARTNER_PATH = re.compile(r"^/v1/organisations/[^/]+/partners$")
+PARTNER_PATH = re.compile(r"^/v1/(?:organisations|funding)/[^/]+/partners$")   # a call's partners: the area query, 0.5-1 s
 ANALYTICS_PREFIX = "/v1/analytics/"
+# Contracts ending soon (WP-160): the window over every contract period with a count, 0.3-0.65 s uncached
+HEAVY_PATHS["/v1/tenders/ending"] = 5
 
 
 def _int(value: str | None) -> int:
@@ -192,6 +194,20 @@ class TokenBuckets:
         self._buckets: dict[str, tuple[float, float]] = {}
         self._lock = threading.Lock()
         self._pruned = float("-inf")
+
+    def peek(self, key: str, cost: float) -> tuple[bool, float]:
+        """What `take` would answer now, without taking anything."""
+        now = self.clock()
+        with self._lock:
+            tokens, last = self._buckets.get(key, (self.capacity, now))
+        tokens = min(self.capacity, tokens + (now - last) * self.refill)
+        if tokens >= cost:
+            return True, 0.0
+        return False, min(3600.0, (cost - tokens) / self.refill) if self.refill > 0 else 3600.0
+
+    def clear(self) -> None:
+        with self._lock:
+            self._buckets.clear()
 
     def take(self, key: str, cost: float) -> tuple[bool, float]:
         """(allowed, seconds to wait when not)."""

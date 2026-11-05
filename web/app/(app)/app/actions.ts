@@ -199,8 +199,9 @@ export async function confirmTotp(_prev: TotpState, form: FormData): Promise<Tot
 }
 
 export async function stopTotp(form: FormData): Promise<void> {
-  const r = await totpDisable(field(form, 'password', PASSWORD_MAX));
-  redirect(`/app/settings?n=${r.ok ? 'totp_off' : securityCode(r)}#two-step`);
+  const r = await totpDisable(field(form, 'password', PASSWORD_MAX), field(form, 'code', 32));
+  const n = r.ok ? 'totp_off' : r.status === 403 && r.error === 'invalid_code' ? 'invalid_code' : securityCode(r);
+  redirect(`/app/settings?n=${n}#two-step`);
 }
 
 /** The API checks the typed address against the account's own, and the password (WP-123); here they are only passed on. */

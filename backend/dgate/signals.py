@@ -37,7 +37,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from . import accounts, billing, stats
-from .accounts import AccountError, throttled
+from .accounts import AccountError, released
 from .award_set import FROM, KEY_HASH, OF_ORGS, scope, since
 from .config import settings
 from .funding import get_conn, known_params, make_slug
@@ -355,7 +355,7 @@ def public_signal(kind: str, country: str | None = FILTERS["country"], cpv: str 
 
 @account_router.get("/{kind}/first")
 def first_signal(kind: str, country: str | None = FILTERS["country"], cpv: str | None = FILTERS["cpv"],
-                 programme: str | None = FILTERS["programme"], user=Depends(throttled), conn=Depends(get_conn)):
+                 programme: str | None = FILTERS["programme"], user=Depends(released), conn=Depends(get_conn)):
     """The first FREE_ROWS rows as they rank, the small companies' with them: any signed-in account's (WP-155)."""
     return answer(conn, kind, country, cpv, programme, 0, FREE_ROWS)
 
@@ -363,7 +363,7 @@ def first_signal(kind: str, country: str | None = FILTERS["country"], cpv: str |
 @account_router.get("/{kind}")
 def full_signal(kind: str, country: str | None = FILTERS["country"], cpv: str | None = FILTERS["cpv"],
                 programme: str | None = FILTERS["programme"], page: int = Query(1, ge=1, le=1000),
-                pageSize: int = Query(50, ge=1, le=MAX_PAGE_SIZE), user=Depends(throttled), conn=Depends(get_conn)):
+                pageSize: int = Query(50, ge=1, le=MAX_PAGE_SIZE), user=Depends(released), conn=Depends(get_conn)):
     """The paid part: the whole list a page at a time (the site's CSV asks for MAX_PAGE_SIZE rows at once)."""
     if not full_open():
         raise AccountError(404, "not_open", "the full list of signals is not open")

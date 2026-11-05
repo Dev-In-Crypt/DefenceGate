@@ -4,6 +4,7 @@ import { useActionState } from 'react';
 import { CircleAlert, CircleCheck } from 'lucide-react';
 import { confirmAddress, type ConfirmState } from '@/app/(public)/auth/verify/actions';
 import { Button } from '../dg/button';
+import { TextInput } from '../dg/form';
 import { Icon } from '../dg/icon';
 import { planSentence } from '@/lib/plans';
 
@@ -47,6 +48,18 @@ export function ConfirmForm({ token, payOpen = false }: { token: string; payOpen
     <form action={action} className="flex max-w-form flex-col gap-4 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
       <p className="m-0 text-body text-ink-muted">Confirm that this e-mail address is yours to finish creating your account.</p>
       <input type="hidden" name="token" value={token} />
+      <TextInput name="password" type="password" autoComplete="current-password" maxLength={1024} required
+        label="The password you chose for this account" />
+      {state.status === 'wrong_password' && (
+        <p role="alert" className="m-0 flex items-center gap-1 text-small text-alert">
+          <Icon icon={CircleAlert} size="inline" />That is not the password this account was created with. If you do not remember it, create the account again.
+        </p>
+      )}
+      {state.status === 'rate_limited' && (
+        <p role="alert" className="m-0 flex items-center gap-1 text-small text-alert">
+          <Icon icon={CircleAlert} size="inline" />Too many attempts. Wait a little and try again.
+        </p>
+      )}
       {state.status === 'unavailable' && (
         <p role="alert" className="m-0 flex items-center gap-1 text-small text-alert">
           <Icon icon={CircleAlert} size="inline" />The service is temporarily unavailable. Try again in a few minutes.

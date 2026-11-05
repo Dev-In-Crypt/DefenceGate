@@ -32,8 +32,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from . import accounts, billing, db
-from .accounts import throttled
 from .funding import get_conn, known_params
+from .listcache import LIST_STALE_SECONDS, cache_list
 
 router = APIRouter()
 account_router = APIRouter(prefix="/v1/account/contracts",
@@ -240,6 +240,7 @@ FILTERS = {"within": Query(12), "country": Query(None, max_length=200), "cpv": Q
 
 
 @router.get("/v1/tenders/ending", dependencies=[Depends(known_params)])
+@cache_list("tenders-ending", ttl=5 * 60, stale=LIST_STALE_SECONDS)
 def public_ending(within: int = FILTERS["within"], country: str | None = FILTERS["country"],
                   cpv: str | None = FILTERS["cpv"], buyer: int | None = FILTERS["buyer"],
                   estimated: str | None = FILTERS["estimated"], conn=Depends(get_conn)):
@@ -253,7 +254,7 @@ def full_ending(within: int = FILTERS["within"], country: str | None = FILTERS["
                 cpv: str | None = FILTERS["cpv"], buyer: int | None = FILTERS["buyer"],
                 estimated: str | None = FILTERS["estimated"],
                 page: int = Query(1, ge=1, le=1000), pageSize: int = Query(50, ge=1, le=CSV_ROWS),
-                user=Depends(throttled), conn=Depends(get_conn)):
+                user=Depends(accounts.released), conn=Depends(get_conn)):
     """The paid part: the whole list a page at a time (Pro); more than PAGE_MAX rows at once is the CSV (Team)."""
     billing.require(user, FEATURE)
     if pageSize > PAGE_MAX:

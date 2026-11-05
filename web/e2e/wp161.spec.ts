@@ -71,6 +71,7 @@ test.describe('launch day, the main path, against the fake account API', () => {
     await page.getByRole('button', { name: 'Create account' }).click();
     await expect(page.getByRole('heading', { name: 'Check your mail' })).toBeVisible();
     await page.goto(`/auth/verify?token=${'k'.repeat(43)}`);
+    await page.getByLabel('The password you chose for this account').fill(PASSWORD);
     await page.getByRole('button', { name: 'Confirm my address' }).click();
     await expect(page.getByRole('heading', { name: 'Your address is confirmed' })).toBeVisible();
     // sign in: Free

@@ -225,6 +225,7 @@ def test_keys_need_a_licence_that_only_the_operator_grants(conn, client, sent, m
     config.reset_cache()
     apikeys._minute.clear()
     apikeys._day.clear()
+    apikeys._failed.clear()
     session, _ = sign_in(client, sent)
     body = {"name": "script", "scopes": ["tenders"], "password": PW}
     assert "api_keys" not in client.get("/v1/account/me", headers=H(session)).json()["features"]

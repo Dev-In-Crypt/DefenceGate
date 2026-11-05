@@ -49,6 +49,8 @@ export function TotpSettings({ enabled }: { enabled: boolean }) {
       <form action={stopTotp} className="flex max-w-form flex-col gap-4">
         <p className="m-0 text-body text-ink-muted">On. Signing in asks for a code from your authenticator app, or a recovery code.</p>
         <Password />
+        <TextInput name="code" autoComplete="one-time-code" maxLength={32} required
+          label="A code from your authenticator app, or a recovery code" />
         <div><Button type="submit" variant="secondary">Turn off two-step sign-in</Button></div>
       </form>
     );

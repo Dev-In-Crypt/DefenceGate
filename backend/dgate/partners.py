@@ -404,7 +404,6 @@ def _id_of(slug: str) -> int:
 
 
 @router.get("/v1/funding/{slug}/partners")
-@cache_list("partners", ttl=10 * 60)
 def get_partners(
     slug: str,
     country: str | None = Query(None, pattern=r"^[A-Za-z]{2}$"),
@@ -412,14 +411,20 @@ def get_partners(
     limit: int = Query(20, ge=1, le=MAX_LIMIT),
     conn=Depends(get_conn),
 ):
+    """Kept under the call's id, not the slug: any spelling of one call's slug is one entry of the cache."""
+    return call_partners(call_id=_id_of(slug), country=country.upper() if country else None,
+                         prefer=prefer.upper() if prefer else None, limit=limit, conn=conn)
+
+
+@cache_list("partners", ttl=10 * 60)
+def call_partners(call_id: int, country: str | None, prefer: str | None, limit: int, conn):
     row = conn.execute(
-        "SELECT c.id, c.title, c.topic_code, c.suppressed FROM call c WHERE c.id = %s", (_id_of(slug),)).fetchone()
+        "SELECT c.id, c.title, c.topic_code, c.suppressed FROM call c WHERE c.id = %s", (call_id,)).fetchone()
     if not row:
         raise HTTPException(404, "no such call")
     if row["suppressed"]:
         raise removed()
-    out = partners_of(conn, row["topic_code"], country=country.upper() if country else None,
-                      prefer=prefer.upper() if prefer else None, limit=limit, title=row["title"])
+    out = partners_of(conn, row["topic_code"], country=country, prefer=prefer, limit=limit, title=row["title"])
     out["call"] = {"id": str(row["id"]), "slug": make_slug(row["id"], row["title"]), "topic": row["topic_code"]}
     out["source"] = _sources_read_at(conn)
     return out
