@@ -64,11 +64,13 @@ test('the company report: the sample for everyone, the paywall links it, the cou
   await expect(page.locator('[data-sample-link]')).toBeVisible();
   await signIn(context, baseURL, S.pro);
   await visit(page, `/suppliers/${OTHER}/report`, { title: /Company report/i, h1: 'Company report: Fake Defence GmbH' });
+  await page.getByRole('button', { name: 'Open the report' }).click();   // the button counts, opening the page does not
   await expect(page.locator('[data-report-quota-line]')).toHaveText('1 of 3 company reports this month opened; the count starts again on 1 Nov 2026.');
   await expect(page.locator('[data-report-name]')).toHaveCount(0);
   await shot(page, 'report-pro');
   await signIn(context, baseURL, S.spent);
   await visit(page, `/suppliers/${OTHER}/report`, { title: /Company report/i, h1: 'Company report: Fake Defence GmbH' });
+  await page.getByRole('button', { name: 'Open the report' }).click();   // the button counts, opening the page does not
   await expect(page.locator('[data-report-quota]')).toContainText('No company reports left this month: 3 of 3 opened; the count starts again on 2026-11-01 (UTC)');
   await expect(page.locator('[data-company-report]')).toHaveCount(0);
   await shot(page, 'report-quota-used');
@@ -77,6 +79,7 @@ test('the company report: the sample for everyone, the paywall links it, the cou
 test('a Consultant\'s own name is printed in the report head, as text', { tag: '@fake-api' }, async ({ page, context, baseURL }) => {
   await signIn(context, baseURL, S.consultant);
   await visit(page, `/suppliers/${OTHER}/report`, { title: /Company report/i, h1: 'Company report: Fake Defence GmbH' });
+  await page.getByRole('button', { name: 'Open the report' }).click();   // the button counts, opening the page does not
   await expect(page.locator('[data-report-quota-line]')).toHaveCount(0);                   // no limit on Consultant
   await expect(page.locator('[data-report-name-screen]')).toContainText('Acme Advisory Ltd');
   await page.emulateMedia({ media: 'print' });

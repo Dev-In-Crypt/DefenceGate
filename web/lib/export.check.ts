@@ -17,6 +17,16 @@ assert.equal(csvCell('say "hi"'), '"say ""hi"""');
 assert.equal(csvCell('line\nbreak'), 'line break');
 assert.equal(csvCell(null), '');
 assert.equal(toCsv(['a', 'b'], [['1', '=2']]), '﻿a,b\r\n1,\'=2\r\n');
+// Security review of 5 Nov 2026: a formula after a `;` (Excel's list separator in most EU locales), after spaces, or in full-width signs
+const SIGN = /[=+\-@＝＋－＠]/;
+for (const bad of ['Acme;+1+1', "x;=cmd|' /C calc'!A0", 'x;@SUM(A1)', 'a; -2+3', 'a\t=1', 'a;＝1']) {
+  const c = csvCell(bad);
+  assert.ok(!new RegExp(`[;\\t]\\s*${SIGN.source}`).test(c), `${bad} -> ${c}`);
+  if (bad.includes(';')) assert.ok(c.startsWith('"') && c.endsWith('"'), `${bad} is quoted`);
+}
+for (const bad of [' =1+1', '  +1', '＝1+1', '＠x']) assert.ok(csvCell(bad).startsWith("'"), bad);
+assert.equal(csvCell('Acme;+1+1'), `"Acme;'+1+1"`);
+assert.equal(csvCell('Lote 1; Suministro'), '"Lote 1; Suministro"');
 // WP-116: the file's first three bytes are the UTF-8 byte-order mark, and "ó" is two bytes after it (not Latin-1)
 assert.deepEqual([...Buffer.from(toCsv(['Dirección'], []), 'utf8').subarray(0, 6)], [0xef, 0xbb, 0xbf, 0x44, 0x69, 0x72]);
 assert.equal(Buffer.from(toCsv(['ó'], []), 'utf8').subarray(3, 5).toString('hex'), 'c3b3');
