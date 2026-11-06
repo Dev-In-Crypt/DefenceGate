@@ -29,7 +29,7 @@ from typing import Callable, Sequence
 from . import db
 from .awards import refresh_award_twins, run_awards
 from .config import settings
-from .ops.notify import notify, ping
+from .ops.notify import heartbeat, notify, ping
 from .pipeline import (
     run_aid,
     run_bdns,
@@ -835,6 +835,13 @@ def last_offsite_backup() -> datetime | None:
 
 
 def job_backup_freshness() -> JobResult:
+    """Hourly, and the worker's heartbeat (DGATE_HEALTHCHECKS_URL): a ping each hour, `/fail` when backups are stale."""
+    result = _backup_freshness()
+    heartbeat(result.status == "success")
+    return result
+
+
+def _backup_freshness() -> JobResult:
     """Hourly: record how old the newest local and shipped dumps are, and say so when
     either is older than `backup_stale_hours`.
 

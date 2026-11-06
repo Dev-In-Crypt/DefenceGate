@@ -46,3 +46,13 @@ def test_unconfigured_is_log_only(monkeypatch):
     monkeypatch.delenv("DGATE_TELEGRAM_TOKEN")
     config.reset_cache()
     assert notify_mod.notify("x") is False
+
+
+def test_the_heartbeat_pings_its_check_and_fail_when_not_ok(monkeypatch):
+    seen = []
+    monkeypatch.setattr(httpx, "get", lambda url, **kw: seen.append(url))
+    assert notify_mod.heartbeat(True) is False            # unset: nothing is sent
+    monkeypatch.setenv("DGATE_HEALTHCHECKS_URL", "https://hc-ping.example/abc/")
+    config.reset_cache()
+    assert notify_mod.heartbeat(True) and notify_mod.heartbeat(False)
+    assert seen == ["https://hc-ping.example/abc", "https://hc-ping.example/abc/fail"]

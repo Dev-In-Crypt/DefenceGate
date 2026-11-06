@@ -49,6 +49,20 @@ def ping(slug: str, event: PingEvent = "success", *, timeout: float = 5.0) -> bo
         return False
 
 
+def heartbeat(ok: bool, *, timeout: float = 5.0) -> bool:
+    """The worker's hourly sign of life on the one check of DGATE_HEALTHCHECKS_URL; `/fail` when the hourly
+    check found a problem. Never raises."""
+    url = settings().healthchecks_url
+    if not url:
+        return False
+    try:
+        httpx.get(url.rstrip("/") + ("" if ok else "/fail"), timeout=timeout)
+        return True
+    except Exception as exc:  # noqa: BLE001 - deliberately swallowed
+        log.warning("heartbeat ping failed: %s", type(exc).__name__)
+        return False
+
+
 def notify(text: str, *, timeout: float = 10.0) -> bool:
     """Send an operator message. Logs at warning level either way."""
     log.warning("ALERT: %s", text)

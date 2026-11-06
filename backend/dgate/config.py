@@ -421,6 +421,10 @@ class Settings:
     # never be able to take the pipeline down with it.
     healthchecks_base: str | None = field(
         default_factory=lambda: os.environ.get("DGATE_HEALTHCHECKS_BASE"))
+    # One check's own ping URL (https://hc-ping.com/<uuid>): the worker's hourly heartbeat, pinged by the backup
+    # freshness job. Silence means the worker or the whole server is down.
+    healthchecks_url: str | None = field(repr=False,
+        default_factory=lambda: os.environ.get("DGATE_HEALTHCHECKS_URL") or None)
     telegram_token: str | None = field(repr=False,
         default_factory=lambda: os.environ.get("DGATE_TELEGRAM_TOKEN"))
     telegram_chat_id: str | None = field(
