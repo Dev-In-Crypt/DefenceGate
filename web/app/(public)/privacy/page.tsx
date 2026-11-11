@@ -32,7 +32,7 @@ export default async function PrivacyPage() {
       toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Privacy notice', href: '/privacy' }]}
       title="Privacy notice"
-      lead="Version 1.8, published 26 October 2026 (Cloudflare as processor for network security and content delivery). It says what happens today and what will apply once sign-in opens. It is updated before anything that changes it goes live."
+      lead="Version 1.9, published 11 November 2026 (e-mails we send to organisations, section 12). It says what happens today and what will apply once sign-in opens. It is updated before anything that changes it goes live."
     >
       <Callout title="In short">
         <ClauseList items={[
@@ -42,6 +42,7 @@ export default async function PrivacyPage() {
           'The hosting server keeps ordinary access logs for at most 14 days.',
           'Requests to the site are processed by Cloudflare, our provider of network security and content delivery (section 2).',
           'An account, when accounts open, uses your e-mail address and a password, which we keep only as a one-way hash. Two-step sign-in with an authenticator app is optional. Our mail has no tracking pixel and no link tracking.',
+          'We sometimes write to organisations about the service, at their published business address; one reply saying no stops it for good (section 12).',
           'The notices we show are public. Our collection drops the contact fields a source publishes and removes e-mail addresses from free text. Older records in our private archive still contain some, and some buyer names contain a telephone, fax or e-mail block as the source wrote it; none of it is shown (section 7).',
         ]} />
       </Callout>
@@ -121,6 +122,7 @@ export default async function PrivacyPage() {
           'The hosting provider, Hetzner Online GmbH, as a processor: it operates the server we use, located in Finland, and the storage we use for backups, located in the European Union.',
           'Cloudflare, Inc., as a processor: domain name service, network security and content delivery for all requests to the site (section 2). Where data is processed outside the EEA, the transfer is based on the EU-US Data Privacy Framework (Art. 45 GDPR).',
           'Brevo (Sendinblue SAS, France), as the processor that sends our mail (section 5).',
+          'Google (Google Workspace), as a processor: our mailbox, through which the e-mails to organisations are sent and received (section 12). Where data is processed outside the EEA, the transfer is based on the EU-US Data Privacy Framework (Art. 45 GDPR).',
           'OpenAI (United States), as a processor: it receives the text of public funding call documents, to read who may apply, and of the European Defence Fund’s published project fact sheets, which name the organisations in each project’s consortium, to read that list. It processes them in the United States; we ask it not to store the requests. We send it nothing about visitors or account holders.',
         ]} />
         <p className={P}>We do not sell personal data. We disclose data to an authority where the law requires it.</p>
@@ -138,6 +140,18 @@ export default async function PrivacyPage() {
 
       <Clause n={11} title="Changes">
         <p className={P}>We update this notice when the site changes. The version and date are at the top, and earlier versions are kept and available on request. Material changes for account holders are also sent by e-mail.</p>
+      </Clause>
+
+      <Clause n={12} title="E-mails we send to organisations">
+        <p className={P}>We sometimes write to organisations that may need the service, for example consultancies, industry associations and clusters that work on EU defence programmes, to ask for a short conversation or to offer a free pilot report.</p>
+        <ClauseList items={[
+          <><strong>What we hold.</strong> The organisation’s name, the general business address or contact form it publishes, the page where we found it, a short note on why we wrote (for example a programme it works on), and the messages exchanged with their dates. If you reply, also your name, your role and what you write.</>,
+          <><strong>Where it comes from.</strong> The organisation’s own website or another public source, which we name on request. We do not buy lists, and we do not look up or guess the personal addresses or telephone numbers of employees.</>,
+          <><strong>Why and on what basis.</strong> To introduce the service to businesses that may need it: our legitimate interest in direct marketing to businesses (Art. 6(1)(f) GDPR). We send one first message and at most two short reminders.</>,
+          <><strong>How it is sent.</strong> From info@defencegatehub.com through our mailbox provider (section 8), with no tracking pixel and no link tracking.</>,
+          <><strong>Retention.</strong> With no reply, we delete the record 12 months after our last message. If you reply that you are not interested or ask us to stop, we stop at once and keep only the address and the date on a do-not-contact list, so that we never write again. If we go on to work together, the sections that apply to that work apply.</>,
+          <><strong>Your rights.</strong> You may object at any time, without giving a reason, by replying &ldquo;no&rdquo; or by writing to the contact in the <Link href="/imprint" className="font-semibold">imprint</Link> (Art. 21(2) and (3) GDPR). Your other rights are in section 9.</>,
+        ]} />
       </Clause>
       </ClauseGroup>
     </ContentPage>

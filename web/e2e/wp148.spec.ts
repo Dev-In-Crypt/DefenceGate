@@ -7,7 +7,7 @@ import { visit } from './helpers';
  */
 test('/privacy 1.8: Cloudflare as processor, its two cookies, the DPF basis, and no "(USA)" or "does not pass through"', async ({ page }) => {
   await visit(page, '/privacy', { title: /privacy/i, h1: 'Privacy notice', text: [
-    'Version 1.8, published 26 October 2026 (Cloudflare as processor for network security and content delivery)',
+    'Version 1.9, published 11 November 2026 (e-mails we send to organisations, section 12)',
     'Requests to the site are processed by Cloudflare, our provider of network security and content delivery (section 2).',
     'the request first reaches Cloudflare, which passes it on to our server',
     'Cloudflare, Inc. acts as our processor (Art. 28 GDPR) for network security and content delivery.',

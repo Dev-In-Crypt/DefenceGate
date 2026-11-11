@@ -32,7 +32,7 @@ test.describe('accounts closed (no API)', () => {
   test('the privacy notice 1.8 describes password accounts and, while accounts are closed, says sign-in is not open', async ({ page }) => {
     await visit(page, '/privacy', {
       title: /privacy/i, h1: /privacy/i,
-      text: ['Version 1.8, published 26 October 2026', '__Host-dg_mfa', '__Host-dg_session', 'Argon2id', 'Brevo (Sendinblue SAS, France)', 'at most 90 days'],
+      text: ['Version 1.9, published 11 November 2026', '__Host-dg_mfa', '__Host-dg_session', 'Argon2id', 'Brevo (Sendinblue SAS, France)', 'at most 90 days'],
     });
     await expect(page.locator('[data-signin-closed]')).toHaveText(/^Sign-in is not open yet\./);
     await expect(page.locator('main')).not.toContainText('__Host-dg_bind');
@@ -54,7 +54,7 @@ test.describe('against the fake account API', () => {
   test.use({ ignoreHTTPSErrors: true });
 
   test('WP-140: once accounts are open the privacy notice no longer says sign-in is not open', async ({ page }) => {
-    await visit(page, '/privacy', { title: /privacy/i, h1: /privacy/i, text: ['Version 1.8', 'You create an account with your e-mail address and a password'] });
+    await visit(page, '/privacy', { title: /privacy/i, h1: /privacy/i, text: ['Version 1.9', 'You create an account with your e-mail address and a password'] });
     await expect(page.locator('[data-signin-closed]')).toHaveCount(0);
     await expect(page.locator('main')).not.toContainText('Sign-in is not open yet');
   });

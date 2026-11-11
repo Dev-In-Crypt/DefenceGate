@@ -64,10 +64,12 @@ def test_the_published_versions_are_the_pages_and_the_archived_copies():
     assert accounts._version(accounts.PRIVACY_VERSION) >= accounts._version(accounts.PASSWORD_PRIVACY_VERSION)
     privacy = (PAGES / "privacy" / "page.tsx").read_text(encoding="utf-8")
     terms = (PAGES / "terms" / "page.tsx").read_text(encoding="utf-8")
-    assert f'lead="Version {accounts.PRIVACY_VERSION}, published 26 October 2026' in privacy
+    # Privacy 1.9 was published on 11 November 2026; terms stay 2.2 of 26 October. Each page names the version in force and
+    # its dated static copy exists.
+    assert f'lead="Version {accounts.PRIVACY_VERSION}, published 11 November 2026' in privacy
     assert f'lead="Version {accounts.TERMS_VERSION}, published 26 October 2026' in terms
     versions = ROOT / "docs" / "legal" / "versions"
-    assert (versions / f"privacy-v{accounts.PRIVACY_VERSION}-2026-10-26.md").is_file()
+    assert (versions / f"privacy-v{accounts.PRIVACY_VERSION}-2026-11-11.md").is_file()
     assert (versions / f"terms-v{accounts.TERMS_VERSION}-2026-10-26.md").is_file()
 
 

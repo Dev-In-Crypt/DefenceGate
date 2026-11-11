@@ -318,7 +318,7 @@ function route(url, headers = {}, method = 'GET', body = '') {
   if (p === `/v1/suppliers/${SAMPLE_SLUG}`) return [200, reportSupplier(SAMPLE_SLUG, 'Fake Prime SA')];
   if (p === `/v1/suppliers/${SAMPLE_SLUG}/competition`) return [200, primeCompetition(false)];
   if (p === `/v1/organisations/${SAMPLE_SLUG}/partners`) return [200, { ...reportPartners(), organisation: { id: '155001', slug: SAMPLE_SLUG, name: 'Fake Prime SA', country: 'DE' } }];
-  if (p === '/v1/account/status') return [200, { open: false, billing: false, plansOnSale: true, termsVersion: '2.2', privacyVersion: '1.8' }];
+  if (p === '/v1/account/status') return [200, { open: false, billing: false, plansOnSale: true, termsVersion: '2.2', privacyVersion: '1.9' }];
   if (p === '/v1/signals/growing') return [200, signal([signalRow(3, false)], { public: true })];
   if (p === '/v1/account/me') {
     const features = REPORT_SESSIONS[headers['x-dg-session']];

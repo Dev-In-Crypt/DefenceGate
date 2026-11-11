@@ -16,13 +16,15 @@ DPF = ("'Cloudflare, Inc., as a processor: domain name service, network security
 
 
 def test_privacy_18_names_cloudflare_as_processor_without_the_united_states():
-    assert accounts.PRIVACY_VERSION == "1.8"
+    assert accounts._version(accounts.PRIVACY_VERSION) >= accounts._version("1.8")   # 1.9 keeps the Cloudflare text
     assert accounts._version(accounts.PRIVACY_VERSION) >= accounts._version(accounts.PASSWORD_PRIVACY_VERSION)
     text = (PAGES / "privacy" / "page.tsx").read_text(encoding="utf-8")
-    assert "(Cloudflare as processor for network security and content delivery)" in text
+    # The 1.8 lead named Cloudflare; 1.9 (11 Nov 2026) has its own lead, so the label is checked in the 1.8 record.
+    record = ROOT / "docs" / "legal" / "versions" / "privacy-v1.8-2026-10-26.md"
+    assert "(Cloudflare as processor for network security and content delivery)" in record.read_text(encoding="utf-8")
     assert DPF in text
     cloudflare = [line for line in text.splitlines() if "Cloudflare" in line]
-    assert len(cloudflare) >= 8, cloudflare            # lead, in short x2, section 2 x2, section 4 x2, section 8
+    assert len(cloudflare) >= 7, cloudflare            # in short x2, section 2 x2, section 4 x2, section 8 (lead until 1.8)
     for line in cloudflare:
         assert "USA" not in line and "United States" not in line, line
     assert "does not pass through Cloudflare" not in text and "sets no cookie." not in text
