@@ -460,6 +460,9 @@ def test_a_stored_issue_serves_the_same_page_and_a_second_run_changes_nothing(cl
     stats.reset_cache()
     pl = issue(client, week=week, country="PL")
     assert pl["counts"]["tendersNew"] == 0 and pl["week"] == week
+    # From 9 November 2026 the archive has more weeks than one run builds (8), so the next run would still be filling
+    # older weeks: build them all first, then a run must change nothing.
+    W.refresh(conn, now=NOW, max_builds=len(W.all_weeks(NOW)))
     before = conn.execute("SELECT count(*) AS n FROM digest_issue").fetchone()["n"]
     W.refresh(conn, now=NOW)
     assert conn.execute("SELECT count(*) AS n FROM digest_issue").fetchone()["n"] == before
