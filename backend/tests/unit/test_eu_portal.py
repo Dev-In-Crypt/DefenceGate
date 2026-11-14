@@ -196,3 +196,40 @@ def test_a_document_that_is_not_the_calendar_is_an_error_not_an_empty_day(docume
     found no calls, and the floor would be the only thing left to catch it."""
     with pytest.raises(ValueError):
         portal.parse_snapshot(document)
+
+
+# --------------------------------------------------------- streaming the 125 MiB document
+
+def test_the_grants_list_is_decoded_one_element_at_a_time_and_matches_json_loads():
+    import json
+
+    document = {"other": [1, 2], "fundingData": {"x": "GrantTenderObj", "GrantTenderObj": [
+        _topic(), CL3, {"identifier": "A", "nested": {"list": [1, {"b": "]"}]}}]}, "after": True}
+    text = json.dumps(document, indent=2)
+    assert list(portal.iter_grants(text)) == document["fundingData"]["GrantTenderObj"]
+    assert list(portal.iter_grants('{"fundingData": {"GrantTenderObj": [ ]}}')) == []
+
+
+@pytest.mark.parametrize("text", [
+    '{}', '{"fundingData": {}}', '{"fundingData": {"GrantTenderObj": {}}}', '{"fundingData": {"GrantTenderObj": [1 2]}}',
+])
+def test_a_document_of_another_shape_stops_the_stream(text):
+    with pytest.raises(ValueError):
+        list(portal.iter_grants(text))
+
+
+def test_fetch_keeps_only_the_calls_in_scope(monkeypatch):
+    import json
+
+    document = {"fundingData": {"GrantTenderObj": [_topic(), FARMING, COMMISSION_TENDER]}}
+
+    class Response:
+        content = json.dumps(document).encode()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(portal, "request_with_retry", lambda send, **kw: Response())
+    monkeypatch.setattr(portal, "in_scope", lambda r, today=None: r["identifier"] == _topic()["identifier"])
+    slim = portal.fetch_snapshot(client=object())
+    assert slim == {"fundingData": {"GrantTenderObj": [_topic()]}}

@@ -1876,8 +1876,9 @@ def _fr_buyer_identifier(body: dict[str, Any]) -> str | None:
     for org in _fr_walk(body, "efac:Organization"):
         for item in org if isinstance(org, list) else [org]:
             company = item.get("efac:Company") if isinstance(item, dict) else None
-            if isinstance(company, dict) and _fr_text((company.get("cac:PartyIdentification") or {}).get("cbc:ID")) in ids:
-                found.add(_fr_text((company.get("cac:PartyLegalEntity") or {}).get("cbc:CompanyID")))
+            # Either element can be a list (26-109446, Nov 2026: two PartyLegalEntity); two numbers make the buyer unknown.
+            if isinstance(company, dict) and ids & {_fr_text(n) for n in _fr_nodes(company, ("cac:PartyIdentification", "cbc:ID"))}:
+                found.update(_fr_text(n) for n in _fr_nodes(company, ("cac:PartyLegalEntity", "cbc:CompanyID")))
     numbers = {re.sub(r"\s", "", f) for f in found if f}
     numbers = {n for n in numbers if n.isdigit() and len(n) in (9, 14)}       # SIREN or SIRET, nothing else
     return normalise_identifier(numbers.pop(), "FR") if len(numbers) == 1 else None

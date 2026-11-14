@@ -356,7 +356,47 @@ def parse_snapshot(document: Any, *, today: date | None = None) -> list[dict[str
     return [r for r in records if isinstance(r, dict) and in_scope(r, today=today)]
 
 
+_GRANTS_KEY = '"GrantTenderObj"'
+_SPACE = re.compile(r"\s*")
+
+
+def iter_grants(text: str) -> Iterator[Any]:
+    """The elements of fundingData.GrantTenderObj, decoded one at a time.
+
+    The document is 125 MiB (14 Nov 2026); json.loads of all of it held ~1.5 GB, and on 4 and 10 Nov 2026 the kernel
+    killed the worker for it. Decoding element by element keeps one call in memory besides the text.
+    """
+    funding = text.find('"fundingData"')
+    at = text.find(_GRANTS_KEY, max(funding, 0))
+    while at >= 0:                                    # the key, not the same word as a value
+        i = _SPACE.match(text, at + len(_GRANTS_KEY)).end()
+        if text[i:i + 1] == ":":
+            break
+        at = text.find(_GRANTS_KEY, i)
+    if funding < 0 or at < 0:
+        raise ValueError("reference data has no fundingData.GrantTenderObj; the shape changed")
+    i = _SPACE.match(text, i + 1).end()
+    if text[i:i + 1] != "[":
+        raise ValueError("fundingData.GrantTenderObj is not a list; the shape changed")
+    decoder = json.JSONDecoder()
+    i = _SPACE.match(text, i + 1).end()
+    if text[i:i + 1] == "]":
+        return
+    while True:
+        item, i = decoder.raw_decode(text, i)
+        yield item
+        i = _SPACE.match(text, i).end()
+        if text[i:i + 1] == "]":
+            return
+        if text[i:i + 1] != ",":
+            raise ValueError(f"fundingData.GrantTenderObj is broken at character {i}")
+        i = _SPACE.match(text, i + 1).end()
+
+
 def fetch_snapshot(*, client: httpx.Client | None = None) -> Any:
+    """The reference data cut down to the calls in scope today, in the document's own shape (parse_snapshot reads it
+    and filters again for its own `today`). No call in scope leaves the list empty, which parse_snapshot refuses as an
+    outage."""
     owns = client is None
     client = client or new_client(headers={"User-Agent": USER_AGENT,
                                             "Accept": "application/json"},
@@ -369,7 +409,11 @@ def fetch_snapshot(*, client: httpx.Client | None = None) -> Any:
 
         response = request_with_retry(send, attempts=4, what=f"{SOURCE_CODE} reference data")
         log.info("%s: reference data is %.1f MiB", SOURCE_CODE, len(response.content) / 1048576)
-        return json.loads(response.content)
+        text = response.content.decode("utf-8")
+        response.close()
+        del response
+        kept = [r for r in iter_grants(text) if isinstance(r, dict) and in_scope(r)]
+        return {"fundingData": {"GrantTenderObj": kept}}
     finally:
         if owns:
             client.close()
