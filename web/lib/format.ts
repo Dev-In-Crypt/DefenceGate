@@ -159,6 +159,16 @@ export function funderLine(c: { funder: string; programmeName: string; programme
 }
 
 /**
+ * WP-168: what the call page adds after the programme's name. The portal files the EDIP and USI topics (codes EDF-EDIP-...) under the
+ * European Defence Fund; since WP-137 the name shown is already the EDIP one, so the old "(filed here by the portal; the call is under
+ * <the same name>)" said the name twice and never named the EDF. Null for every other call.
+ */
+export function portalFilingNote(c: { programme?: string; topicId?: string | null }): string | null {
+  return (c.programme === 'EDIP' || c.programme === 'EDIP-USI') && (c.topicId ?? '').toUpperCase().startsWith('EDF-EDIP-')
+    ? 'the portal files it under the European Defence Fund' : null;
+}
+
+/**
  * WP-109 (p09): the programme a call is under, by name. The portal files the EDIP calls (the Ukraine Support Instrument's included) under
  * the European Defence Fund; their programme is the instrument the topic code names (`programme`), as the call page says. WP-132: the
  * card and the call header say it too ("European Commission · European Defence Fund" stood under the 9 EDIP calls).
