@@ -26,7 +26,7 @@ concurrency:
 jobs:
   gated:
     name: gated end-to-end (accounts, billing open)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
 
     services:
