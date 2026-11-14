@@ -6,7 +6,7 @@ import { getCall, getOpenCallsForRelated, relatedCallsFrom, REMOVED, whenRemoved
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { callStatusKind, getCallDeadline, localDeadline } from '@/lib/deadline';
 import { displayName } from '@/lib/display-name';
-import { documentBudgetLine, formatDateLabelledUtc, formatDateUtc, formatMoney, funderLine, openingPhrase, isoDatesToSite } from '@/lib/format';
+import { documentBudgetLine, formatDateLabelledUtc, formatDateUtc, formatMoney, funderLine, openingPhrase, isoDatesToSite, portalFilingNote } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { sourceDisplay } from '@/lib/source-status';
 import { absoluteUrl, buildMetadata, callJsonLd, meetsMinimumContent } from '@/lib/seo';
@@ -269,7 +269,7 @@ export default async function CallDetailPage({ params }: Props) {
               <FactCell label="Programme">
                 <span className="font-sans">
                   {call.programmeName}
-                  {edip && ` (filed here by the portal; the call is under ${edip})`}
+                  {portalFilingNote(call) && ` (${portalFilingNote(call)})`}
                 </span>
               </FactCell>
               <FactCell label="Funder country"><CountryLabel code={call.funderCountry} className="font-sans" /></FactCell>
