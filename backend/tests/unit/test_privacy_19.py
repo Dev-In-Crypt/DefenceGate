@@ -12,11 +12,24 @@ PAGE = ROOT / "web" / "app" / "(public)" / "privacy" / "page.tsx"
 
 
 def test_privacy_19_describes_outreach_mail_and_its_opt_out():
-    assert accounts.PRIVACY_VERSION == "1.9"
+    assert accounts._version(accounts.PRIVACY_VERSION) >= accounts._version("1.9")   # 1.10 keeps section 12
     text = PAGE.read_text(encoding="utf-8")
-    assert 'lead="Version 1.9, published 11 November 2026 (e-mails we send to organisations, section 12).' in text
+    record = ROOT / "docs" / "legal" / "versions" / "privacy-v1.9-2026-11-11.md"
+    assert "Version 1.9, published 11 November 2026 (e-mails we send to organisations, section 12)." in record.read_text(encoding="utf-8")
     assert '<Clause n={12} title="E-mails we send to organisations">' in text
     for must in ("Art. 6(1)(f) GDPR", "Art. 21(2) and (3) GDPR", "do-not-contact list", "12 months after our last message",
                  "no tracking pixel and no link tracking", "We do not buy lists", "'Google (Google Workspace), as a processor"):
         assert must in text, must
     assert (ROOT / "docs" / "legal" / "versions" / "privacy-v1.9-2026-11-11.md").is_file()
+
+
+def test_privacy_110_describes_the_detailed_visit_statistics():
+    """Privacy 1.10 (15 November 2026, WP-169): section 3 as approved; the switch DGATE_STATS_DETAIL may be on only from here."""
+    assert accounts.PRIVACY_VERSION == "1.10"
+    text = PAGE.read_text(encoding="utf-8")
+    assert 'lead="Version 1.10, published 15 November 2026 (visit statistics by page address, referring site and country, section 3).' in text
+    for must in ("never store the country together with the page, the referring site or the device",
+                 "no analytics script and no analytics cookie", "fewer than three views on a day",
+                 "counted only by their kind"):
+        assert must in text, must
+    assert (ROOT / "docs" / "legal" / "versions" / "privacy-v1.10-2026-11-15.md").is_file()

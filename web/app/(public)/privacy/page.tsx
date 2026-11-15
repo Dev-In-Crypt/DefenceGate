@@ -32,13 +32,13 @@ export default async function PrivacyPage() {
       toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Privacy notice', href: '/privacy' }]}
       title="Privacy notice"
-      lead="Version 1.9, published 11 November 2026 (e-mails we send to organisations, section 12). It says what happens today and what will apply once sign-in opens. It is updated before anything that changes it goes live."
+      lead="Version 1.10, published 15 November 2026 (visit statistics by page address, referring site and country, section 3). It says what happens today and what will apply once sign-in opens. It is updated before anything that changes it goes live."
     >
       <Callout title="In short">
         <ClauseList items={[
           'Browsing needs no account. We set no cookie while you browse; Cloudflare, which protects the site, may set two technically necessary cookies (section 4).',
           'No advertising, no third-party trackers, no analytics script and no analytics cookie.',
-          'Visits are counted by our own server, by page, by the kind of site you came from and by phone or computer, with no identifier, no address and no user agent stored.',
+          'Visits are counted by our own server, by page address, by the website you came from and by phone or computer, and separately by country, with no identifier, no IP address and no user agent stored, and without any script or cookie in your browser.',
           'The hosting server keeps ordinary access logs for at most 14 days.',
           'Requests to the site are processed by Cloudflare, our provider of network security and content delivery (section 2).',
           'An account, when accounts open, uses your e-mail address and a password, which we keep only as a one-way hash. Two-step sign-in with an authenticator app is optional. Our mail has no tracking pixel and no link tracking.',
@@ -60,8 +60,16 @@ export default async function PrivacyPage() {
       </Clause>
 
       <Clause n={3} title="Visit statistics">
-        <p className={P}>We count page views to see which parts of the service are used. Our own server adds one to a daily counter for the page (for example <span className="font-mono">/tenders/[slug]</span>, not the individual notice), the site you came from, only when it is one of a short list of well-known ones such as search engines (for example <span className="font-mono">google.com</span>) and otherwise just “other” (never the full address or your search words), and whether the device is a phone or not.</p>
-        <p className={P}>No cookie is set, no script runs in your browser, and no IP address, user agent or identifier is stored with the count, so it cannot be traced to a person. Requests that announce themselves as automated are not counted. <strong>Legal basis:</strong> our legitimate interest in knowing how the service is used (Art. 6(1)(f) GDPR); since no personal data is stored you have nothing to opt out of. To stop one address from inflating the count, the server keeps the address in memory for at most a minute and counts a limited number of views from it; it is never written to disk or stored with the count.</p>
+        <p className={P}>We count page views to see which parts of the service are used and how people find it. Our own server adds one to a daily counter made of:</p>
+        <ClauseList items={[
+          <>the address of the page without anything after a <span className="font-mono">?</span> (for example <span className="font-mono">/tenders/123-armoured-vehicles</span>, never your search words or filters). Pages of the account area and the sign-in, registration and password pages are counted only by their kind (for example <span className="font-mono">/app</span>), never by their full address;</>,
+          <>the website you came from, as its name only (for example <span className="font-mono">www.google.com</span>), never the page on it or the words you searched for; a view from another page of our own site is counted as &ldquo;internal&rdquo;, and a view with no referring site as &ldquo;direct&rdquo;;</>,
+          'whether the device is a phone or not.',
+        ]} />
+        <p className={P}>Separately from these, we count how many views came from each country on a day, as the two-letter code that Cloudflare, which delivers the site (section 2), assigns to the connection. We do not determine it ourselves, do not store the address it was derived from, and never store the country together with the page, the referring site or the device.</p>
+        <p className={P}>We keep only how many views each combination of page, referring site and device had on a day, and how many views each country had, never a record of a single visit or its time: no cookie is set, no script runs in your browser, and no IP address, user agent or identifier is stored with the count, so it cannot be traced to a person. Requests that announce themselves as automated are not counted. To stop one address from inflating the count, the server keeps the address in memory for at most a minute and counts a limited number of views from it; it is never written to disk or stored with the count.</p>
+        <p className={P}><strong>Legal basis:</strong> our legitimate interest in knowing how the service is used and found (Art. 6(1)(f) GDPR). Since no personal data is stored you have nothing to opt out of.</p>
+        <p className={P}><strong>Retention:</strong> after 30 days, a page address or a referring site with fewer than three views on a day is merged into its kind of page or into &ldquo;other&rdquo; for that day. The daily totals themselves contain no personal data and are kept as long as the service runs.</p>
       </Clause>
 
       <Clause n={4} title="Cookies and local storage">
