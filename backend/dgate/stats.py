@@ -116,6 +116,9 @@ NAMES_CACHED = 20_000
 # WP-120: pages over LIST_MAX_PAGE that an endpoint asks to keep (`cache_list(large=...)`: the export's 500 to 2,000 notices)
 _large_cache: dict[Any, tuple[float, Any]] = {}
 LARGE_CACHED = 8
+# WP-170: the counts of the tender lists (`tenders._count_up_to`), by condition and cap: a number each, so many fit
+_count_cache: dict[Any, tuple[float, Any]] = {}
+COUNTS_CACHED = 2000
 
 
 def reset_cache() -> None:
@@ -124,6 +127,7 @@ def reset_cache() -> None:
     _name_cache.clear()
     _large_cache.clear()
     _search_cache.clear()
+    _count_cache.clear()
 
 
 def _get(key: Any, store: dict | None = None) -> Any:
