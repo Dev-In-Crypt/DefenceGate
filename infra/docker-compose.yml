@@ -188,6 +188,8 @@ services:
       # WP-153/159: the data API with keys, closed until 1; the sources a key reads (the licence reading's list).
       DGATE_API_KEYS_OPEN: ${DGATE_API_KEYS_OPEN:-0}
       DGATE_API_KEY_SOURCES: ${DGATE_API_KEY_SOURCES:-ted,nl_tenderned}
+      # WP-169: the visit counter's detail (exact path, referrer host, country), off until 1 (after privacy 1.10 is published).
+      DGATE_STATS_DETAIL: ${DGATE_STATS_DETAIL:-0}
       DGATE_ENV: production
       # Only the key of the sign-in throttle counters when DGATE_INTERNAL_SECRET is unset.
       DGATE_APP_PASSWORD: ${DGATE_APP_PASSWORD}
