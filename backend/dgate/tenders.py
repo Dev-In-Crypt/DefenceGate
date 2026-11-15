@@ -1576,9 +1576,40 @@ def counted(fn):
     return run
 
 
+# WP-170 (backlog, 26 Oct 2026: page 2 of "fuel" took about 4 s): the counts of a list do not depend on the page, but each page
+# counted again (`_few`, then up to SMALL_CAP and TOTAL_CAP): page 1 came from the list cache, page 2 paid every count. A finished
+# count is now kept as long as a list page is (the `cache_list(ttl=)` of `list_tenders`), so the next page reads only its rows and
+# says the total the first page said.
+COUNT_KEEP_SECONDS = 5 * 60
+
+
 def _count_up_to(conn, cond: str, where: list[str], params: list[Any], cap: int, budget_ms: int) -> int | None:
     """How many rows the list has, counting no further than `cap + 1`; None when `budget_ms` (or what is left of the
-    request's `count_budget`) ran out."""
+    request's `count_budget`) ran out. The answer is kept COUNT_KEEP_SECONDS (WP-170) while the list cache is on."""
+    from . import stats
+    from .config import settings
+
+    keep = settings().list_cache_seconds > 0 and hasattr(conn, "execute")
+    if keep:
+        # the newest notice's id is part of the key: a load that adds notices is counted again at once (one index read)
+        newest = conn.execute("SELECT max(id) AS m FROM opportunity").fetchone()["m"]
+    # `where` apart from `cond`: the collapse rules read `where` only (the open part of `all` is `where` + an extra condition)
+    key = ("count", cap, hashlib.sha256(f"{' AND '.join(where)}\n{cond}\n{params!r}".encode()).hexdigest(),
+           newest if keep else None)
+    if keep and (hit := stats._get(key, stats._count_cache)) is not stats._ABSENT:
+        return hit
+    left = _COUNT_LEFT.get()
+    # A count that ran out of its own time box is kept too ("at least" on every page, as on the first); one that got less
+    # because the request had spent its budget elsewhere is not: in another request it may finish
+    whole_box = left is None or left[0] >= budget_ms
+    n = _count_live(conn, cond, where, params, cap, budget_ms)
+    if keep and (n is not None or whole_box):
+        with stats._lock:
+            stats._put(key, n, COUNT_KEEP_SECONDS, stats._count_cache, stats.COUNTS_CACHED)
+    return n
+
+
+def _count_live(conn, cond: str, where: list[str], params: list[Any], cap: int, budget_ms: int) -> int | None:
     left = _COUNT_LEFT.get()
     if left is not None:
         if left[0] < COUNT_MIN_MS:
@@ -1790,6 +1821,10 @@ def list_tenders(
     if capped and rows:
         # "At least": never fewer than what has been read, and a full page may be followed by another.
         total = max(total, start + len(rows) + (1 if len(rows) >= pageSize else 0))
+    # WP-170: a kept count (`_count_up_to`) is up to COUNT_KEEP_SECONDS old; the rows a page holds are never more than its total
+    # (a page past the end holds none and claims nothing)
+    if rows:
+        total = max(total, start + len(rows))
     from .stats import list_meta  # stats imports this module
 
     items = _present(conn, rows, checked=with_meta is True)

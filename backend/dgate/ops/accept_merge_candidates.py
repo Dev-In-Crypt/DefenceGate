@@ -64,6 +64,9 @@ rows stay pending. `--undo-batch` reverses such a batch too.
 
     python -m dgate.ops.accept_merge_candidates --ids-file decisions.csv          # report: groups, heads, refusals
     python -m dgate.ops.accept_merge_candidates --ids-file decisions.csv --yes    # merge, reject; prints the undo
+
+WP-170: `--pair ORG_A ORG_B --confidence C --evidence TEXT [--head H]` merges two rows a person reviewed that no candidate holds
+(`run_pair`: written as a `person_review` candidate and decided as above; report unless --yes).
 """
 
 from __future__ import annotations
@@ -708,6 +711,26 @@ def run_reviewed(conn, reviewed: dict[int, dict[str, Any]], *, apply: bool = Fal
     return res
 
 
+def run_pair(conn, a: int, b: int, *, confidence: float, evidence: str, head: int | None = None, apply: bool = False,
+             out=print) -> dict[str, Any]:
+    """WP-170: two rows a person reviewed that no candidate holds (IDV Defence Vehicles España and "IDV Defensa ... (antes
+    Iveco España)": one company, two rows). The pair is written as a candidate of method `person_review` with the evidence and
+    decided as a reviewed ACCEPT (`run_reviewed`): the same fact refusals (two numbers of one kind, two countries, removed,
+    a natural person), the method and the confidence stored on the absorbed row, undone by `--undo-batch`. A report writes
+    nothing (the candidate is rolled back with the rest)."""
+    if a == b or not evidence.strip() or not 0 < confidence <= 1:
+        raise ValueError("a pair of two rows, an evidence text and a confidence in (0, 1] are needed")
+    lo, hi = sorted((a, b))
+    cid = conn.execute(
+        """INSERT INTO organisation_merge_candidate (organisation_id, candidate_org_id, match_method, confidence, evidence,
+                                                     detected_by)
+           VALUES (%s, %s, %s, %s, %s, %s)
+           ON CONFLICT (organisation_id, candidate_org_id, match_method) DO UPDATE SET match_method = EXCLUDED.match_method
+           RETURNING id""", (lo, hi, REVIEWED, confidence, evidence, DETECTED_BY)).fetchone()["id"]
+    return run_reviewed(conn, {cid: {"decision": "ACCEPT", "head": head, "confidence": confidence,
+                                     "reason": "a pair no candidate held (--pair)"}}, apply=apply, out=out)
+
+
 def undo_batch(conn, start: str, end: str, *, apply: bool = False, out=print) -> dict[str, Any]:
     """Undo every merge this script wrote between `start` and `end` (`ops.undo_merges`, WP-74's
     logic, for any window and any of MERGE_METHODS; no expected count: the window is the batch).
@@ -746,13 +769,22 @@ def main(argv: list[str] | None = None) -> int:
                         "dry run unless --yes")
     p.add_argument("--ids-file", metavar="PATH",
                    help="WP-129: decide the candidates a person reviewed (CSV, see read_reviewed) instead")
+    p.add_argument("--pair", nargs=2, type=int, metavar=("ORG_A", "ORG_B"),
+                   help="WP-170: merge two rows a person reviewed that no candidate holds (needs --confidence, --evidence)")
+    p.add_argument("--confidence", type=float, help="with --pair: the reviewer's confidence, 0..1")
+    p.add_argument("--evidence", default="", help="with --pair: what the reviewer read, stored with the merge")
+    p.add_argument("--head", type=int, help="with --pair: the row that stays (default: the rule of --ids-file)")
     a = p.parse_args(argv)
+    if a.pair and a.confidence is None:
+        p.error("--pair needs --confidence and --evidence")
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     with db.connect(settings().dsn) as conn:
         if a.undo_batch:
             undo_batch(conn, *a.undo_batch, apply=a.yes)
         elif a.ids_file:
             run_reviewed(conn, read_reviewed(a.ids_file), apply=a.yes, limit=a.limit)
+        elif a.pair:
+            run_pair(conn, *a.pair, confidence=a.confidence, evidence=a.evidence, head=a.head, apply=a.yes)
         else:
             run(conn, apply=a.yes, limit=a.limit, sample=a.sample,
                 with_office_splits=not a.no_office_splits)

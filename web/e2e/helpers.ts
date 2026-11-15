@@ -15,6 +15,25 @@ export function watchErrors(page: Page): string[] {
   return seen;
 }
 
+/**
+ * WP-170: the browser gets each page in one piece, as a visitor does. On the site Caddy buffers a page before it sends it
+ * (`response_buffers`, WP-63); `next start` in a test run streams it, and a page whose inline RSC data arrives in pieces while
+ * hydration has started can fail with React #418 (args HTML): React suspends inside an element whose children are a row not yet
+ * received (Flight splits rows over 3.2 KB into such rows) and, on resuming, claims that element again from inside it. That race
+ * gave the intermittent #418 on /tenders?status=planned and /suppliers/.../competitors (backlog); it is not in what visitors get.
+ * GET documents only; a test's own routes, registered later, still come first. Installed once per page by `visit`.
+ */
+const whole = new WeakSet<Page>();
+export async function wholeDocuments(page: Page): Promise<void> {
+  if (whole.has(page)) return;
+  whole.add(page);
+  await page.route('**/*', async (route) => {
+    const req = route.request();
+    if (req.resourceType() !== 'document' || req.method() !== 'GET') return route.fallback();
+    await route.fulfill({ response: await route.fetch({ maxRedirects: 0 }) });
+  });
+}
+
 export interface Expect {
   /** The document title must match. */
   title: RegExp;
@@ -38,6 +57,7 @@ export async function openAbout(page: Page): Promise<void> {
 
 export async function visit(page: Page, path: string, want: Expect): Promise<Response> {
   const errors = watchErrors(page);
+  await wholeDocuments(page);
   const response = await page.goto(path, { waitUntil: 'load' });
   expect(response, `${path} gave no response`).not.toBeNull();
   expect(response!.status(), `${path} status`).toBe(want.status ?? 200);
