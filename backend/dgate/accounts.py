@@ -511,6 +511,7 @@ class Hit(_Body):
     route: str = Field(max_length=200)
     referrer: str = Field("", max_length=300)
     mobile: bool = False
+    country: str = Field("", max_length=8)      # WP-169: Cloudflare's CF-IPCountry, its own daily total, only with DGATE_STATS_DETAIL=1
 
 
 class HitCount(Hit):
@@ -548,6 +549,7 @@ def prune_expired(conn) -> None:
         return
     _last_prune = time.monotonic()
     _prune(conn)
+    fold_old_hits(conn)          # WP-169
 
 
 @router.get("/status")
@@ -2142,8 +2144,19 @@ def dashboard(conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, Any]
 # ------------------------------------------------------------------ visit counter
 _KNOWN_ROUTES = {"", "funding", "tenders", "buyers", "data", "market", "calendar", "cpv", "glossary",
                  "methodology", "about", "terms",
-                 "privacy", "imprint", "pricing", "alerts", "pack", "signin", "register", "signup", "reset", "app"}
-_DETAIL_ROUTES = {"funding", "tenders", "buyers"}
+                 "privacy", "imprint", "pricing", "alerts", "pack", "signin", "register", "signup", "reset", "app",
+                 # WP-169: the public pages added since (they were all `/other`)
+                 "suppliers", "organisations", "projects", "requirements", "regulation", "signals", "networks",
+                 "readiness", "reports", "search", "changes", "check", "digest"}
+_DETAIL_ROUTES = {"funding", "tenders", "buyers", "suppliers", "organisations", "projects", "requirements", "digest"}
+# WP-169: pages whose exact path is never kept, even with the detail on: the account area and its forms.
+_PRIVATE_ROUTES = {"app", "signin", "register", "signup", "reset"}
+_PATH = re.compile(r"^/[A-Za-z0-9._~%/-]{0,199}$")
+_COUNTRY = re.compile(r"^[A-Z][A-Z0-9]$")      # ISO 3166-1 alpha-2, and Cloudflare's XX (unknown) and T1 (Tor)
+INTERNAL = "internal"                           # the site's counter sends this for a referrer on our own domain
+HIT_ROWS_PER_DAY = 5_000                        # WP-169: past this many rows today, new views are counted without detail
+HIT_FOLD_DAYS = 30                              # after this, a path or referrer host with ...
+HIT_FOLD_UNDER = 3                              # ... fewer views than this in its day is folded into its page / `other`
 
 
 def route_key(path: str) -> str:
@@ -2156,6 +2169,19 @@ def route_key(path: str) -> str:
     if head in _DETAIL_ROUTES and len(parts) >= 2:
         return f"/{head}/[slug]"
     return "/" + head if head else "/"
+
+
+def exact_path(path: str) -> str:
+    """WP-169: the path as asked, without the query, for a public page we know; `""` (the page key only) for the account
+    area, an unknown page or anything that is not a plain path."""
+    try:
+        clean = urlsplit(path).path.rstrip("/") or "/"
+    except ValueError:
+        return ""
+    head = clean.split("/")[1]
+    if head not in _KNOWN_ROUTES or head in _PRIVATE_ROUTES or "//" in clean or not _PATH.fullmatch(clean):
+        return ""
+    return clean
 
 
 # The referrer is kept only when it is one of these, as the name on the right; everything
@@ -2172,16 +2198,25 @@ _REFERRER_EXACT = {"x.com": "x.com", "twitter.com": "x.com", "t.co": "x.com", "l
 _HOST = re.compile(r"^[a-z0-9.-]{1,80}$")
 
 
-def referrer_host(value: str) -> str:
-    """The referrer reduced to `""` (direct, or our own site), a name from the allow-list,
-    or `other`. Takes a URL or, as the site's counter sends it, a bare host."""
+def referrer_detail(value: str) -> str:
+    """WP-169, with the detail on: the referrer's host as it is (never its path or query), `internal` for our own site,
+    `""` for a direct visit or anything that is not a host. Bounded by HIT_ROWS_PER_DAY and `fold_old_hits`."""
     try:
         text = (value or "").strip()
         host = (urlsplit(text if "//" in text else "//" + text).hostname or "").lower().strip(".")
     except ValueError:
         return ""
     own = (urlsplit(settings().site_url).hostname or "").lower()
-    if not host or host == own or host == f"www.{own}" or not _HOST.fullmatch(host):
+    if host == INTERNAL or host == own or host == f"www.{own}":
+        return INTERNAL
+    return host if host and _HOST.fullmatch(host) else ""
+
+
+def referrer_host(value: str) -> str:
+    """The referrer reduced to `""` (direct, or our own site), a name from the allow-list,
+    or `other`. Takes a URL or, as the site's counter sends it, a bare host."""
+    host = referrer_detail(value)
+    if host in ("", INTERNAL):
         return ""
     labels = host.split(".")
     if len(labels) >= 2:
@@ -2194,36 +2229,86 @@ def referrer_host(value: str) -> str:
     return "other"
 
 
-def _count_hits(conn, hits: list[tuple[str, str, bool, int]]) -> None:
+def _count_hits(conn, hits: list[tuple[str, str, bool, int, str]]) -> None:
     """Add counts to today's rows in one statement. Keys are merged first: a row cannot be
-    touched twice by one INSERT ... ON CONFLICT."""
-    merged: dict[tuple[str, str, str], int] = {}
-    for route, referrer, mobile, count in hits:
+    touched twice by one INSERT ... ON CONFLICT.
+
+    WP-169: the site sends the exact path, the referrer host and Cloudflare's country. With DGATE_STATS_DETAIL off (the
+    default) they are reduced to the page key, the referrer allow-list and nothing, as privacy 1.9 section 3 says. On, the
+    key keeps the exact public path and the referrer host until today holds HIT_ROWS_PER_DAY rows (past that a view is
+    counted on the reduced key, a bounded set), and the country is added to its own daily total (`app_hit_country_daily`),
+    never in a row with the page, the referrer or the device."""
+    detail = settings().stats_detail
+    full = detail and conn.execute(
+        "SELECT count(*) AS n FROM app_hit_daily WHERE day = (now() AT TIME ZONE 'UTC')::date").fetchone()["n"] >= HIT_ROWS_PER_DAY
+    merged: dict[tuple[str, str, str, str], int] = {}
+    countries: dict[str, int] = {}
+    for route, referrer, mobile, count, country in hits:
         if not route.startswith("/"):
             continue
-        key = (route_key(route), referrer_host(referrer), "mobile" if mobile else "desktop")
+        device = "mobile" if mobile else "desktop"
+        if detail and not full:
+            key = (route_key(route), exact_path(route), referrer_detail(referrer), device)
+        else:
+            key = (route_key(route), "", referrer_host(referrer), device)
         merged[key] = merged.get(key, 0) + count
+        if detail and _COUNTRY.fullmatch(country):
+            countries[country] = countries.get(country, 0) + count
     if not merged:
         return
     keys = list(merged)
     conn.execute(
-        """INSERT INTO app_hit_daily (day, route, referrer, device, hits)
-           SELECT (now() AT TIME ZONE 'UTC')::date, t.route, t.referrer, t.device, t.n
-             FROM unnest(%s::text[], %s::text[], %s::text[], %s::int[]) AS t(route, referrer, device, n)
-           ON CONFLICT (day, route, referrer, device)
+        """INSERT INTO app_hit_daily (day, route, path, referrer, device, hits)
+           SELECT (now() AT TIME ZONE 'UTC')::date, t.route, t.path, t.referrer, t.device, t.n
+             FROM unnest(%s::text[], %s::text[], %s::text[], %s::text[], %s::int[]) AS t(route, path, referrer, device, n)
+           ON CONFLICT (day, route, path, referrer, device)
            DO UPDATE SET hits = app_hit_daily.hits + EXCLUDED.hits""",
-        ([k[0] for k in keys], [k[1] for k in keys], [k[2] for k in keys], [merged[k] for k in keys]))
+        (*([k[i] for k in keys] for i in range(4)), [merged[k] for k in keys]))
+    if countries:
+        conn.execute(
+            """INSERT INTO app_hit_country_daily (day, country, hits)
+               SELECT (now() AT TIME ZONE 'UTC')::date, t.country, t.n FROM unnest(%s::text[], %s::int[]) AS t(country, n)
+               ON CONFLICT (day, country) DO UPDATE SET hits = app_hit_country_daily.hits + EXCLUDED.hits""",
+            (list(countries), list(countries.values())))
+
+
+# WP-169: the growth cap over time. In each day older than HIT_FOLD_DAYS (a fortnight of them per pass: the pass runs every
+# ten minutes, so no day is missed), a path with fewer than HIT_FOLD_UNDER views that day is counted on its page key alone and
+# a referrer host with as few on `other`; the day's total stays the same. Run again it changes nothing. No folded key is one of
+# the deleted keys (a folded path is `""`, which is never low; a folded host is `other`, which is never low), so the insert
+# only meets rows that stay.
+_FOLD_HITS = """
+WITH old AS (SELECT * FROM app_hit_daily
+              WHERE day >= (now() AT TIME ZONE 'UTC')::date - %(lo)s::int AND day < (now() AT TIME ZONE 'UTC')::date - %(hi)s::int),
+     low_path AS (SELECT day, path FROM old WHERE path <> '' GROUP BY day, path HAVING sum(hits) < %(n)s::int),
+     low_ref AS (SELECT day, referrer FROM old WHERE referrer NOT IN ('', 'internal', 'other')
+                  GROUP BY day, referrer HAVING sum(hits) < %(n)s::int),
+     gone AS (DELETE FROM app_hit_daily h
+               WHERE h.day >= (now() AT TIME ZONE 'UTC')::date - %(lo)s::int AND h.day < (now() AT TIME ZONE 'UTC')::date - %(hi)s::int
+                 AND ((h.day, h.path) IN (SELECT day, path FROM low_path) OR (h.day, h.referrer) IN (SELECT day, referrer FROM low_ref))
+              RETURNING h.*)
+INSERT INTO app_hit_daily (day, route, path, referrer, device, hits)
+SELECT g.day, g.route,
+       CASE WHEN (g.day, g.path) IN (SELECT day, path FROM low_path) THEN '' ELSE g.path END,
+       CASE WHEN (g.day, g.referrer) IN (SELECT day, referrer FROM low_ref) THEN 'other' ELSE g.referrer END,
+       g.device, sum(g.hits)
+  FROM gone g GROUP BY 1, 2, 3, 4, 5
+ON CONFLICT (day, route, path, referrer, device) DO UPDATE SET hits = app_hit_daily.hits + EXCLUDED.hits"""
+
+
+def fold_old_hits(conn) -> None:
+    conn.execute(_FOLD_HITS, {"lo": HIT_FOLD_DAYS + 14, "hi": HIT_FOLD_DAYS, "n": HIT_FOLD_UNDER})
 
 
 @internal_router.post("/v1/internal/hit", status_code=204)
 def hit(body: Hit, conn=Depends(get_conn)) -> Response:
-    _count_hits(conn, [(body.route, body.referrer, body.mobile, 1)])
+    _count_hits(conn, [(body.route, body.referrer, body.mobile, 1, body.country)])
     return Response(status_code=204)
 
 
 @internal_router.post("/v1/internal/hits", status_code=204)
 def hits(body: HitBatch, conn=Depends(get_conn)) -> Response:
     """The site's counter sends what it has gathered every few seconds, already summed per
-    page, referrer host and device class."""
-    _count_hits(conn, [(h.route, h.referrer, h.mobile, h.count) for h in body.hits])
+    page, referrer host, device class and country."""
+    _count_hits(conn, [(h.route, h.referrer, h.mobile, h.count, h.country) for h in body.hits])
     return Response(status_code=204)

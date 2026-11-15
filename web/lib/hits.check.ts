@@ -4,7 +4,7 @@
  * Run from web/:  npx tsc lib/hits.check.ts --outDir /tmp/dgchk --module commonjs --target es2022 --skipLibCheck --esModuleInterop && node /tmp/dgchk/hits.check.js
  */
 import assert from 'node:assert/strict';
-import { clientIp, HitBuffer, IpLimiter, MAX_KEYS, referrerHost, routeKey, VIEWS_PER_MINUTE } from './hits';
+import { clientIp, country, HitBuffer, IpLimiter, MAX_KEYS, PAGE_KEYS, referrerHost, routeKey, VIEWS_PER_MINUTE } from './hits';
 import { followRef, ID_RE, isUuid, numericRef } from './refs';
 
 // ---- a page, not a record; an unknown path cannot grow the table ----
@@ -15,14 +15,23 @@ assert.equal(routeKey('/funding/edf-2026-x'), '/funding/[slug]');
 assert.equal(routeKey('/wp-login.php'), '/other');
 assert.equal(routeKey('/auth/verify'), '/other');
 assert.equal(routeKey('/tenders/[slug]'), '/tenders/[slug]');       // already a key: stays one
+assert.equal(routeKey('/suppliers/406963-indra/competitors'), '/suppliers/[slug]');   // WP-169: newer pages are pages
+assert.equal(routeKey('/signals'), '/signals');
 
-// ---- referrer: a host or nothing; the site itself is nothing ----
+// ---- referrer: a host or nothing; the site itself is 'internal' (WP-169: was '', the API still stores it as '' with the detail off) ----
 assert.equal(referrerHost('https://www.google.com/search?q=secret+words', 'defencegatehub.com'), 'www.google.com');
-assert.equal(referrerHost('https://defencegatehub.com/tenders', 'defencegatehub.com'), '');
-assert.equal(referrerHost('https://www.defencegatehub.com/', 'defencegatehub.com'), '');
+assert.equal(referrerHost('https://defencegatehub.com/tenders', 'defencegatehub.com'), 'internal');
+assert.equal(referrerHost('https://www.defencegatehub.com/', 'defencegatehub.com'), 'internal');
 assert.equal(referrerHost('not a url', 'defencegatehub.com'), '');
 assert.equal(referrerHost(null, 'x'), '');
 assert.equal(referrerHost(`https://${'a'.repeat(90)}.example/`, 'x'), '');
+
+// ---- country: Cloudflare's two characters or nothing (WP-169) ----
+assert.equal(country('DE'), 'DE');
+assert.equal(country('T1'), 'T1');
+assert.equal(country('de'), '');
+assert.equal(country('DEU'), '');
+assert.equal(country(null), '');
 
 // ---- address: the first X-Forwarded-For entry, nothing else ----
 assert.equal(clientIp('203.0.113.7, 10.0.0.1'), '203.0.113.7');
@@ -52,7 +61,20 @@ assert.equal(clientIp(null), 'unknown');
   assert.ok(out.length <= 200, `batch of ${out.length}`);          // the API's own cap per batch
   assert.equal(out.reduce((n, h) => n + h.count, 0), 5000);        // folded into `other`, none lost
   assert.ok(out.some((h) => h.referrer === 'other'));
-  assert.ok(MAX_KEYS + 19 * 2 <= 200);
+  assert.ok(MAX_KEYS + PAGE_KEYS * 2 <= 200);                      // WP-169: more pages, so fewer ordinary keys (was 19 and 150)
+}
+{
+  // WP-169: exact paths, hosts and countries vary freely; beyond the cap each is folded to its page key, `other` and no country
+  const b = new HitBuffer();
+  for (let n = 0; n < 5000; n++) b.add(`/tenders/${n}-x`, `host${n}.example`, n % 3 === 0, n % 2 ? 'DE' : 'FR');
+  const out = b.drain();
+  assert.ok(out.length <= 200, `batch of ${out.length}`);
+  assert.equal(out.reduce((n, h) => n + h.count, 0), 5000);
+  assert.ok(out.some((h) => h.route === '/tenders/[slug]' && h.referrer === 'other' && h.country === ''));
+  assert.ok(out.some((h) => h.route === '/tenders/0-x' && h.country === 'FR'));
+  const one = new HitBuffer();
+  one.add(`/funding/${'x'.repeat(300)}`, '', false, '');           // longer than the API takes: its page key
+  assert.equal(one.drain()[0].route, '/funding/[slug]');
 }
 {
   const b = new HitBuffer();

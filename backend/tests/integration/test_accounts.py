@@ -485,7 +485,7 @@ def test_a_visit_is_counted_by_page_with_no_identifier(client, conn):
     assert {r["referrer"] for r in conn.execute("SELECT referrer FROM app_hit_daily").fetchall()} == {"google.com"}
     cols = {r["column_name"] for r in conn.execute(
         "SELECT column_name FROM information_schema.columns WHERE table_name = 'app_hit_daily'").fetchall()}
-    assert cols == {"day", "route", "referrer", "device", "hits"}
+    assert cols == {"day", "route", "path", "referrer", "device", "hits"}   # WP-169: path (empty unless detail)
     assert client.post("/v1/internal/hit", json={"route": "/x"}, headers={"Origin": "https://evil.test"}
                        ).status_code == 403
 

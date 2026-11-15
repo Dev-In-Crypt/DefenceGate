@@ -1,11 +1,12 @@
 import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server';
-import { clientIp, FLUSH_MS, HitBuffer, IpLimiter, referrerHost, routeKey } from './lib/hits';
+import { clientIp, country, FLUSH_MS, HitBuffer, IpLimiter, referrerHost } from './lib/hits';
 
 /**
  * Visit counter. One aggregate row per day, page, referrer host and device class, written by the
  * site's own server: no cookie, no script in the page, no address, no user agent and no
- * identifier ever leaves this function. The page is counted, not the visitor (`/tenders/12-x`
- * becomes `/tenders/[slug]`), and the call is fire-and-forget: it can never slow or break a page.
+ * identifier ever leaves this function. The page is counted, not the visitor: the API stores `/tenders/12-x` as
+ * `/tenders/[slug]`, or, with DGATE_STATS_DETAIL=1 (WP-169), as the path itself with the referrer host and Cloudflare's
+ * country. The call is fire-and-forget: it can never slow or break a page.
  *
  * Page views are summed in memory and sent to the API in one batch every FLUSH_MS (lib/hits.ts), not one
  * request per view, and one address is counted at most 120 times a minute. The batch is sent by whichever
@@ -57,7 +58,9 @@ export function middleware(request: NextRequest, event: NextFetchEvent) {
     const now = Date.now();
     if (limiter.allow(clientIp(request.headers.get('x-forwarded-for')), now)) {
       const own = (request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? '').split(':')[0];
-      buffer.add(routeKey(request.nextUrl.pathname), referrerHost(request.headers.get('referer'), own), MOBILE.test(agent));
+      // WP-169: the path as asked (never the query) and Cloudflare's country; the API keeps them only with DGATE_STATS_DETAIL=1.
+      buffer.add(request.nextUrl.pathname, referrerHost(request.headers.get('referer'), own), MOBILE.test(agent),
+        country(request.headers.get('cf-ipcountry')));
     }
     if (now - lastFlush >= FLUSH_MS) {
       lastFlush = now;

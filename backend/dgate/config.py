@@ -389,6 +389,9 @@ class Settings:
     # WP-153: the data API with keys (dgate/apikeys.py), the owner's switch: closed until DGATE_API_KEYS_OPEN=1. Closed,
     # no key is issued and a request that presents one is refused (401); keys already issued are listed and revocable.
     api_keys_open: bool = field(default_factory=lambda: _env("DGATE_API_KEYS_OPEN", "0").strip() == "1")
+    # WP-169: the visit counter's detail (exact public path, any referrer host, Cloudflare's country), the owner's switch: off
+    # until DGATE_STATS_DETAIL=1, which waits for privacy 1.10. Off, the counter stores what privacy 1.9 section 3 describes.
+    stats_detail: bool = field(default_factory=lambda: _env("DGATE_STATS_DETAIL", "0").strip() == "1")
     # The sources a key-authenticated request may read: the ones docs/research/DATA_LICENCES_2026-10-27.md finds
     # resellable, decided by the owner. Comma-separated source codes; TED and TenderNed (CC0) by default (WP-159). Not
     # BKMS (inactive, GDPR items open); Vinnova feeds calls, which a key does not read.

@@ -62,6 +62,41 @@ def test_a_page_not_a_record_is_counted():
     assert accounts.route_key("/auth/verify?token=abc") == "/other"      # a token never becomes a key
 
 
+@pytest.mark.parametrize("path, kept", [
+    ("/tenders/123-armoured-vehicles?x=1", "/tenders/123-armoured-vehicles"),   # never the query
+    ("/suppliers/406963-indra/competitors/", "/suppliers/406963-indra/competitors"),
+    ("/", "/"),
+    ("/signals", "/signals"),
+    ("/app/searches/9f1c", ""),               # the account area and its forms: the page key only
+    ("/signin", ""),
+    ("/reset", ""),
+    ("/wp-login.php", ""),                    # an unknown page
+    ("/tenders//x", ""),
+    ("/tenders/<script>", ""),
+    ("/tenders/" + "x" * 300, ""),
+])
+def test_wp169_only_a_public_page_keeps_its_exact_path(path, kept):
+    assert accounts.exact_path(path) == kept
+
+
+def test_wp169_newer_public_pages_are_pages_not_other():
+    assert accounts.route_key("/suppliers/406963-indra/competitors") == "/suppliers/[slug]"
+    assert accounts.route_key("/signals") == "/signals"
+
+
+def test_wp169_a_referrer_in_detail_is_its_host_or_internal(monkeypatch):
+    from dgate import config
+    monkeypatch.setenv("DGATE_SITE_URL", "https://defencegatehub.com")
+    config.reset_cache()
+    assert accounts.referrer_detail("https://news.example.org/a/b?q=secret") == "news.example.org"
+    assert accounts.referrer_detail("https://www.defencegatehub.com/tenders") == "internal"
+    assert accounts.referrer_detail("internal") == "internal"            # what the site's counter sends for our own pages
+    assert accounts.referrer_detail("") == ""
+    assert accounts.referrer_detail("https://" + "a" * 90 + ".example/") == ""
+    assert accounts.referrer_host("internal") == ""                      # with the detail off: no referrer, as before
+    config.reset_cache()
+
+
 def test_a_referrer_is_reduced_to_its_host_and_our_own_is_dropped(monkeypatch):
     from dgate import config
     monkeypatch.setenv("DGATE_SITE_URL", "https://defencegatehub.com")
