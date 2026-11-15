@@ -7,7 +7,8 @@ production through the worker image (the worker role reads the table since migra
 
 Every table has two columns: the last 7 days and the last --days days (UTC, today included). Paths, referrer hosts and
 countries exist only for the days counted with DGATE_STATS_DETAIL=1; before that a path is its page key (`/tenders/[slug]`)
-and a referrer is the allow-list's name or `other`. `internal` is a view that came from our own site, an empty referrer a
+and a referrer is the allow-list's name or `other`. Countries are their own daily totals (`app_hit_country_daily`), never
+combined with a page, a referrer or a device. `internal` is a view that came from our own site, an empty referrer a
 direct visit. Aggregates only: the table holds no address, no identifier and no user agent.
 """
 
@@ -19,12 +20,12 @@ import sys
 from .. import db
 from ..config import settings
 
-# label, the expression grouped on
+# label, the table, the expression grouped on
 TABLES = [
-    ("Pages (exact path where kept, else the page key)", "COALESCE(NULLIF(path, ''), route)"),
-    ("Referrer hosts", "COALESCE(NULLIF(referrer, ''), '(direct)')"),
-    ("Countries", "COALESCE(NULLIF(country, ''), '(not kept)')"),
-    ("Devices", "device"),
+    ("Pages (exact path where kept, else the page key)", "app_hit_daily", "COALESCE(NULLIF(path, ''), route)"),
+    ("Referrer hosts", "app_hit_daily", "COALESCE(NULLIF(referrer, ''), '(direct)')"),
+    ("Devices", "app_hit_daily", "device"),
+    ("Countries (their own totals, days counted with the detail on only)", "app_hit_country_daily", "country"),
 ]
 
 
@@ -39,10 +40,10 @@ def report(conn, days: int = 30, top: int = 20) -> str:
                    coalesce(sum(hits), 0) AS n
               FROM app_hit_daily WHERE day >= {_since(days)}""").fetchone()
     out.append(f"Page views: last 7 days {totals['w']:,}, last {days} days {totals['n']:,}")
-    for title, expr in TABLES:
+    for title, table, expr in TABLES:
         rows = conn.execute(
             f"""SELECT {expr} AS k, sum(hits) FILTER (WHERE day >= {_since(7)}) AS w, sum(hits) AS n
-                  FROM app_hit_daily WHERE day >= {_since(days)}
+                  FROM {table} WHERE day >= {_since(days)}
                  GROUP BY 1 ORDER BY n DESC, k LIMIT %s""", (top,)).fetchall()
         out.append(_table(f"{title}, top {top}", ["", "7 days", f"{days} days"],
                           [[r["k"], f"{r['w'] or 0:,}", f"{r['n']:,}"] for r in rows]))

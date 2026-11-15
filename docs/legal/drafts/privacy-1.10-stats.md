@@ -9,8 +9,8 @@ publishing would make the published text untrue.
 
 ## In short (replaces the third bullet)
 
-> Visits are counted by our own server, by page address, by the website you came from, by country and by phone or
-> computer, with no identifier, no IP address and no user agent stored, and without any script or cookie in your browser.
+> Visits are counted by our own server, by page address, by the website you came from and by phone or computer, and
+> separately by country, with no identifier, no IP address and no user agent stored, and without any script or cookie in your browser.
 
 The second bullet ("No advertising, no third-party trackers, no analytics script and no analytics cookie.") stays as it is.
 
@@ -25,11 +25,14 @@ The second bullet ("No advertising, no third-party trackers, no analytics script
 > - the website you came from, as its name only (for example `www.google.com` or `news.example.org`), never the page on it
 >   or the words you searched for; a view from another page of our own site is counted as "internal", and a view with no
 >   referring site as "direct";
-> - the country your connection comes from, as the two-letter code that Cloudflare, which delivers the site (section 2),
->   assigns to it. We do not determine it ourselves and do not store the address it was derived from;
 > - whether the device is a phone or not.
 >
-> We keep only how many views each combination of these had on a day, never a record of a single visit or its time: no
+> Separately from these, we count how many views came from each country on a day, as the two-letter code that Cloudflare,
+> which delivers the site (section 2), assigns to the connection. We do not determine it ourselves, do not store the address
+> it was derived from, and never store the country together with the page, the referring site or the device.
+>
+> We keep only how many views each combination of page, referring site and device had on a day, and how many views each
+> country had, never a record of a single visit or its time: no
 > cookie is set, no script runs in your browser, and no IP address, user agent or identifier is stored with the count, so it
 > cannot be traced to a person. Requests that announce themselves as automated are not counted. To stop one address from
 > inflating the count, the server keeps the address in memory for at most a minute and counts a limited number of views
@@ -49,9 +52,8 @@ The second bullet ("No advertising, no third-party trackers, no analytics script
 - A referring site can be a small one (a personal blog, a company intranet name). It is stored as a host name, a total per
   day, and folded into "other" after 30 days when it brought fewer than three views a day. Whether a host name of a
   one-person site is personal data on its own is the lawyer's question; the fold limits how long one stays.
-- On a quiet day a combination (page, referring site, country, device) can have a count of one. It holds no identifier and no
-  time, and the fold removes rare pages and sites after 30 days, but the country stays with the page kind. If the lawyer
-  prefers, countries can be counted on their own (a separate total per day and country, not combined with the page or the
-  referrer); that is a small change in `accounts._count_hits` and `dgate.ops.stats`.
+- On a quiet day a combination (page, referring site, device) can have a count of one. It holds no identifier, no time and
+  no country (countries are separate daily totals, `app_hit_country_daily`), and the fold removes rare pages and sites
+  after 30 days.
 - The country comes from Cloudflare's `CF-IPCountry` header. Cloudflare is already named in section 2 as processor; no new
   recipient.

@@ -511,7 +511,7 @@ class Hit(_Body):
     route: str = Field(max_length=200)
     referrer: str = Field("", max_length=300)
     mobile: bool = False
-    country: str = Field("", max_length=8)      # WP-169: Cloudflare's CF-IPCountry, kept only with DGATE_STATS_DETAIL=1
+    country: str = Field("", max_length=8)      # WP-169: Cloudflare's CF-IPCountry, its own daily total, only with DGATE_STATS_DETAIL=1
 
 
 class HitCount(Hit):
@@ -2235,32 +2235,41 @@ def _count_hits(conn, hits: list[tuple[str, str, bool, int, str]]) -> None:
 
     WP-169: the site sends the exact path, the referrer host and Cloudflare's country. With DGATE_STATS_DETAIL off (the
     default) they are reduced to the page key, the referrer allow-list and nothing, as privacy 1.9 section 3 says. On, the
-    key keeps the exact public path, the referrer host and the country, until today holds HIT_ROWS_PER_DAY rows; past that
-    a view is counted on the reduced key, a set of a few hundred rows at most."""
-    detail = settings().stats_detail and conn.execute(
-        "SELECT count(*) AS n FROM app_hit_daily WHERE day = (now() AT TIME ZONE 'UTC')::date").fetchone()["n"] < HIT_ROWS_PER_DAY
-    merged: dict[tuple[str, str, str, str, str], int] = {}
+    key keeps the exact public path and the referrer host until today holds HIT_ROWS_PER_DAY rows (past that a view is
+    counted on the reduced key, a bounded set), and the country is added to its own daily total (`app_hit_country_daily`),
+    never in a row with the page, the referrer or the device."""
+    detail = settings().stats_detail
+    full = detail and conn.execute(
+        "SELECT count(*) AS n FROM app_hit_daily WHERE day = (now() AT TIME ZONE 'UTC')::date").fetchone()["n"] >= HIT_ROWS_PER_DAY
+    merged: dict[tuple[str, str, str, str], int] = {}
+    countries: dict[str, int] = {}
     for route, referrer, mobile, count, country in hits:
         if not route.startswith("/"):
             continue
         device = "mobile" if mobile else "desktop"
-        if detail:
-            key = (route_key(route), exact_path(route), referrer_detail(referrer), device,
-                   country if _COUNTRY.fullmatch(country) else "")
+        if detail and not full:
+            key = (route_key(route), exact_path(route), referrer_detail(referrer), device)
         else:
-            key = (route_key(route), "", referrer_host(referrer), device, "")
+            key = (route_key(route), "", referrer_host(referrer), device)
         merged[key] = merged.get(key, 0) + count
+        if detail and _COUNTRY.fullmatch(country):
+            countries[country] = countries.get(country, 0) + count
     if not merged:
         return
     keys = list(merged)
     conn.execute(
-        """INSERT INTO app_hit_daily (day, route, path, referrer, device, country, hits)
-           SELECT (now() AT TIME ZONE 'UTC')::date, t.route, t.path, t.referrer, t.device, t.country, t.n
-             FROM unnest(%s::text[], %s::text[], %s::text[], %s::text[], %s::text[], %s::int[])
-                  AS t(route, path, referrer, device, country, n)
-           ON CONFLICT (day, route, path, referrer, device, country)
+        """INSERT INTO app_hit_daily (day, route, path, referrer, device, hits)
+           SELECT (now() AT TIME ZONE 'UTC')::date, t.route, t.path, t.referrer, t.device, t.n
+             FROM unnest(%s::text[], %s::text[], %s::text[], %s::text[], %s::int[]) AS t(route, path, referrer, device, n)
+           ON CONFLICT (day, route, path, referrer, device)
            DO UPDATE SET hits = app_hit_daily.hits + EXCLUDED.hits""",
-        (*([k[i] for k in keys] for i in range(5)), [merged[k] for k in keys]))
+        (*([k[i] for k in keys] for i in range(4)), [merged[k] for k in keys]))
+    if countries:
+        conn.execute(
+            """INSERT INTO app_hit_country_daily (day, country, hits)
+               SELECT (now() AT TIME ZONE 'UTC')::date, t.country, t.n FROM unnest(%s::text[], %s::int[]) AS t(country, n)
+               ON CONFLICT (day, country) DO UPDATE SET hits = app_hit_country_daily.hits + EXCLUDED.hits""",
+            (list(countries), list(countries.values())))
 
 
 # WP-169: the growth cap over time. In each day older than HIT_FOLD_DAYS (a fortnight of them per pass: the pass runs every
@@ -2278,13 +2287,13 @@ WITH old AS (SELECT * FROM app_hit_daily
                WHERE h.day >= (now() AT TIME ZONE 'UTC')::date - %(lo)s::int AND h.day < (now() AT TIME ZONE 'UTC')::date - %(hi)s::int
                  AND ((h.day, h.path) IN (SELECT day, path FROM low_path) OR (h.day, h.referrer) IN (SELECT day, referrer FROM low_ref))
               RETURNING h.*)
-INSERT INTO app_hit_daily (day, route, path, referrer, device, country, hits)
+INSERT INTO app_hit_daily (day, route, path, referrer, device, hits)
 SELECT g.day, g.route,
        CASE WHEN (g.day, g.path) IN (SELECT day, path FROM low_path) THEN '' ELSE g.path END,
        CASE WHEN (g.day, g.referrer) IN (SELECT day, referrer FROM low_ref) THEN 'other' ELSE g.referrer END,
-       g.device, g.country, sum(g.hits)
-  FROM gone g GROUP BY 1, 2, 3, 4, 5, 6
-ON CONFLICT (day, route, path, referrer, device, country) DO UPDATE SET hits = app_hit_daily.hits + EXCLUDED.hits"""
+       g.device, sum(g.hits)
+  FROM gone g GROUP BY 1, 2, 3, 4, 5
+ON CONFLICT (day, route, path, referrer, device) DO UPDATE SET hits = app_hit_daily.hits + EXCLUDED.hits"""
 
 
 def fold_old_hits(conn) -> None:
