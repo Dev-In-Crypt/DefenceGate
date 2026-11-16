@@ -316,5 +316,6 @@ Hold until answered:
 - `de_bkms`: licence "Not verified" can be CC0 (still inactive; owner's switch).
 - `pl_ezam`, `pl_atlas`: `commercial_ok = TRUE` is more than the reading supports (unclear).
 - `fr_aid`, `pl_ncbr`: `TRUE` with an open question each.
+- WP-172 (owner, 16 November 2026): these four set to `commercial_ok = NULL` (unclear) by migration 0161.
 - `es_placsp`, `es_placsp_agg`: attribution lacks the ministry's "Origen de los datos: Ministerio de Hacienda" form
   and the date of last update.

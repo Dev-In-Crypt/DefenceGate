@@ -109,10 +109,16 @@ _PL_TWIN_POWIATS = frozenset(f"powiat {n}" for n in (
 # (przasnyski, mazowieckie; rzeszowski, podkarpackie). Production holds rows of both of each pair (25 October 2026: NIP
 # 657... and 927... for Łagów, 761... and 517.../REGON 69... for Krasne). Only a number joins such rows.
 # WP-143 (merge review 2): and Stężyca (kartuski, pomorskie; rycki, lubelskie): NIP 589... and 506... on production.
-# ponytail: the pairs met in the data; Poland has more twin gmina names, added here when a row of one appears. No register of
-# gmina names (TERYT) is in the repository or the database; 52 "gmina X" names hold NIPs of two tax offices on 26 October 2026
-# (docs/verification/round6/wp143-selfcheck.md lists them for review), most of them twins, some a mistyped number.
-_PL_TWIN_GMINAS = frozenset({"gmina lagow", "gmina krasne", "gmina stezyca"})
+# WP-172: the 52 "gmina X" names that held NIPs of two tax offices on 26 October 2026 (wp143-selfcheck item 12), checked
+# against the TERYT register (GUS, TERC, official version as of 16 November 2026; gminas of kinds 1-3, names folded): 40 are
+# borne by two or more gminas (these; docs/sources/pl_teryt_gminas.csv lists them with their TERC codes). The other 12 are
+# one gmina each, so one of their numbers is mistyped or another body's: a person reads those rows.
+# ponytail: the names met in the data; TERYT has 229 names borne by two or more gminas, added here when a row of one appears.
+_PL_TWIN_GMINAS = frozenset(f"gmina {n}" for n in (
+    "biskupiec", "bobrowniki", "brzeziny", "chmielnik", "czarna", "czernichow", "dabrowa", "debno", "debowiec", "dobra",
+    "jablonna", "klodawa", "konopnica", "krasne", "lagow", "lipno", "michalowice", "moszczenica", "olesno", "olszanka",
+    "opatow", "osieczna", "osiek", "piaski", "pniewy", "radkow", "radlow", "rogowo", "rogozno", "rybno", "rzgow", "slawno",
+    "slubice", "stezyca", "szydlowo", "ujazd", "wierzbica", "wilkow", "wisniowa", "zakrzew"))
 _PL_TWIN_NAMES = _PL_TWIN_POWIATS | _PL_TWIN_GMINAS
 
 

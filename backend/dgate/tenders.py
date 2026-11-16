@@ -1704,7 +1704,7 @@ def _kept_in_snapshot(kwargs: dict[str, Any]) -> bool:
 
 
 @router.get("/v1/tenders", response_model=TenderPage, dependencies=[Depends(known_params)])
-@cache_list("tenders", ttl=5 * 60, snapshot=_kept_in_snapshot, stale=LIST_STALE_SECONDS)
+@cache_list("tenders", ttl=5 * 60, snapshot=_kept_in_snapshot, stale=LIST_STALE_SECONDS, warm_next=True)
 @counted
 def list_tenders(
     q: str | None = Query(None, max_length=100),
