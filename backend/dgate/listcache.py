@@ -41,7 +41,8 @@ def snapshot_key(name: str, kwargs: dict[str, Any]) -> str:
         for k, v in sorted(kwargs.items()) if k != "conn")
 
 
-def cache_list(name: str, ttl: float | None = None, *, snapshot: bool = False, stale: float = 0, large: int = 0):
+def cache_list(name: str, ttl: float | None = None, *, snapshot: bool = False, stale: float = 0, large: int = 0,
+               warm_next: bool = False):
     """Wrap a list endpoint's function: the whole response is kept for `ttl` seconds
     (`DGATE_LIST_CACHE_SECONDS`, 60; 0 turns it off, as in the test suite) under the normalised arguments, everything but the connection,
     so one query is computed once a minute whoever asks, concurrent askers share the
@@ -61,7 +62,12 @@ def cache_list(name: str, ttl: float | None = None, *, snapshot: bool = False, s
 
     WP-120: `stale` (seconds): an expired answer is given for that long more while one background read renews it
     (`stats.cached_stale`), so the request that finds it expired does not wait for the query (the default tender list was
-    3.2 s on such a call). `large` (items): pages up to that size are kept too, in a small store of their own (the export)."""
+    3.2 s on such a call). `large` (items): pages up to that size are kept too, in a small store of their own (the export).
+
+    WP-172: `warm_next`: a first page asked over HTTP that has a second one starts that second page in the background
+    (`stats.warm`, its own connection, after this answer is in hand), so its counts and rows are kept before the visitor asks
+    for it. A first page given from memory or from a snapshot computes no count, and the second page then paid them all (3 s
+    on production for a common word, 16 November 2026)."""
     def wrap(fn):
         # Free variables: `inner` is rebuilt on the endpoint's globals, not this module's.
         scalars, key_of, hours, restore = _SCALARS, snapshot_key, SNAPSHOT_HOURS, restored
@@ -77,19 +83,19 @@ def cache_list(name: str, ttl: float | None = None, *, snapshot: bool = False, s
 
             asked = kwargs.get("conn")
 
-            def compute(conn=asked):
-                if (snapshot(kwargs) if callable(snapshot) else snapshot) and default > 0 and hasattr(conn, "execute"):
+            def compute(conn=asked, kw=kwargs):
+                if (snapshot(kw) if callable(snapshot) else snapshot) and default > 0 and hasattr(conn, "execute"):
                     try:
                         row = conn.execute(
                             "SELECT body FROM list_snapshot WHERE key = %s "
                             "AND computed_at > now() - make_interval(hours => %s)",
-                            (key_of(name, kwargs), hours)).fetchone()
+                            (key_of(name, kw), hours)).fetchone()
                     except Exception:  # noqa: BLE001 - a snapshot is a shortcut, never a failure
                         conn.rollback()
                         row = None
                     if row:
                         return restore(row["body"])
-                return fn(**kwargs) if conn is asked else fn(**{**kwargs, "conn": conn})
+                return fn(**kw) if conn is asked else fn(**{**kw, "conn": conn})
 
             # No size at all (the scope counts) is a small answer, and is kept. A larger page is not kept in memory, but a
             # snapshot of it is still read (WP-98c: the Atom feed reads pages of 200, and computed them on every request).
@@ -100,15 +106,24 @@ def cache_list(name: str, ttl: float | None = None, *, snapshot: bool = False, s
                     return compute()
                 store, limit = stats._large_cache, stats.LARGE_CACHED
 
-            frozen = tuple(sorted(
-                (k, (v is True) if k == "with_meta" else v if isinstance(v, scalars) else repr(v))
-                for k, v in kwargs.items() if k != "conn"))
+            def frozen(kw):
+                return tuple(sorted(
+                    (k, (v is True) if k == "with_meta" else v if isinstance(v, scalars) else repr(v))
+                    for k, v in kw.items() if k != "conn"))
+
             seconds = 0 if default <= 0 else (default if ttl is None else ttl)
             if stale and seconds > 0:
                 # WP-120: past `seconds` the kept answer is still given for `stale` more while a background read renews it
-                return stats.cached_stale((name, frozen), compute, asked, seconds, stale,
-                                          store=store, limit=limit)
-            return stats.cached((name, frozen), compute, seconds, store=store, limit=limit)
+                value = stats.cached_stale((name, frozen(kwargs)), compute, asked, seconds, stale,
+                                           store=store, limit=limit)
+            else:
+                value = stats.cached((name, frozen(kwargs)), compute, seconds, store=store, limit=limit)
+            # a visitor's request only (`with_meta` is True over HTTP): the account code and the sell report read one page
+            if (warm_next and seconds > 0 and kwargs.get("page") == 1 and kwargs.get("with_meta") is True
+                    and isinstance(value, dict) and (value.get("totalCapped") or (value.get("total") or 0) > (size or 0))):
+                nxt = {**kwargs, "page": 2}
+                stats.warm((name, frozen(nxt)), lambda c: compute(c, nxt), seconds, store=store, limit=limit)
+            return value
 
         rebuilt = types.FunctionType(inner.__code__, fn.__globals__, fn.__name__,
                                      inner.__defaults__, inner.__closure__)

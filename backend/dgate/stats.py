@@ -230,6 +230,33 @@ def _renew(key: Any, compute, ttl: float, store: dict | None, limit: int | None)
         _renewal_gate.release()
 
 
+def warm(key: Any, compute, ttl: float, *, store: dict | None = None, limit: int | None = None) -> bool:
+    """WP-172: `cached(key, compute(c), ttl)` in a background thread with a connection of its own, unless the key holds a
+    value or is being computed; under the renewal gate (RENEWALS at once), so a burst of requests starts at most that many.
+    A request for the key meanwhile waits for this computation (`cached`'s single flight) instead of repeating it. True when
+    it started."""
+    with _lock:
+        start = (_get(key, store) is _ABSENT and key not in _inflight and key not in _refreshing
+                 and _renewal_gate.acquire(blocking=False))
+        if start:
+            _refreshing.add(key)
+    if start:
+        threading.Thread(target=_warm, args=(key, compute, ttl, store, limit), daemon=True, name="warm").start()
+    return start
+
+
+def _warm(key: Any, compute, ttl: float, store: dict | None, limit: int | None) -> None:
+    try:
+        with _connection() as c:
+            cached(key, lambda: compute(c), ttl, store=store, limit=limit)
+    except Exception:  # noqa: BLE001 - a warm-up is a shortcut; the request that needs the value computes it
+        log.exception("background warm-up of %r failed", key[0] if isinstance(key, tuple) else key)
+    finally:
+        with _lock:
+            _refreshing.discard(key)
+        _renewal_gate.release()
+
+
 @contextmanager
 def _connection():
     """The API's own role, opened only when something has to be computed."""
