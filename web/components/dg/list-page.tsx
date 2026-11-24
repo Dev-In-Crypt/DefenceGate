@@ -30,7 +30,7 @@ export function SkipToResults() {
  * filter column, results column (count, sort, items, pagination). `children` are the <li> items.
  */
 export function ListPage({
-  crumbs, title, intro, head, meta, scope, listNote, filterBar, filterExtra, exportHref, exportStatus, noun, page, pageSize, total, sort, clearHref, emptyTitle, emptyText, hrefFor, footnote, notices = [], totalText, reachable, limitNote, calendarHref = '/calendar?kind=tenders', feedHref, subscribe, children,
+  crumbs, title, intro, head, meta, scope, listNote, filterBar, filterExtra, exportHref, exportStatus, noun, nounOne, page, pageSize, total, sort, clearHref, emptyTitle, emptyText, hrefFor, footnote, notices = [], totalText, reachable, limitNote, calendarHref = '/calendar?kind=tenders', feedHref, subscribe, children,
 }: {
   /** WP-87: the calendar and the Atom feed of this result, with its filters. */
   calendarHref?: string; feedHref?: string;
@@ -50,6 +50,8 @@ export function ListPage({
   /** The status filter of that result (it sets the file's row cap). */
   exportStatus?: string;
   noun: string; page: number; pageSize: number; total: number;
+  /** WP-174 (F29): the noun of a list of one ("Showing 1–1 of 1 tenders" read "1 tender"). */
+  nounOne?: string;
   sort: { value: string; options: { value: string; label: string }[] };
   clearHref: string; emptyTitle: string; emptyText: React.ReactNode; hrefFor: (page: number) => string;
   footnote?: React.ReactNode;
@@ -82,7 +84,7 @@ export function ListPage({
           {scope}
           <div className="flex flex-wrap items-center gap-3">
             <Count id="results-heading" className="m-0 mr-auto text-body font-semibold" aria-live="polite">
-              {total === 0 ? `No ${noun}` : `Showing ${formatNumber(from)}–${formatNumber(to)} of ${totalText ?? formatNumber(total)} ${noun}`}
+              {total === 0 ? `No ${noun}` : total === 1 && totalText === undefined && nounOne ? `1 ${nounOne}` : `Showing ${formatNumber(from)}–${formatNumber(to)} of ${totalText ?? formatNumber(total)} ${noun}`}
             </Count>
             <SortSelect value={sort.value} options={sort.options} />
           </div>

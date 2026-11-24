@@ -132,5 +132,8 @@ def test_a_planned_notice_without_a_deadline_expires_after_a_year():
 def test_an_open_notice_of_a_procedure_without_a_call_and_no_deadline_is_not_open():
     """de_bkms 283577 (p10): "de-comp-wo-call", no deadline, no publication date, served Open."""
     assert effective_status("open", None, None, NOW, procedure="de-comp-wo-call") == "expired"
-    assert effective_status("open", None, None, NOW, procedure="de-restricted-w-call") == "open"
+    # WP-174 (QA 24 Nov 2026, B-21): with a call, no deadline and no date at all, whether it still takes tenders cannot be read
+    # (it was "open" forever); dated by the notice itself it is open for the year as before
+    assert effective_status("open", None, None, NOW, procedure="de-restricted-w-call") == "unknown"
+    assert effective_status("open", None, None, NOW, procedure="de-restricted-w-call", notice_date=date(2026, 10, 1)) == "open"
     assert effective_status("open", datetime(2026, 11, 1, tzinfo=timezone.utc), None, NOW, procedure="neg-wo-call") == "open"

@@ -26,14 +26,15 @@ export function ContractPeriodText({ p, className }: { p: ContractPeriod; classN
 
 const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-const ROW = 'flex min-w-0 flex-col gap-2 rounded-lg border border-transparent bg-surface p-4';
+// WP-174 (B-12): the card hover rule, the row's border shows the hover and the focus; the title is never underlined
+const ROW = 'flex min-w-0 flex-col gap-2 rounded-lg border border-transparent bg-surface p-4 transition-colors duration-dg hover:border-ink-muted has-[:focus-visible]:border-ink-muted';
 
 /** One contract of the list or of a buyer's block: the notice, its buyer, the period, the winners where known. */
 export function EndingRow({ t, showBuyer = true }: { t: EndingItem; showBuyer?: boolean }) {
   const won = t.awardedTo ?? [];
   return (
     <li className={ROW} data-ending-row>
-      <Link href={`/tenders/${t.slug}`} className="min-w-0 break-words text-h3 font-semibold">{displayName(t.title, 'title')}</Link>
+      <Link href={`/tenders/${t.slug}`} className="min-w-0 break-words text-h3 font-semibold text-ink no-underline">{displayName(t.title, 'title')}</Link>
       <span className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-small text-ink-muted">
         {showBuyer && <span className="text-ink">{t.buyerSlug ? <Link href={`/buyers/${t.buyerSlug}`}>{t.buyerName}</Link> : t.buyerName}</span>}
         {t.country && <CountryLabel code={t.country} />}

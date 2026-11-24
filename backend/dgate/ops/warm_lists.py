@@ -2,7 +2,8 @@
 
 The closed and the "all" lists cost seconds on a cold read (a quarter of a million notices, collapsed),
 and the API's budget is five. This computes what people open: for status closed and all, no country and
-every country that has defence notices, the first three pages, and the scope counts beside them. The
+every country that has defence notices, the first three pages (of "all" the first, for its total: WP-174), and the scope
+counts beside them. The
 totals in them are exact (`tenders.EXACT_TOTALS`; the live list stops counting at 10,000 and says so, and a
 deeper page of the same filters repeats the exact total from here). Open lists and their counts are not
 kept: a few thousand rows, read live, so that the counts beside a list are the list's own at the same
@@ -43,11 +44,6 @@ TENDER_PAGE_SIZE = 10          # the page size of the site (web/lib/filters.ts)
 PAGES = (1, 2, 3)
 LIST_STATUSES = ("closed", "all")
 COUNT_STATUSES = ("closed", "all")
-CHANGE_PAGE_SIZES = (25, 100)  # the page (web/lib/filters.ts CHANGE_PAGE_SIZE) and the Atom feed
-# WP-98c: the Atom feed's first page reads the first two API pages of 200 (web/lib/api.ts FEED_PAGE_SIZE, FEED_PAGE_ENTRIES):
-# kept here so the first reader after a deploy or a quiet hour does not wait for the window to be computed (5.1 s cold)
-FEED_PAGE_SIZE = 200
-FEED_API_PAGES = (1, 2)
 
 
 def _defaults(endpoint) -> dict:
@@ -78,7 +74,8 @@ def views(countries: list[str]) -> list[tuple[str, str, dict]]:
                 if name == "tender-scope-counts":
                     out.append((name, snapshot_key(name, kw), kw))
                     continue
-                for page in PAGES:
+                # WP-174 (B-1): an `all` page is read live (its open notices are of now); its first page is kept for the total
+                for page in (PAGES[:1] if status == "all" else PAGES):
                     kw2 = {**kw, "page": page, "pageSize": TENDER_PAGE_SIZE}
                     out.append((name, snapshot_key(name, kw2), kw2))
             if name == "tenders" and status != "planned":
@@ -93,14 +90,8 @@ def views(countries: list[str]) -> list[tuple[str, str, dict]]:
             for status in LIST_STATUSES:
                 kw = {**base, "q": q, "status": status, **({"page": 1, "pageSize": TENDER_PAGE_SIZE} if name == "tenders" else {})}
                 out.append((name, snapshot_key(name, kw), kw))
-    base = _defaults(changes.list_changes.__wrapped__)
-    base["with_meta"] = True
-    for size in CHANGE_PAGE_SIZES:
-        kw = {**base, "pageSize": size}
-        out.append(("changes", snapshot_key("changes", kw), kw))
-    for page in FEED_API_PAGES:
-        kw = {**base, "pageSize": FEED_PAGE_SIZE, "page": page}
-        out.append(("changes", snapshot_key("changes", kw), kw))
+    # WP-174 (A-6): the change pages are no longer kept (`changes.list_changes`): a stored first page and a live second one
+    # overlapped; the candidates above are what makes the live window cheap
     out.append(("buyer-base", tenders.BUYER_BASE_KEY, {}))        # before the slugs, which read it
     out.append(("buyer-units", tenders.BUYER_UNITS_KEY, {}))      # WP-144: the buyer pages' unit choice
     # WP-98c: the supplier list's value orders, unfiltered (the whole set, and TED's rows)
@@ -139,9 +130,9 @@ def run(conn, *, write: bool = False) -> dict[str, int]:
     return {"views": len(todo), "written": done, "failed": failed, "removed": removed, **sets}
 
 
-# WP-98c: the views the first reader after a deploy must not wait for (the Atom feed's pages, the supplier value orders),
+# WP-98c: the views the first reader after a deploy must not wait for (the change candidates, the supplier value orders),
 # written at the worker's start when missing or older than four hours, without the ten minutes of the whole run.
-FIRST_VIEWS = ("changes-candidates", "changes", "supplier-values", "contract-values")
+FIRST_VIEWS = ("changes-candidates", "supplier-values", "contract-values")
 
 
 def run_first(conn) -> dict[str, int]:

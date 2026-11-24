@@ -70,7 +70,8 @@ test('/digest.atom is an Atom feed with one entry per week, answers conditional 
   expect(res.status()).toBe(200);
   expect(res.headers()['content-type']).toContain('application/atom+xml');
   const body = await res.text();
-  expect(body).toMatch(/^<\?xml version="1\.0" encoding="utf-8"\?>\n<feed xmlns="http:\/\/www\.w3\.org\/2005\/Atom"/);
+  // WP-174 (F24): the stylesheet line a browser draws the feed with comes second
+  expect(body).toMatch(/^<\?xml version="1\.0" encoding="utf-8"\?>\r?\n(?:<\?xml-stylesheet type="text\/css" href="\/feed\.css"\?>\r?\n)?<feed xmlns="http:\/\/www\.w3\.org\/2005\/Atom"/);
   expect(body.trimEnd().endsWith('</feed>')).toBe(true);
   expect(body).toMatch(/<link rel="self" type="application\/atom\+xml" href="[^"]+\/digest\.atom"\/>/);
   const entries = body.match(/<entry>[\s\S]*?<\/entry>/g) ?? [];

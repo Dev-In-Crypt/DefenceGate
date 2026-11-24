@@ -1,0 +1,11 @@
+/* WP-174 (QA 16 Nov 2026, F24): a feed opened in a browser reads as a list, not as raw XML. Feed readers ignore this file. */
+:root { color-scheme: light dark; }
+feed { display: block; max-width: 46rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: #1a1d21; background: #fff; }
+@media (prefers-color-scheme: dark) { feed { color: #e6e8eb; background: #111418; } entry { border-color: #2c3239; } }
+feed::before { content: "This is a news feed. Copy this page's address into a feed reader (Feedly, Inoreader, Thunderbird, Outlook) to follow it; each entry links to its page on DefenceGate."; display: block; padding: .75rem 1rem; margin-bottom: 1.25rem; border-radius: .5rem; background: rgba(60, 110, 200, .12); font-size: .95rem; }
+feed > title { display: block; font-size: 1.6rem; font-weight: 700; margin-bottom: .25rem; }
+feed > subtitle { display: block; font-size: .95rem; opacity: .8; margin-bottom: 1.5rem; }
+id, link, updated, author, category, icon, logo, generator, rights { display: none; }
+entry { display: block; padding: .75rem 0; border-top: 1px solid #d9dde2; }
+entry > title { display: block; font-weight: 600; }
+entry > summary, entry > content { display: block; font-size: .95rem; opacity: .85; margin-top: .25rem; }

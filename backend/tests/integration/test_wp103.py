@@ -225,7 +225,8 @@ def test_stale_planned_and_no_call_notices_are_not_planned_or_open(conn):
     got = {r["native_id"]: r["s"] for r in conn.execute(
         f"SELECT o.native_id, {api.EFFECTIVE_STATUS_SQL} AS s FROM opportunity o WHERE o.id = ANY(%s)",
         (list(rows.values()),)).fetchall()}
-    assert got == {"106569-2024": "expired", "1-2026": "forthcoming", "283577": "expired", "283578": "open"}
+    # WP-174 (B-21): open with a call, no deadline and no date at all: whether it still takes tenders cannot be read
+    assert got == {"106569-2024": "expired", "1-2026": "forthcoming", "283577": "expired", "283578": "unknown"}
 
 
 def test_reclassify_serving_reads_ley_24_2011_as_the_directive(conn, env):

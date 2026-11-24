@@ -53,6 +53,8 @@ export function buildFundingAtom(calls: Call[], o: { origin: string; query: stri
   const cut = o.total > held.length ? ` This feed holds the newest ${held.length} of the ${o.total} calls; the page lists them all.` : '';
   return [
     '<?xml version="1.0" encoding="utf-8"?>',
+    // WP-174 (F24): read as a list in a browser (public/feed.css); feed readers ignore it
+    '<?xml-stylesheet type="text/css" href="/feed.css"?>',
     '<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">',
     `  <id>${xmlText(tagId(o.origin, 'funding', o.query.replace(/^\?/, '') || 'all'))}</id>`,
     `  <title>${xmlText(`DefenceGate funding: ${o.describe}`)}</title>`,

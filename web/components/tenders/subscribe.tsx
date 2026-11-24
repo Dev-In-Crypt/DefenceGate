@@ -20,7 +20,7 @@ export function SubscribeToSearch({ filters }: { filters: TenderFilters }) {
         <Icon icon={BellRing} size="inline" />Subscribe to this search
       </summary>
       <div className="flex flex-col gap-3 pb-4 text-small">
-        <p className="m-0 max-w-prose text-ink-muted">Both follow every filter you set here; change the filters and subscribe again for another search.</p>
+        <p className="m-0 max-w-prose text-ink-muted">The calendar and the feed below follow every filter you set here; change the filters and subscribe again for another search.</p>
         <div className="flex flex-col gap-1">
           {s.webcal && s.ics ? (
             <>

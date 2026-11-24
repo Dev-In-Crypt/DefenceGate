@@ -102,7 +102,7 @@ export function listOrder<T extends {
   deadline: string | null; publishedAt?: string | null; scope?: string; status?: string;
   estimatedValue?: { amount: number; currency: string } | null; cpv?: string | null;
 }>(
-  items: T[], status: string | undefined, sort?: string, scope = 'relevant',
+  items: T[], status: string | undefined, sort?: string, scope = 'relevant', ref = Date.now(),
 ): T[] {
   // WP-106: by value (EUR first, then each other currency by itself, the largest first; a placeholder amount is none) and by main code
   if (sort === 'value-desc' || sort === 'cpv-asc') {
@@ -117,12 +117,15 @@ export function listOrder<T extends {
       return x[0] - y[0] || x[1].localeCompare(y[1]) || x[2] - y[2];
     });
   }
-  const coreFirst = (status ?? 'open') === 'open' && scope === 'relevant' && (sort === undefined || sort === 'core-first');
+  const coreFirst = (status ?? 'open') === 'open' && (scope === undefined || scope === 'relevant' || scope === 'all') && (sort === undefined || sort === 'core-first');
   // WP-106: `all` with no sort (`open-first`): its open notices soonest first, then the rest newest deadline first, as the list
   const allDefault = status === 'all' && (sort === undefined || sort === 'open-first');
   const by = sort === undefined || sort === 'core-first' || sort === 'open-first' ? (status === 'closed' || status === 'planned' ? 'deadline-desc' : 'deadline-asc') : sort;
   const openFirst = status === 'all' && by === 'deadline-asc';
-  const group = (t: T) => (coreFirst ? (t.scope === 'core' ? 0 : 1) : openFirst ? (t.status === 'open' ? 0 : 1) : 0);
+  // WP-174 (B-3): the Closed list, newest deadline first, puts a notice closed before the deadline it states after the others
+  const passedFirst = status === 'closed' && by === 'deadline-desc';
+  const ahead = (t: T) => (Date.parse(t.deadline ?? '') > ref ? 1 : 0);
+  const group = (t: T) => (coreFirst ? (t.scope === 'core' ? 0 : 1) : openFirst ? (t.status === 'open' ? 0 : 1) : passedFirst ? ahead(t) : 0);
   const sign = (t: T) => (allDefault && t.status !== 'open' ? -1 : by === 'deadline-asc' ? 1 : -1);
   const at = (t: T) => Date.parse((by === 'published-desc' ? t.publishedAt : t.deadline) ?? '');
   return [...items].sort((a, b) => {

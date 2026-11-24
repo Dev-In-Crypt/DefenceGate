@@ -78,7 +78,8 @@ assert.ok(empty.includes('<updated>2026-10-17T00:00:00Z</updated>') && !empty.in
 
 // ---- the words ---------------------------------------------------------------------------------------------------------------
 assert.equal(countsSentence({ counts: { ...counts, callsNew: 1, callsOpened: 1, cascade: 0 } }),
-  '1 new funding call, 1 call opened, 4 calls closing within 14 days, 3 new defence notices, 1 amended notice.');
+  // WP-174 (B-17): the new notices are calls and awards together
+  '1 new funding call, 1 call opened, 4 calls closing within 14 days, 3 new defence notices (calls and awards), 1 amended notice.');
 assert.ok(countsSentence({ counts }).endsWith('; 1 with cascade funding.'));
 assert.equal(truncation(30, 30), null);
 assert.equal(truncation(30, 112), 'Showing the first 30 of 112.');

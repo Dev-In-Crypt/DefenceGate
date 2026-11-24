@@ -111,7 +111,10 @@ def test_a_parent_with_no_deadline_gives_way_to_its_rectificatif_even_when_that_
     put(conn, "26-31", source="fr_boamp", status="unknown", deadline=None, related="26-30",
         title="Rectificatif")
     assert listed(client) == {}
-    assert set(listed(client, status="closed")) == {"26-31"}      # shown once, newest wins
+    # shown once, newest wins. WP-174 (B-20): a status the source does not state is listed under All, not under Closed, which
+    # now holds the parent alone (closed by its rectificatif)
+    assert set(listed(client, status="all")) == {"26-31"}
+    assert set(listed(client, status="closed")) == {"26-30"}
     assert client.get(f"/v1/tenders/{parent}").json()["statusNative"] == "expired"
 
 

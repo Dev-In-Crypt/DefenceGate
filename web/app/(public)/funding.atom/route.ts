@@ -1,3 +1,4 @@
+import { feedHeaders } from '@/lib/atom';
 import { getCalls } from '@/lib/api';
 import { withCachedEtag } from '@/lib/etag';
 import { searchParamsOf } from '@/lib/export';
@@ -35,5 +36,5 @@ async function build(request: Request): Promise<Response> {
     origin: SITE.url.replace(/\/$/, ''), query: toQuery({ ...f, page: 1, sort: undefined }), describe: describeCallFilters(f).join(', '),
     total: data.total, generatedAt: new Date().toISOString(),
   });
-  return new Response(body, { headers: { 'cache-control': `public, max-age=${MAX_AGE_S}`, 'content-type': 'application/atom+xml; charset=utf-8' } });
+  return new Response(body, { headers: { 'cache-control': `public, max-age=${MAX_AGE_S}`, ...feedHeaders(request) } });
 }

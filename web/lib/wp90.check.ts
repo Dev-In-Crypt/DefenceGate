@@ -36,7 +36,8 @@ for (const p of CPV_PRESETS) {
 }
 assert.match(CPV_FULL.get('32000000') ?? '', /communication/i);
 assert.deepEqual(presetPrefixes(CPV_PRESETS[0]), ['357']);
-assert.deepEqual(presetPrefixes(CPV_PRESETS[1]), ['35722', '35723', '38115', '38113']);
+// WP-174 (F08): with the radar spare parts and radar sets
+assert.deepEqual(presetPrefixes(CPV_PRESETS[1]), ['35722', '35723', '38115', '38113', '323522', '34932']);
 assert.equal(activePreset(['357', '35']), null);
 assert.equal(activePreset(undefined), null);
 

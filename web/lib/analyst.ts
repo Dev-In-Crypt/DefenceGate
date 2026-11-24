@@ -15,7 +15,9 @@ import type { TenderFilters } from './types';
  */
 export const CPV_PRESETS = [
   { id: 'military-electronics', label: 'Military electronics', group: 'goods', codes: ['35700000'] },        // Military electronic systems
-  { id: 'radar-sonar', label: 'Radar and sonar', group: 'goods', codes: ['35722000', '35723000', '38115000', '38113000'] },
+  // WP-174 (QA 16 Nov 2026, F08): with the radar spare parts (32352200) and radar sets (34932000): a Polish radar spare-parts tender
+  // that a "radar" search found was not under the chip
+  { id: 'radar-sonar', label: 'Radar and sonar', group: 'goods', codes: ['35722000', '35723000', '38115000', '38113000', '32352200', '34932000'] },
   { id: 'communications', label: 'Communications', group: 'goods', codes: ['35710000', '32000000'] },
   { id: 'vehicles', label: 'Vehicles and parts', group: 'goods', codes: ['35400000', '34100000', '34300000'] },
   // WP-98b (p04): the energetic materials and initiators (2461x: explosives, propellants, pyrotechnics, fuses and detonators) with 353

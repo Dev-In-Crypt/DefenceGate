@@ -182,7 +182,7 @@ export function TenderFilterBar({ filters, basePath, scopeCounts, countsNote }: 
           </p>
         </FoldGroup>
         {/* Only a sort that was asked for travels with the form: the default follows the status (a closed list runs newest first). */}
-        {filters.sort && filters.sort !== defaultTenderSort(filters.status) && <input type="hidden" name={PARAM.sort} value={filters.sort} />}
+        {filters.sort && filters.sort !== defaultTenderSort(filters.status, filters.scope) && <input type="hidden" name={PARAM.sort} value={filters.sort} />}
         <Select name={PARAM.size} label="Tenders per page" options={TENDER_PAGE_SIZES.map((n) => ({ value: String(n), label: String(n) }))}
           defaultValue={String(filters.pageSize ?? TENDER_PAGE_SIZE)} />
         <div className={FORM_BUTTONS}>

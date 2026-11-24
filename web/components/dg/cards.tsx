@@ -40,12 +40,19 @@ export const CARD_TEXT = 'flex min-w-0 flex-col gap-2 cq:col-start-1 cq:row-star
 const CARD_PROVENANCE = 'cq:col-span-2 cq:row-start-2';
 const CARD_FACTS = 'cq:col-start-2 cq:row-start-1';
 
+/** WP-174 (B-14): a notice id wraps after its separators (2026/AR44U/00005142E), not inside a part of it, on a phone. */
+function breakable(id: string): React.ReactNode {
+  return id.split(/(?<=[/_-])/).map((part, i) => <span key={i}>{i > 0 && <wbr />}{part}</span>);
+}
+
 /** The title in the original language, one line, with its label; nothing when there is none. */
 function OriginalTitle({ title, lang }: { title: string | null | undefined; lang: string | null | undefined }) {
   if (!title) return null;
   return (
-    <p className="m-0 flex min-w-0 items-baseline gap-2 text-small text-ink-muted">
-      <span lang={lang ?? undefined} className="min-w-0 truncate">{displayName(title)}</span>
+    // WP-174 (B-13): in a narrow card (a phone) the label went beside a title cut to a few letters; there the title has two lines
+    // of its own and the label goes under it
+    <p className="m-0 flex min-w-0 flex-col gap-0.5 text-small text-ink-muted cq:flex-row cq:items-baseline cq:gap-2">
+      <span lang={lang ?? undefined} className="min-w-0 line-clamp-2 cq:line-clamp-1">{displayName(title)}</span>
       <LangLabel kind="title" code={lang} className="shrink-0" />
     </p>
   );
@@ -199,7 +206,8 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
         <div className={CARD_TEXT}>
           <div className="flex flex-wrap items-center gap-2">
             {tender.cpv && <Tag kind="programme">CPV {tender.cpv}</Tag>}
-            {mainName && <span title={mainName} className="min-w-0 flex-1 truncate text-small text-ink-muted">{mainName}</span>}
+            {/* WP-174 (F30): in a narrow card the code's name was cut to three letters ("Sim…") between the tags: there it has a line of its own */}
+            {mainName && <span title={mainName} className="order-last min-w-0 basis-full text-small text-ink-muted line-clamp-2 cq:order-none cq:basis-auto cq:flex-1 cq:line-clamp-1">{mainName}</span>}
             {tender.country && <Tag>{tender.country}</Tag>}
             <span className="ml-auto flex min-w-0 max-w-full flex-wrap gap-2"><TenderStatusPills tender={tender} /></span>
           </div>
@@ -258,7 +266,7 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
             )}
           </ListFact>
           )}
-          <ListFact label="Notice ID" tone={closed ? 'closed' : 'default'}>{tender.noticeId}</ListFact>
+          <ListFact label="Notice ID" tone={closed ? 'closed' : 'default'}>{breakable(tender.noticeId)}</ListFact>
         </dl>
         <div className={cn('flex min-w-0 flex-col gap-2', CARD_PROVENANCE)}>
           <AnomalyNote tender={tender} />

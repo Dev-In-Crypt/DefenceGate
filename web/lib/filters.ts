@@ -208,7 +208,10 @@ export const DEFAULT_TENDER_SORT: TenderSort = 'deadline-asc';
  * Soonest deadline first, except on a closed or planned list (the API's own default): the newest deadline leads. WP-87: the
  * open list leads with the military goods and works (`core-first`, the API's default for it), each part soonest first.
  */
-export function defaultTenderSort(status: TenderStatusFilter | undefined): TenderSort {
+export function defaultTenderSort(status: TenderStatusFilter | undefined, scope?: TenderScopeFilter): TenderSort {
+  // WP-174 (QA 24 Nov 2026, B-7): a list of one group only (military goods and works, or the other purchases) has nothing to
+  // put first: the box said "Military goods and works first" over a list that was soonest deadline first
+  if ((status === undefined || status === 'open') && !coreFirstScope(scope)) return 'deadline-asc';
   if (status === undefined || status === 'open') return 'core-first';
   // WP-106 (p02, p04, p07): All is the open notices, then the rest newest deadline first (it began with 2017 under the open ones)
   if (status === 'all') return 'open-first';
@@ -219,10 +222,16 @@ export function defaultTenderSort(status: TenderStatusFilter | undefined): Tende
  * WP-106: the orders a tenders list offers for a status. `core-first` is the open list's, `open-first` the All list's; the value order is
  * per currency (amounts are never converted), the code order by the main code.
  */
-export function tenderSortOptions(status: TenderStatusFilter | undefined): { value: TenderSort; label: string }[] {
+/** WP-174 (B-7): the scopes whose open list mixes the two groups and so can lead with the military goods and works (the API's
+ * `tenders.core_first`): All defence and Everything. */
+export function coreFirstScope(scope: TenderScopeFilter | undefined): boolean {
+  return scope === undefined || scope === 'relevant' || scope === 'all';
+}
+
+export function tenderSortOptions(status: TenderStatusFilter | undefined, scope?: TenderScopeFilter): { value: TenderSort; label: string }[] {
   const s = status ?? DEFAULT_TENDER_STATUS;
   return [
-    ...(s === 'open' ? [{ value: 'core-first' as const, label: 'Military goods and works first, then soonest deadline' }] : []),
+    ...(s === 'open' && coreFirstScope(scope) ? [{ value: 'core-first' as const, label: 'Military goods and works first' }] : []),
     ...(s === 'all' ? [{ value: 'open-first' as const, label: 'Open first, then the most recent deadline' }] : []),
     { value: 'deadline-asc', label: 'Deadline, soonest first' },
     { value: 'deadline-desc', label: 'Deadline, latest first' },
@@ -265,11 +274,12 @@ export function parseTenderFilters(sp: SearchParams): TenderFilters {
   const cpv = cpvList(sp[PARAM.cpv]);
   const notCpv = cpvList(sp[PARAM.notCpv]);
   const size = Number(first(sp[PARAM.size]));
+  const scope = oneOf(first(sp[PARAM.scope]), TENDER_SCOPES) ?? DEFAULT_TENDER_SCOPE;
   return {
     q: searchText(first(sp[PARAM.q])),
     country: list<string>(sp[PARAM.country], COUNTRY_CODES, upper),
     status,
-    scope: oneOf(first(sp[PARAM.scope]), TENDER_SCOPES) ?? DEFAULT_TENDER_SCOPE,
+    scope,
     goods: oneOf(first(sp[PARAM.goods]), GOODS),
     cpv,
     // WP-90: the main code only (read only with a code), and the codes to leave out
@@ -281,7 +291,7 @@ export function parseTenderFilters(sp: SearchParams): TenderFilters {
     valueMax: num(first(sp[PARAM.max])),
     // Only a currency the visitor chose: alone it lists the notices that state a value in it; with a range it is the unit.
     currency: currency && CURRENCY_RE.test(currency) ? currency.toUpperCase() : undefined,
-    sort: oneOf(first(sp[PARAM.sort]), TENDER_SORTS) ?? defaultTenderSort(status),
+    sort: oneOf(first(sp[PARAM.sort]), TENDER_SORTS) ?? defaultTenderSort(status, scope),
     page: pageOf(first(sp[PARAM.page])),
     pageSize: (TENDER_PAGE_SIZES as readonly number[]).includes(size) ? size : TENDER_PAGE_SIZE,
   };
@@ -305,7 +315,7 @@ export function toTenderQuery(f: TenderFilters): string {
   if (f.valueMin !== undefined) p.set(PARAM.min, String(f.valueMin));
   if (f.valueMax !== undefined) p.set(PARAM.max, String(f.valueMax));
   if (f.currency) p.set(PARAM.currency, f.currency);
-  if (f.sort && f.sort !== defaultTenderSort(f.status)) p.set(PARAM.sort, f.sort);
+  if (f.sort && f.sort !== defaultTenderSort(f.status, f.scope)) p.set(PARAM.sort, f.sort);
   if (f.page && f.page > 1) p.set(PARAM.page, String(f.page));
   // WP-90: a page size of the list's own choices (a size set by code, the buyer page's 100, is the API's pageSize only)
   if (f.pageSize && f.pageSize !== TENDER_PAGE_SIZE && (TENDER_PAGE_SIZES as readonly number[]).includes(f.pageSize)) p.set(PARAM.size, String(f.pageSize));

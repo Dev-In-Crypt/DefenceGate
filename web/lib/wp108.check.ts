@@ -45,7 +45,9 @@ assert.match(readFileSync('components/digest/digest-view.tsx', 'utf8'), /cancell
 const ref = new Date('2026-10-24T12:00:00Z');
 const award = { status: 'closed' as const, deadline: null, statusNative: 'awarded' };
 assert.equal(searchStatusLine(award, ref), 'Awarded');
-assert.equal(searchStatusLine({ status: 'open', deadline: '2026-11-20T10:00:00Z', statusNative: 'open' }, ref), 'Deadline 20 Nov 2026');
+// WP-174 (B-15): the deadline's time too, as the list card says it; a date-only deadline as a day
+assert.equal(searchStatusLine({ status: 'open', deadline: '2026-11-20T10:00:00Z', statusNative: 'open' }, ref), 'Deadline 20 Nov 2026, 10:00 UTC');
+assert.equal(searchStatusLine({ status: 'open', deadline: '2026-11-20T23:59:00Z', deadlineIsDate: true, statusNative: 'open' }, ref), 'Deadline 20 Nov 2026');
 assert.equal(searchStatusLine({ status: 'open', deadline: null, statusNative: 'open' }, ref), 'No deadline stated');
 assert.equal(searchTenderNoun([award], 1, ref), 'tender', 'not "1 open tender" for an award');
 assert.equal(searchTenderNoun([{ status: 'open', deadline: '2026-11-20T10:00:00Z', statusNative: 'open' }], 1, ref), 'open tender');

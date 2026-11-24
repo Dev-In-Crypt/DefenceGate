@@ -232,7 +232,7 @@ export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Ten
       && !q.split(/\s+/).filter(Boolean).every((w) => t.cpvCodes.some((c) => titleHasWord(cpvTitle(c), w)))) return false;
     return true;
   });
-  const sort = f.sort ?? defaultTenderSort(status);
+  const sort = f.sort ?? defaultTenderSort(status, scope);
   if (sort === 'value-desc' || sort === 'cpv-asc' || (status === 'all' && sort === 'open-first')) {
     // WP-106: the API's orders, as the export applies them (lib/export-cache.ts)
     items = listOrder(items, status, sort, scope);
@@ -241,7 +241,7 @@ export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Ten
   } else {
     const newestFirst = sort === 'deadline-desc';
     // Like the API (WP-87): the open list's default leads with the core notices, each part soonest deadline first.
-    const coreFirst = sort === 'core-first' && status === 'open' && scope === 'relevant';
+    const coreFirst = sort === 'core-first' && status === 'open' && (scope === 'relevant' || scope === 'all');
     items = items.sort((a, b) => {
       if (coreFirst && (a.scope === 'core') !== (b.scope === 'core')) return a.scope === 'core' ? -1 : 1;
       if ((a.deadline === null) !== (b.deadline === null)) return a.deadline === null ? 1 : -1;

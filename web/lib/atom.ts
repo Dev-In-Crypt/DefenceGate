@@ -3,9 +3,11 @@
  *
  * Each entry is one notice on one UTC day (`Change.id`), so its `id` is stable for good: a reader never shows a
  * change twice, and `updated` is when we last observed that day's change. Titles, buyers, countries, dates and
- * statuses only, as everywhere else: no contact data and nothing about what is being bought beyond its title.
+ * statuses only, as everywhere else: no contact data and nothing about what is being bought beyond its title (and, for a
+ * title that is only a reference, the official name of its main product code: lib/headings.ts).
  */
 import { programmeNameOf } from './format';
+import { callHeading, noticeHeading } from './headings';
 import type { Change, FundingChange } from './types';
 
 export interface AtomOptions {
@@ -86,7 +88,8 @@ function summary(c: Change): string {
 
 export function entryTitle(c: Change): string {
   const head = c.kind === 'new' ? 'New' : c.kind === 'award' ? 'New award' : 'Amended';
-  return `${head}${c.kind !== 'amended' && c.tender.statusNative === 'cancelled' ? ' (cancelled since)' : ''}: ${c.tender.title}`;
+  // WP-174 (A-3): "New: DAF_2026_000182" and titles in capitals said nothing (lib/headings.ts)
+  return `${head}${c.kind !== 'amended' && c.tender.statusNative === 'cancelled' ? ' (cancelled since)' : ''}: ${noticeHeading(c.tender)}`;
 }
 
 /** Funding entries have their own kinds (`call-new`, `call-amended`), so a reader can tell them from notices. */
@@ -97,7 +100,7 @@ function fundingEntry(f: FundingChange, o: AtomOptions): string {
   return [
     '  <entry>',
     `    <id>${xmlText(tagId(o.origin, 'change', f.id))}</id>`,
-    `    <title>${xmlText(`${f.kind === 'call-new' ? 'New funding call' : 'Funding call, date moved'}: ${c.title}`)}</title>`,
+    `    <title>${xmlText(`${f.kind === 'call-new' ? 'New funding call' : 'Funding call, date moved'}: ${callHeading(c)}`)}</title>`,
     `    <link rel="alternate" type="text/html" href="${xmlText(`${o.origin}/funding/${c.slug}`)}"/>`,
     `    <updated>${rfc3339(f.detectedAt)}</updated>`,
     `    <category term="${f.kind}"/>`,
@@ -106,25 +109,36 @@ function fundingEntry(f: FundingChange, o: AtomOptions): string {
   ].join('\n');
 }
 
+function changeEntry(c: Change, o: AtomOptions): string {
+  const link = `${o.origin}/tenders/${c.tender.slug}`;
+  return [
+    '  <entry>',
+    `    <id>${xmlText(tagId(o.origin, 'change', c.id))}</id>`,
+    `    <title>${xmlText(entryTitle(c))}</title>`,
+    `    <link rel="alternate" type="text/html" href="${xmlText(link)}"/>`,
+    `    <updated>${rfc3339(c.detectedAt)}</updated>`,
+    `    <category term="${c.kind}"/>`,
+    `    <summary type="text">${xmlText(summary(c))}</summary>`,
+    '  </entry>',
+  ].join('\n');
+}
+
 export function buildAtom(changes: Change[], o: AtomOptions, funding: FundingChange[] = []): string {
   const stamps = [...changes.map((c) => c.detectedAt), ...funding.map((f) => f.detectedAt)];
   const updated = stamps.reduce((m, s) => (s > m ? s : m), '') || o.generatedAt;
   const self = `${o.origin}${o.selfPath}`;
-  const entries = [...funding.map((f) => fundingEntry(f, o)), ...changes.map((c) => {
-    const link = `${o.origin}/tenders/${c.tender.slug}`;
-    return [
-      '  <entry>',
-      `    <id>${xmlText(tagId(o.origin, 'change', c.id))}</id>`,
-      `    <title>${xmlText(entryTitle(c))}</title>`,
-      `    <link rel="alternate" type="text/html" href="${xmlText(link)}"/>`,
-      `    <updated>${rfc3339(c.detectedAt)}</updated>`,
-      `    <category term="${c.kind}"/>`,
-      `    <summary type="text">${xmlText(summary(c))}</summary>`,
-      '  </entry>',
-    ].join('\n');
-  })];
+  // WP-174 (A-2): one list, newest first, calls and notices together (the calls stood ahead of newer notices); ties keep
+  // the order they came in
+  const dated = [
+    ...funding.map((f) => ({ at: f.detectedAt, xml: fundingEntry(f, o) })),
+    ...changes.map((c) => ({ at: c.detectedAt, xml: changeEntry(c, o) })),
+  ];
+  const entries = dated.map((e, i) => ({ ...e, i }))
+    .sort((a, b) => (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0) || a.i - b.i).map((e) => e.xml);
   return [
     '<?xml version="1.0" encoding="utf-8"?>',
+    // WP-174 (F24): read as a list in a browser (public/feed.css); feed readers ignore it
+    '<?xml-stylesheet type="text/css" href="/feed.css"?>',
     '<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">',
     `  <id>${xmlText(tagId(o.origin, 'changes', o.selfPath.replace(/^\/changes\.atom\??/, '') || 'all'))}</id>`,
     `  <title>${xmlText(o.title)}</title>`,
@@ -138,6 +152,16 @@ export function buildAtom(changes: Change[], o: AtomOptions, funding: FundingCha
     '</feed>',
     '',
   ].join('\n');
+}
+
+/**
+ * WP-174 (QA 16 Nov 2026, F24): the content type of a feed. A browser opening the feed (it asks for text/html first) gets it as
+ * XML, which it draws with the feed's stylesheet (public/feed.css); as application/atom+xml Chrome shows it as plain text. A feed
+ * reader asks for the feed types or anything and gets application/atom+xml. `vary` keeps a cache from mixing the two.
+ */
+export function feedHeaders(request: Request): Record<string, string> {
+  const browser = /(^|[\s,])text\/html([;,\s]|$)/.test(request.headers.get('accept') ?? '');
+  return { 'content-type': `${browser ? 'application/xml' : 'application/atom+xml'}; charset=utf-8`, vary: 'accept' };
 }
 
 /** A weak validator: the same entries and the same dates give the same tag. */

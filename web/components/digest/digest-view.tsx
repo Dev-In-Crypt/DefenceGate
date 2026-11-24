@@ -26,7 +26,8 @@ function CallDates({ c }: { c: DigestCall }) {
   return (
     <p className="m-0 font-mono text-mono text-ink-muted">
       {c.openingDate && <>Opens <time dateTime={c.openingDate}>{formatDateUtc(c.openingDate)}</time>{c.deadline ? ' · ' : ''}</>}
-      {c.deadline ? <>Deadline <time dateTime={c.deadline}>{formatDateUtc(c.deadline)}</time> UTC</> : !c.openingDate ? 'No fixed deadline' : null}
+      {/* WP-174 (B-16): "Deadline 29 Jan 2027 UTC" (a day is not in a time zone): the time where the source states one */}
+      {c.deadline ? <>Deadline <time dateTime={c.deadline}>{c.deadlineIsDate ? formatDateUtc(c.deadline) : formatDateTimeUtc(c.deadline)}</time></> : !c.openingDate ? 'No fixed deadline' : null}
     </p>
   );
 }
@@ -69,7 +70,7 @@ function TenderItem({ t }: { t: DigestTender }) {
       <h3 className="m-0 break-words text-h3"><Link href={`/tenders/${t.slug}`}>{displayName(t.title)}</Link></h3>
       <p className="m-0 text-small font-semibold">{t.buyerName}{t.country ? ` (${countryName(t.country)})` : ''}</p>
       <p className="m-0 font-mono text-mono text-ink-muted">
-        {t.deadline ? <>Deadline <time dateTime={t.deadline}>{formatDateUtc(t.deadline)}</time> UTC</> : 'No deadline stated'}
+        {t.deadline ? <>Deadline <time dateTime={t.deadline}>{formatDateTimeUtc(t.deadline)}</time></> : 'No deadline stated'}
         {t.estimatedValue ? <> · {formatMoney(t.estimatedValue)}</> : null}
       </p>
       {t.changes.length > 0 && (
@@ -138,7 +139,7 @@ export function DigestView({ issue, filters, basePath, feedHref, crumbs, notices
           Counted over the days {formatDateUtc(issue.weekFrom)} to {formatDateUtc(new Date(new Date(issue.weekTo).getTime() - 1).toISOString())} (UTC).
           Calls closing are those whose deadline falls before {formatDateUtc(issue.closingUntil)}. Built {formatDateTimeUtc(issue.generatedAt)}.
           A deadline or status can have moved since; the call page is current.
-          {issue.cascadeOpenNow > 0 && <> {formatNumber(issue.cascadeOpenNow)} open {issue.cascadeOpenNow === 1 ? 'call has' : 'calls have'} cascade funding today: <Link href="/funding?cascade=true" className="font-semibold">see them</Link>.</>}
+          {issue.cascadeOpenNow > 0 && <> {formatNumber(issue.cascadeOpenNow)} open {issue.cascadeOpenNow === 1 ? 'call has' : 'calls have'} cascade funding today: <Link href="/funding?cascade=true" className="font-semibold">{issue.cascadeOpenNow === 1 ? 'see it' : 'see them'}</Link>.</>}
         </p>
         </div>
         <nav aria-label="Follow the digest" className="flex flex-col lg:border-l lg:border-line lg:pl-6">

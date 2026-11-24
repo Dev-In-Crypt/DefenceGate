@@ -2842,5 +2842,5 @@ def from_ncbr(record: dict[str, Any], *, today: date | None = None) -> Call:
         source_url=ncbr.call_url(record),
         type_of_action=", ".join(ncbr.programme_types(record)) or None,
         country="PL",
-        issuer="Narodowe Centrum Badan i Rozwoju (NCBR)",
+        issuer="Narodowe Centrum Badań i Rozwoju (NCBR)",
     )

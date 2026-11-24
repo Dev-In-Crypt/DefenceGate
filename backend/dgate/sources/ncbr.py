@@ -1,8 +1,8 @@
-"""NCBR connector (Poland, Narodowe Centrum Badan i Rozwoju).
+"""NCBR connector (Poland, Narodowe Centrum Badań i Rozwoju).
 
 Endpoint:  GET https://www.gov.pl/api/data/competition-search?type=NCBR&language=pl
 Auth:      none
-Operator:  Narodowe Centrum Badan i Rozwoju (National Centre for Research and Development)
+Operator:  Narodowe Centrum Badań i Rozwoju (National Centre for Research and Development)
 Licence:   NCBR's reuse policy: commercial reuse allowed, attribution required; the text
            of the site is CC BY-SA 4.0
 

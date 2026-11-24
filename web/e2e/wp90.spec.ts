@@ -77,10 +77,11 @@ test('product groups, main code only, excluded codes, page size, deadline preset
   await expect(form.getByLabel('Main product code only')).toBeVisible();
   await expect(form.getByLabel('Leave out product codes')).toBeVisible();
   await form.locator('[data-cpv-presets] a', { hasText: 'Radar and sonar' }).click();
-  await expect(page).toHaveURL(/\/tenders\?cpv=35722%2C35723%2C38115%2C38113$/);
+  // WP-174 (F08): with the radar spare parts (323522) and radar sets (34932)
+  await expect(page).toHaveURL(/\/tenders\?cpv=35722%2C35723%2C38115%2C38113%2C323522%2C34932$/);
   await openFilters(page);
   await expect(page.locator('[data-cpv-presets] a[aria-current="true"]')).toHaveText('Radar and sonar');
-  await expect(page.getByLabel('CPV code', { exact: true })).toHaveValue('35722, 35723, 38115, 38113');
+  await expect(page.getByLabel('CPV code', { exact: true })).toHaveValue('35722, 35723, 38115, 38113, 323522, 34932');
   await shot(page, 'tenders-presets');
   const seven = page.locator('[data-deadline-presets] a', { hasText: 'Next 7 days' });
   await expect(seven).toHaveAttribute('href', /from=2026-10-12&to=2026-10-19/);

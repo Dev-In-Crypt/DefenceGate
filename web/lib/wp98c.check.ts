@@ -29,14 +29,14 @@ async function main() {
   assert.ok(WARM_PATHS.includes('/changes.atom') && WARM_PATHS.includes('/funding.ics'));
   assert.ok(WARM_EVERY_MS < 5 * 60_000, 'a round comes before the feed page goes stale (five minutes)');
 
-  // the worker keeps the API pages the feed's first page reads: FEED_PAGE_ENTRIES (= FEED_MAX) over pages of FEED_PAGE_SIZE
+  // the feed's first page reads FEED_PAGE_ENTRIES (= FEED_MAX) over API pages of FEED_PAGE_SIZE. WP-174 (QA 24 Nov 2026, A-6): the
+  // worker no longer keeps those API pages: a kept first page and a live second one overlapped (page 2 repeated 171 entries)
   const api = readFileSync(join(process.cwd(), 'lib', 'api.ts'), 'utf8');
   const size = Number(/export const FEED_PAGE_SIZE = (\d+);/.exec(api)?.[1]);
   assert.match(api, /export const FEED_PAGE_ENTRIES = FEED_MAX;/);
+  assert.ok(Number.isInteger(FEED_MAX / size));
   const warm = readFileSync(join(process.cwd(), '..', 'backend', 'dgate', 'ops', 'warm_lists.py'), 'utf8');
-  assert.equal(Number(/^FEED_PAGE_SIZE = (\d+)$/m.exec(warm)?.[1]), size, 'warm_lists.FEED_PAGE_SIZE is the feed’s API page');
-  const pages = /^FEED_API_PAGES = \(([\d, ]+)\)$/m.exec(warm)?.[1].split(',').map((x) => Number(x.trim())).filter(Boolean);
-  assert.deepEqual(pages, Array.from({ length: FEED_MAX / size }, (_, i) => i + 1), 'every API page of the first feed page');
+  assert.ok(!/^FEED_API_PAGES = /m.test(warm) && !/"changes", snapshot_key\("changes"/.test(warm), 'no stored change pages');
 
   console.log('wp98c.check: ok');
 }

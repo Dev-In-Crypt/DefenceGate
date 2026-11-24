@@ -168,7 +168,7 @@ ATTRIBUTION = {
     "es_placsp": "Source: Plataforma de Contratación del Sector Público, "
                  "Ministerio de Hacienda, Spain",
     "eu_portal": "Source: European Commission, Funding and Tenders Portal",
-    "pl_ncbr": "Zrodlo: Narodowe Centrum Badan i Rozwoju (NCBR), gov.pl",
+    "pl_ncbr": "Źródło: Narodowe Centrum Badań i Rozwoju (NCBR), gov.pl",
     "es_bdns": "Origen de los datos: Intervención General de la Administración del Estado "
                "(Base de Datos Nacional de Subvenciones, Ministerio de Hacienda)",
     "se_vinnova": "Källa: Vinnova, öppna data (CC0)",
@@ -344,7 +344,8 @@ def _row_to_out(r: dict[str, Any], same_notice: list[dict[str, Any]] | None = No
         buyer_class=r.get("buyer_class"),
         dual_use=bool(r.get("dual_use")),
         status=r["eff_status"] if "eff_status" in r else effective_status(
-            r.get("status"), r.get("deadline_at"), r.get("published_at"), procedure=r.get("procedure_type")),
+            r.get("status"), r.get("deadline_at"), r.get("published_at"), procedure=r.get("procedure_type"),
+            notice_date=r.get("notice_date")),
         status_native=r.get("status_native"),
         same_notice=same_notice or [],
         contract_period=_period_out(r),
@@ -400,14 +401,19 @@ SUPERSEDED_SQL = ("dgate_superseded(o.id, o.source_id, o.native_id, o.ted_ref, "
 # buyer invites whom it chooses. It is served `expired` (listed as closed), never "Open" with no deadline and no call.
 PLANNED_WITHOUT_DEADLINE_DAYS = 365
 NO_CALL_PROCEDURE = "wo-call"           # the end of the procedure code
+# WP-174 (QA 24 Nov 2026, B-21): an open notice that states no deadline is dated by its publication, or by the date of the
+# notice itself where no publication date is stated; one that states neither is `unknown`: whether it still takes tenders
+# cannot be read (51 national German notices were "Open" with no date at all, some from 2025)
 EFFECTIVE_STATUS_SQL = f"""(CASE
     WHEN o.status = 'open' AND (
          o.deadline_at < now()
       OR (o.deadline_at IS NULL
-          AND (o.published_at < (now() - interval '{OPEN_WITHOUT_DEADLINE_DAYS} days')
+          AND (coalesce(o.published_at, o.notice_date) < (now() - interval '{OPEN_WITHOUT_DEADLINE_DAYS} days')
                OR right(o.procedure_type, {len(NO_CALL_PROCEDURE)}) = '{NO_CALL_PROCEDURE}'
                OR {SUPERSEDED_SQL})))
     THEN 'expired'
+    WHEN o.status = 'open' AND o.deadline_at IS NULL AND o.published_at IS NULL AND o.notice_date IS NULL
+    THEN 'unknown'
     WHEN o.status = 'forthcoming' AND o.deadline_at < now() THEN 'expired'
     WHEN o.status = 'forthcoming' AND o.deadline_at IS NULL
          AND o.published_at < (now() - interval '{PLANNED_WITHOUT_DEADLINE_DAYS} days') THEN 'expired'
@@ -416,26 +422,34 @@ EFFECTIVE_STATUS_SQL = f"""(CASE
 
 def effective_status(status: str | None, deadline_at: datetime | None,
                      published_at: date | None, now: datetime | None = None,
-                     superseded: bool = False, procedure: str | None = None) -> str | None:
+                     superseded: bool = False, procedure: str | None = None,
+                     notice_date: date | None = None) -> str | None:
     """The Python twin of EFFECTIVE_STATUS_SQL, for a row already fetched. `superseded`
     is SUPERSEDED_SQL for that row (it needs the other rows, so the caller asks the
     database); it only counts for a notice with no deadline of its own. `procedure`: the
     stored `procedure_type` (WP-103: a procedure without a call)."""
     now = now or datetime.now(timezone.utc)
+
+    def older(days: int, day: date | None = published_at) -> bool:
+        # WP-174 (QA 24 Nov 2026, B-20): as the SQL reads it, the day's midnight (UTC) before the instant `days` ago; comparing
+        # the days alone kept a notice "Planned" on the anniversary of its publication while the Closed filter listed it
+        return day is not None and datetime.combine(
+            day, datetime.min.time(), tzinfo=timezone.utc) < now - timedelta(days=days)
+
     if status == "forthcoming":
         if deadline_at is not None:
             return "expired" if deadline_at < now else status
-        old = published_at is not None and published_at < (now - timedelta(days=PLANNED_WITHOUT_DEADLINE_DAYS)).date()
-        return "expired" if old else status
+        return "expired" if older(PLANNED_WITHOUT_DEADLINE_DAYS) else status
     if status != "open":
         return status
     if deadline_at is not None:
         return "expired" if deadline_at < now else "open"
     if superseded or (procedure or "").endswith(NO_CALL_PROCEDURE):
         return "expired"
-    if published_at is not None and published_at < (now - timedelta(
-            days=OPEN_WITHOUT_DEADLINE_DAYS)).date():
+    if older(OPEN_WITHOUT_DEADLINE_DAYS, published_at if published_at is not None else notice_date):
         return "expired"
+    if published_at is None and notice_date is None:
+        return "unknown"                # WP-174 (B-21): no deadline and no date at all: EFFECTIVE_STATUS_SQL
     return "open"
 
 
