@@ -25,6 +25,6 @@ export default function robots(): MetadataRoute.Robots {
       disallow: ['/*?', '/app', '/admin', '/v1', '/tenders/export.csv', '/funding/export.csv', '/market/export.csv', '/suppliers/*/contracts.csv', '/suppliers/export.csv'],
     }],
     sitemap: `${SITE.url}/sitemap.xml`,
-    host: SITE.url,
+    // A-5: no Host line: not part of the robots standard (RFC 9309), Google ignores it and validators flag it
   };
 }

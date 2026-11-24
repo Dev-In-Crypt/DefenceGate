@@ -79,7 +79,9 @@
   a:where(:hover:not([class~="block"], [class~="flex"], [class~="grid"], :has(div, p, h2, h3, h4, ul, ol, dl))) { text-decoration: underline; }
   /* A link in running text is underlined, not told apart by colour alone (WCAG 1.4.1: 510 links on 174 pages were 1.04 to 2.08:1 from the
      text; `.run-text` marks a div of running text, e.g. the text of an empty state). Block and flex links (cards, buttons, nav, pagination) say "no-underline" or are flex boxes and are left alone. */
-  :where(p, dd, q, blockquote, figcaption, li, .run-text) > a:not([class*="flex"]):not([class*="block"]):not([class*="grid"]):not([class*="no-underline"]) {
+  /* F-4 (QA 24 Nov 2026): and a link inside muted text at any depth (a span in a row's source line on /signals was 1.03:1 from its text). */
+  :where(p, dd, q, blockquote, figcaption, li, .run-text) > a:not([class*="flex"]):not([class*="block"]):not([class*="grid"]):not([class*="no-underline"]),
+  :where(.text-ink-muted) :where(span) > a:not([class*="flex"]):not([class*="block"]):not([class*="grid"]):not([class*="no-underline"]) {
     text-decoration-line: underline; text-decoration-thickness: 1px;
   }
   /* The hit area of a link that stands alone (a table row's name, a fact label, a card title, a link that is a line of its own): at least 32 px
@@ -227,7 +229,9 @@
   .tag { @apply inline-flex items-center gap-1.5 rounded-pill px-2.5 py-[5px] text-label; }
   /* bg-primary and text-on-primary stay on the element: the print rule `.bg-primary.text-on-primary` needs both classes there */
   .tag-programme { @apply font-mono font-medium; }
-  .tag-neutral { @apply bg-surface-inset font-sans font-bold text-ink; }
+  /* F-6/F26: a hairline drawn inside the pill (no change of size): in the light theme the inset fill is the page's own colour, and a chip on
+     the page had no visible edge */
+  .tag-neutral { @apply bg-surface-inset font-sans font-bold text-ink shadow-[inset_0_0_0_1px_var(--line)]; }
 }
 
 /*

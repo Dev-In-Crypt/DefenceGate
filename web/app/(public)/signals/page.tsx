@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { PLANS_FROM } from '@/lib/plans';
 import Link from 'next/link';
 import { Download } from 'lucide-react';
 import { ApiError, getSignal } from '@/lib/api';
@@ -146,7 +147,7 @@ function FullLine({ state, a, f }: { state: ReturnType<typeof fullState>; a: Sig
         <span>{counted}</span>
         {a.csv
           ? <a href={signalHref(f, { page: 1 }, '/signals/export.csv')} className={LINK}><Icon icon={Download} size="inline" />Download CSV</a>
-          : <span data-csv-plan>The CSV is part of the Team and Consultant plans: <Link href="/app/billing">Billing</Link>.</span>}
+          : <span data-csv-plan>The CSV is part of the {PLANS_FROM.team}: <Link href="/app/billing">Billing</Link>.</span>}
       </div>
     );
   }
@@ -155,6 +156,8 @@ function FullLine({ state, a, f }: { state: ReturnType<typeof fullState>; a: Sig
       <span data-first-rows>{firstRowsLine(a)}</span>
       {state === 'signin' && a.total > a.items.length && <> The full list and its CSV are part of a paid plan: <Link href="/signin?next=/signals">sign in</Link> or see <Link href="/pricing">pricing</Link>.</>}
       {state === 'plan' && a.total > a.items.length && <> The full list and its CSV are part of a paid plan: <Link href="/app/billing">choose one under Billing</Link>.</>}
+      {/* E-31: with every row shown, the CSV is still a plan's: said, as it is said to a plan that has the list */}
+      {state === 'plan' && a.total <= a.items.length && a.total > 0 && <> The CSV of this list is part of the {PLANS_FROM.team}: <Link href="/app/billing">Billing</Link>.</>}
     </p>
   );
 }

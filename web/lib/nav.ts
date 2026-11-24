@@ -43,6 +43,15 @@ export const MAIN_NAV: readonly NavItem[] = [
   ] },
 ];
 
+/**
+ * A-15: the phone menu ends with the pages a visitor otherwise finds only in the footer (labels are their pages' h1, as the footer's).
+ * The desktop bar keeps the owner's four items.
+ */
+export const MORE_NAV: NavItem = { key: 'more', label: 'About', children: [
+  { label: 'About DefenceGate', href: '/about' }, { label: 'Pricing', href: '/pricing' }, { label: 'Methodology', href: '/methodology' },
+  { label: 'Source status', href: '/data' }, { label: 'Glossary', href: '/glossary' },
+] };
+
 type FooterLink = NavLinkItem;
 const group = (key: string) => MAIN_NAV.find((n) => n.key === key)!;
 

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { PLANS_FROM } from '@/lib/plans';
 import { Download } from 'lucide-react';
 import { ApiError, getEnding } from '@/lib/api';
 import { getFullEnding, readSession } from '@/lib/account';
@@ -85,7 +86,7 @@ function FullLine({ state, a, f }: { state: EndingState; a: EndingAnswer; f: End
     <p className="m-0 text-small text-ink-muted" data-full-state={state}>
       <span data-first-rows>{more ? `The first ${n(a.items.length)} of ${n(a.total)} contracts.` : `All ${n(a.total)} ${a.total === 1 ? 'contract' : 'contracts'}.`}</span>
       {state === 'signin' && more && <> The full list, its alerts and the CSV are part of a paid plan: <Link href="/signin?next=/tenders/ending">sign in</Link> or see <Link href="/pricing">pricing</Link>.</>}
-      {state === 'plan' && more && <> The full list and its alerts are part of Pro: <Link href="/app/billing">choose a plan under Billing</Link>.</>}
+      {state === 'plan' && more && <> The full list and its alerts are part of the {PLANS_FROM.pro}: <Link href="/app/billing">choose a plan under Billing</Link>.</>}
     </p>
   );
 }

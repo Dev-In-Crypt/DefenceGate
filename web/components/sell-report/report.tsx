@@ -26,7 +26,7 @@ const PRINT_CSS = `
   .sr .text-mono { font-size: 6.5pt; }
   .sr .text-h4 { font-size: 9pt; }
   .sr h2 { font-size: 12pt !important; break-after: avoid; }
-  .sr h1 { font-size: 18pt !important; }
+  .sr .sr-title { font-size: 18pt !important; }
   .sr td, .sr th { padding: 2px 4px !important; }
   .sr .sr-row { padding-top: 2px; padding-bottom: 2px; }
   .sr .sr-item { padding-top: 4px; padding-bottom: 4px; gap: 2px; }
@@ -335,7 +335,8 @@ export function SellReportView({ r }: { r: SellReport }) {
           <p className="m-0 font-mono text-mono text-ink-muted">{L.generated} {generated}</p>
         </div>
         <p className="m-0 text-small font-bold uppercase tracking-wide">{L.kicker} · {L.title}</p>
-        <h1 className="m-0 text-h1-sm md:text-h1 print:text-[22pt] print:leading-tight">{r.profile.name ?? L.title}</h1>
+        {/* E-39: the page's h1 is its header (hidden in print); the report's own title is the next level, styled as the cover */}
+        <h2 className="sr-title m-0 text-h1-sm md:text-h1 print:text-[22pt] print:leading-tight">{r.profile.name ?? L.title}</h2>
         <p className="m-0 max-w-prose text-body">{L.question}</p>
         <p className="m-0 max-w-prose text-body font-semibold" data-disclaimer>{L.disclaimer}</p>
         {r.sample && <p className="m-0 rounded-md bg-surface-inset p-3 text-small" data-sr-sample>{L.sampleNote}</p>}

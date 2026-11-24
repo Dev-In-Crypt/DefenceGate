@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { PLANS_FROM } from '@/lib/plans';
+import { BILLING_OPEN } from '@/lib/pricing';
 import type { CompetitionShare, SupplierCompetition } from '@/lib/types';
 import { classLabel, countShare, sizeLine, valueShare } from '@/lib/competition';
 import { displayName } from '@/lib/display-name';
@@ -58,7 +60,7 @@ export function CompetitorsCard({ c, name, action, allHref }: { c: SupplierCompe
       )}
       <NoteLine data-competitors-note>
         {c.competitorCount > c.competitors.length ? `The ${c.competitors.length} of ${formatNumber(c.competitorCount)} companies with the most contracts in shared markets. ` : ''}
-        {allHref && !c.full && c.competitorCount > c.competitors.length && <><Link href={allHref} prefetch={false} className="font-semibold" data-competitors-all>See the full list</Link> (signed-in accounts). </>}
+        {allHref && !c.full && c.competitorCount > c.competitors.length && <><Link href={allHref} prefetch={false} className="font-semibold" data-competitors-all>See the full list</Link> ({BILLING_OPEN ? `part of the ${PLANS_FROM.pro}` : 'signed-in accounts'}). </>}
         A market is one buyer and one CPV class (the first four digits of a code); {name} won contracts in {formatNumber(c.markets)}. Records are never merged: a row
         marked &ldquo;same name&rdquo; may be this company under another registration number.
       </NoteLine>

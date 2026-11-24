@@ -102,7 +102,8 @@ def test_reports_are_counted_once_per_company_and_month_against_the_plan(conn, c
     assert got[0]["resetsAt"] == resets.isoformat()
     refused = open_("rival3")
     assert refused.status_code == 402 and refused.json()["error"] == "report_quota"
-    assert "3 of 3" in refused.json()["message"] and resets.isoformat() in refused.json()["message"]
+    # WP-176 (E-30, moved on purpose): the day as the site writes days
+    assert "3 of 3" in refused.json()["message"] and f"{resets.day} {resets:%b %Y}" in refused.json()["message"]
     assert open_("rival2").status_code == 200                       # one already opened this month: open again
     # last month's openings do not count
     conn.execute("UPDATE company_report_open SET month = %s::date - interval '1 month'", (first,))

@@ -384,6 +384,7 @@ def create_client(body: ClientIn, conn=Depends(get_conn), user=Depends(current))
     limit = billing.client_limit(user)
     if n >= limit:
         raise AccountError(409, "limit_reached", f"at most {limit} client profiles on your plan")
+    _name_taken(conn, ws, values["name"])
     row = conn.execute(
         "INSERT INTO app_client (workspace_id, name, country, cpv_codes, note, created_by) "
         "VALUES (%s, %s, %s, %s, %s, %s) RETURNING *",
@@ -392,11 +393,20 @@ def create_client(body: ClientIn, conn=Depends(get_conn), user=Depends(current))
     return _client_out(row)
 
 
+def _name_taken(conn, ws, name: str, cid: str | None = None) -> None:
+    """WP-176 (E-14): two client profiles of one workspace never share a name (case and spaces aside): the switcher shows names."""
+    if conn.execute("SELECT 1 FROM app_client WHERE workspace_id = %s AND lower(name) = lower(%s) AND id IS DISTINCT FROM %s::uuid",
+                    (ws, name, cid)).fetchone():
+        raise AccountError(409, "name_taken", "a client profile of this workspace has that name already")
+
+
 @router.patch("/clients/{cid}")
 def patch_client(cid: str, body: ClientPatch, conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
     _owned_client(conn, user, cid)
     billing.require(user, "client_profiles")
     values = _client_values(body.model_dump(exclude_unset=True))
+    if "name" in values:
+        _name_taken(conn, user["ws_id"], values["name"], cid)
     sets = ", ".join(f"{k} = %s" for k in values)
     row = conn.execute(f"UPDATE app_client SET {sets + ', ' if sets else ''}updated_at = now() "
                        "WHERE id = %s AND workspace_id = %s RETURNING *",

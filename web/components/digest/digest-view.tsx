@@ -159,7 +159,7 @@ export function DigestView({ issue, filters, basePath, feedHref, crumbs, notices
         <TextInput name="cpv" maxLength={200} label="CPV code" placeholder="For example 353, 2461" defaultValue={filters.cpv?.join(', ') ?? ''}
           className="sm:min-w-48" hint="Narrows the notices; funding calls have no code." />
         <div className="flex items-center gap-3">
-          <Button type="submit">Apply</Button>
+          <Button type="submit" variant="secondary">Apply</Button>
           <Link href={basePath} className="inline-flex min-h-11 items-center text-small font-bold">Clear</Link>
         </div>
       </form>

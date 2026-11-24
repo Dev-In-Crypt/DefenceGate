@@ -74,7 +74,8 @@ export const L = {
   sizeSme: 'Small or medium enterprise', sizeLarge: 'Large enterprise',
   buyer: 'Buyer', procurements: 'Procurements', value: 'Awarded contract value', newest: 'Newest notice', source: 'Source',
   buyersLead: (n: number, since: string, until: string) => `Contracting authorities and entities that bought under these codes from ${since} to ${until}: ${n.toLocaleString('en-GB')} defence-scope procurements. The largest five in the first country and three in each of the next three, the other countries by their counts; each row links to the buyer's page under these codes and to its newest notice at the source.`,
-  countryLine: (procurements: number, buyers: number, core: number) => `${procurements.toLocaleString('en-GB')} procurements · ${buyers} buyers, ${core} of them defence buyers`,
+  // E-33: singular for one
+  countryLine: (procurements: number, buyers: number, core: number) => `${procurements.toLocaleString('en-GB')} ${procurements === 1 ? 'procurement' : 'procurements'} · ${buyers === 1 ? `1 buyer, ${core ? 'a defence buyer' : 'not a defence buyer'}` : `${buyers} buyers, ${core} of them defence buyers`}`,
   noValue: 'No contract value stated',
   otherCountries: 'Also bought in',
   winner: 'Company', contracts: 'Contracts', countries: 'Buyer countries',
@@ -116,3 +117,6 @@ export function valueLine(xs: readonly ValueSum[]): string | null {
 export function heldLabel(key: string, labels: Record<string, string>): string {
   return labels[key] ?? key;
 }
+
+/** E-39: the breadcrumb of the report's pages: Home, then the report (it was one crumb, "Reports", a page that does not exist). */
+export const SR_CRUMBS = [{ label: 'Home', href: '/' }, { label: 'Who to sell to', href: '/reports/who-to-sell-to' }];

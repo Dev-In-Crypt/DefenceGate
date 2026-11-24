@@ -1,4 +1,5 @@
 import 'server-only';
+import { PLANS_FROM } from '@/lib/plans';
 import Link from 'next/link';
 import { getSupplier, getSupplierCompetition, isSupplierSlug, REMOVED, whenRemoved } from '@/lib/api';
 import type { Supplier, SupplierCompetition } from '@/lib/types';
@@ -90,7 +91,7 @@ export async function openAndRender(l: Extract<Loaded, { kind: 'ok' }>, state: U
 }
 
 export function PlanGate({ name, slug, sample }: { name: string; slug: string; sample: string | null }) {
-  return <Gate name={name} slug={slug} sample={sample}><p className="m-0" data-report-plan>The company report comes with a paid plan (Pro, Team or Consultant). See <Link href="/app/billing" className="font-semibold">Billing</Link> in your account.</p></Gate>;
+  return <Gate name={name} slug={slug} sample={sample}><p className="m-0" data-report-plan>The company report is part of the {PLANS_FROM.pro}. See <Link href="/app/billing" className="font-semibold">Billing</Link> in your account.</p></Gate>;
 }
 
 function Partners({ p }: { p: PartnerPage | null }) {

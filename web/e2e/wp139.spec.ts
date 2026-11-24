@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { visit } from './helpers';
-import { MAIN_NAV } from '../lib/nav';
+import { MAIN_NAV, MORE_NAV } from '../lib/nav';
 
 /**
  * WP-139 (verification round 8, 25 October 2026): the phone menu's groups are all headings of one kind ("Check my company" was a
@@ -17,7 +17,8 @@ test('on a phone every group of the menu is a heading of the same kind, with its
   await page.getByRole('button', { name: 'Open menu' }).click();
   const menu = page.getByRole('navigation', { name: 'Main menu' });
   const headings = menu.locator(':scope > div > p');
-  await expect(headings).toHaveText(MAIN_NAV.map((n) => n.label));
+  // WP-176 (A-15, moved on purpose): the phone menu ends with the group of the footer-only pages
+  await expect(headings).toHaveText([...MAIN_NAV, MORE_NAV].map((n) => n.label));
   const colours = await headings.evaluateAll((els) => els.map((e) => [getComputedStyle(e).color, getComputedStyle(e).fontWeight].join()));
   expect(new Set(colours).size, 'one look for every heading').toBe(1);
   const check = menu.locator(':scope > div').filter({ has: page.locator('p', { hasText: 'Check my company' }) });

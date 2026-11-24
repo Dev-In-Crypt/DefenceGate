@@ -34,6 +34,7 @@ import { ListboxSelect } from '@/components/dg/select';
 import { LiveListScope, ResultsRegion } from '@/components/dg/live-list';
 import { LiveForm } from '@/components/funding/filter-panel';
 import { cn } from '@/lib/utils';
+import { PLANS_FROM } from '@/lib/plans';
 
 export const revalidate = 300;
 
@@ -68,7 +69,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     try { noindex = (await getSuppliers(withProduct(f).api)).items.length < MIN_LIST_ITEMS; } catch { noindex = true; }
   }
   return buildMetadata({
-    title: listViewTitle('Defence supplier map', 'Supplier map', {
+    // A-27: the menu's and the h1's name first ("Companies"), the list's after it
+    title: listViewTitle('Companies: defence supplier map', 'Companies, supplier map', {
       page: f.page, countries: parseCountries(f.country).codes, q: f.q, filters: [f.q, f.country, f.buyerCountry, f.cpv, f.product].filter(Boolean).length,
     }),
     description: 'Companies named as winners in TED result notices of defence-relevant contracts of the last three years: where they are, what they won and who bought it. The open segment only.',
@@ -121,6 +123,8 @@ export default async function SuppliersPage({ searchParams }: Props) {
   // WP-156: the CSV of this list is a plan's (`supplier_map_csv`); its link is shown once anyone can have it (accounts open or plans on sale)
   const status = await getAccountStatus();
   const csv = status.open || status.plansOnSale ? { href: href(f, 1).replace(/^\/suppliers/, '/suppliers/export.csv'), plans: status.plansOnSale } : null;
+  // E-05: the CSV route sends a refused download back here with the reason (export.csv/route.ts)
+  const refused = typeof sp.csv === 'string' ? sp.csv : null;
   const summary = f.page === 1 && !filtered ? full : null;
   const placsp = placspNote(full?.sources);
   // WP-112 (p03, p04, p06): the credit under the list is for the sources of the companies on this page: PLACSP's only when one of their wins
@@ -299,11 +303,18 @@ export default async function SuppliersPage({ searchParams }: Props) {
         )}
         <Pagination page={result.page} total={reachable} pageSize={result.pageSize} hrefFor={(p) => href(f, p)} />
         {csv && result.total > 0 && (
-          <p className="m-0 flex max-w-prose flex-wrap items-center gap-x-2 text-small text-ink-muted" data-supplier-csv>
+          <p id="supplier-csv" className="m-0 flex max-w-prose flex-wrap items-center gap-x-2 text-small text-ink-muted" data-supplier-csv>
             <a href={csv.href} className="inline-flex min-h-11 items-center gap-2 font-bold"><Icon icon={Download} size="inline" />Download this list as CSV</a>
             <span>
-              (up to {formatNumber(SUPPLIER_CSV_ROWS)} companies{csv.plans ? <>; part of the Team and Consultant plans: <Link href="/pricing" className="font-semibold">pricing</Link></> : '; signed-in accounts'})
+              (up to {formatNumber(SUPPLIER_CSV_ROWS)} companies{csv.plans ? <>; part of the {PLANS_FROM.team}: <Link href="/pricing" className="font-semibold">pricing</Link></> : '; signed-in accounts'})
             </span>
+            {refused && (
+              <span role="alert" className="basis-full font-semibold text-ink" data-supplier-csv-refused>
+                {refused === 'signin' ? <>The CSV was not downloaded: <Link href="/signin?next=/suppliers">sign in</Link> first.</>
+                  : refused === 'plan' ? <>The CSV was not downloaded: it is part of the {PLANS_FROM.team}. See <Link href="/app/billing">Billing</Link> in your account.</>
+                  : <>The CSV could not be made just now. Try again in a moment.</>}
+              </span>
+            )}
           </p>
         )}
         {/* WP-88: the attribution the sources' terms ask for stays on screen, never only in a collapsed block. */}

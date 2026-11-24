@@ -169,7 +169,9 @@ test.describe('against the real account API', () => {
     await page.getByLabel('Type your e-mail address to confirm').fill(email);
     await page.getByLabel('Account password').fill(third);
     await page.getByRole('button', { name: 'Delete my account' }).click();
-    await page.waitForURL((u) => u.pathname === '/');
+    // WP-176 (E-20, moved on purpose): a page that says the account is deleted, not the home page
+    await page.waitForURL((u) => u.pathname === '/auth/deleted');
+    await expect(page.getByRole('heading', { name: 'Your account is deleted' })).toBeVisible();
     expect(await session(context)).toBeUndefined();
     await signIn(page, email, third);
     await expect(page.getByText('The e-mail address or the password is wrong.')).toBeVisible();

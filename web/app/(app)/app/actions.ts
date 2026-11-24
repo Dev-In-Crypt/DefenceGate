@@ -6,6 +6,7 @@
  * Each action ends in a redirect to a dynamic page with `?n=<code>`, so the forms work without JavaScript.
  */
 import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 import {
   acceptTerms, authLogout, CADENCES, changePassword, clearCookie, deleteFollow, deleteMe, deleteSearch, deleteShortlist,
   revokeOtherSessions, revokeSession, ROLES, SCOPES, SESSION_COOKIE, SHORTLIST_STATUSES, totpDisable, totpEnable, totpSetup,
@@ -207,17 +208,17 @@ export async function stopTotp(form: FormData): Promise<void> {
 /** The API checks the typed address against the account's own, and the password (WP-123); here they are only passed on. */
 export async function deleteAccount(form: FormData): Promise<void> {
   const typed = field(form, 'confirm', 254).trim();
-  if (!typed) redirect('/app/settings?n=confirm#delete');
+  if (!typed) redirect('/app/settings?n=confirm&at=delete#delete');
   const r = await deleteMe(typed, field(form, 'password', PASSWORD_MAX));
   if (r.ok) {
     await clearCookie(SESSION_COOKIE);
-    redirect('/');
+    redirect('/auth/deleted');       // E-20: a page that says so, not the home page without a word
   }
   if (r.status === 401) redirect('/auth/expired');
   const code = r.status === 403 && r.error === 'wrong_password' ? 'wrong_password' : r.status === 429 ? 'rate_limited'
     : r.status === 409 && r.error === 'subscription_active' ? 'subscription_active'
     : r.status >= 400 && r.status < 500 ? 'confirm' : 'error';
-  redirect(`/app/settings?n=${code}#delete`);
+  redirect(`/app/settings?n=${code}&at=delete#delete`);
 }
 
 /* ---- keys of the data API (WP-153) ---- */
@@ -234,7 +235,10 @@ export async function newApiKey(_prev: KeyState, form: FormData): Promise<KeySta
   const scopes = (['tenders', 'archive'] as const).filter((s) => form.getAll('scopes').includes(s));
   if (!name || scopes.length === 0) return { status: 'invalid', name };
   const r = await createApiKey(name, [...scopes], field(form, 'password', PASSWORD_MAX));
-  if (r.ok) return { status: 'created', key: r.data.key, name: r.data.meta.name };
+  if (r.ok) {
+    revalidatePath('/app/keys');      // E-16: the list under the form shows the new key with the answer, not after a reload
+    return { status: 'created', key: r.data.key, name: r.data.meta.name };
+  }
   if (r.status === 401) redirect('/auth/expired');
   // the name typed comes back to the form (React resets a form after its action); the password never does
   if (r.status === 403 && r.error === 'wrong_password') return { status: 'wrong_password', name };

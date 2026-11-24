@@ -68,11 +68,12 @@ test('the supplier map links its CSV; a Consultant gets the file, anyone else go
   await expect(page.locator('[data-supplier-csv]')).toContainText('part of the Team and Consultant plans');
   await shot(page, 'suppliers-csv-link');
   await widths(page, 'suppliers-csv-link');
-  // anonymous and Pro: back to the same list
-  for (const session of [null, S.pro]) {
+  // anonymous and Pro: back to the same list, which says why (WP-176, E-05: it came back without a word)
+  for (const [session, why, said] of [[null, 'signin', 'sign in'], [S.pro, 'plan', 'part of the Team and Consultant plans']] as const) {
     if (session) await signIn(context, baseURL, session);
     await link.click();
-    await expect(page).toHaveURL(/\/suppliers\?country=DE$/);
+    await expect(page).toHaveURL(new RegExp(`/suppliers\\?country=DE&csv=${why}#supplier-csv$`));
+    await expect(page.locator('[data-supplier-csv-refused]')).toContainText(said);
   }
   await signIn(context, baseURL, S.consultant);
   await visit(page, '/suppliers?country=DE', list);
@@ -92,7 +93,7 @@ test('the eligibility pack: a menu entry and the list for Pro, the plan for an a
   await withProfile(page, 'small');
   await signIn(context, baseURL, S.none);
   await openApp(page, '/app/eligibility');
-  await expect(page.locator('[data-pack-plan]')).toContainText('Pro, Team and Consultant');
+  await expect(page.locator('[data-pack-plan]')).toContainText('Pro, Team, Consultant and Founding customer');
   await expect(page.locator('nav a[href="/app/eligibility"]')).toHaveCount(0);
   await shot(page, 'pack-no-plan');
 

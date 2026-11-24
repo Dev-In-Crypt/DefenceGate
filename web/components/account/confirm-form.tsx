@@ -11,25 +11,27 @@ import { planSentence } from '@/lib/plans';
 const initial: ConfirmState = { status: 'idle' };
 
 /** The invalid-link message is the same for every cause. Used by the pages too (missing token). */
-export function InvalidLink({ again = { href: '/signup', label: 'Create the account again' } }: { again?: { href: string; label: string } }) {
+export function InvalidLink({ again = { href: '/signup', label: 'Create the account again' }, title = 'This link is no longer valid', text = 'Links work once and expire. Ask for a new one.' }: {
+  again?: { href: string; label: string }; title?: string; text?: string;
+}) {
   return (
     <div role="alert" className="flex max-w-form flex-col items-start gap-3 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
       <span className="flex size-11 items-center justify-center rounded-pill bg-surface-inset text-alert"><Icon icon={CircleAlert} /></span>
-      <h2 className="m-0 text-h3">This link is no longer valid</h2>
-      <p className="m-0 text-body text-ink-muted">Links work once and expire. Ask for a new one.</p>
+      <h2 className="m-0 text-h3">{title}</h2>
+      <p className="m-0 text-body text-ink-muted">{text}</p>
       <Button href={again.href}>{again.label}</Button>
     </div>
   );
 }
 
 /** A finished step: the address is confirmed or the password is set. Signing in is the next step. */
-export function Done({ title, children }: { title: string; children: React.ReactNode }) {
+export function Done({ title, children, href = '/signin', action = 'Sign in' }: { title: string; children: React.ReactNode; href?: string; action?: string }) {
   return (
     <div role="status" className="flex max-w-form flex-col items-start gap-3 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
       <span className="flex size-11 items-center justify-center rounded-pill bg-surface-inset text-ink"><Icon icon={CircleCheck} /></span>
       <h2 className="m-0 text-h3">{title}</h2>
       <p className="m-0 text-body text-ink-muted">{children}</p>
-      <Button href="/signin">Sign in</Button>
+      <Button href={href}>{action}</Button>
     </div>
   );
 }

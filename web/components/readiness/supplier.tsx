@@ -284,7 +284,7 @@ export function SupplierForm({ offer = null }: { offer?: 'services' | 'products'
 /** How many matches the picker lists (WP-73: the whole vocabulary matches more than the 20 of the selection did). */
 const SHOWN = 50;
 
-export function CpvPicker({ codes, onChange, error, services = false }: { codes: string[]; onChange: (codes: string[]) => void; error?: string; services?: boolean }) {
+export function CpvPicker({ codes, onChange, error, services = false, required = false }: { codes: string[]; onChange: (codes: string[]) => void; error?: string; services?: boolean; required?: boolean }) {
   const [query, setQuery] = useState('');
   const vocab = useCpvVocabulary();
   const found = query.trim() ? cpvSearch(query, SHOWN, vocab ?? undefined) : [];
@@ -304,10 +304,10 @@ export function CpvPicker({ codes, onChange, error, services = false }: { codes:
   };
   return (
     // WP-107 (p06): a services company is asked for the codes of what it sells, with services as the examples
-    <Fieldset id="q-cpv" legend={`CPV codes of what you ${services ? 'sell' : 'make'} (optional, up to ${CPV_MAX})`} error={error}
+    <Fieldset id="q-cpv" legend={`CPV codes of what you ${services ? 'sell' : 'make'} (${required ? 'at least 1' : 'optional'}, up to ${CPV_MAX})`} error={error}
       hint={services
         ? `${CPV_MIN} to ${CPV_MAX} recommended for the demand map (who buys what you sell, on your results and in your report); no rule of the check reads them. Search by a word of the service (“warehousing”, “transport”, “catering”) or by the first digits of a code. The codes and titles are those of the official CPV 2008 vocabulary (Publications Office of the EU, CC BY 4.0).`
-        : `${CPV_MIN} to ${CPV_MAX} recommended for the demand map (who buys what you make, on your results and in your report); no rule of the check reads them. Search by a word of the product (“castings”, “machined parts”, “fasteners”) or by the first digits of a code; products come before the machines that make them. The codes and titles are those of the official CPV 2008 vocabulary (Publications Office of the EU, CC BY 4.0).`}>
+        : `${CPV_MIN} to ${CPV_MAX} recommended for the demand map (who buys what you make, on your results and in your report)${required ? '' : '; no rule of the check reads them'}. Search by a word of the product (“castings”, “machined parts”, “fasteners”) or by the first digits of a code; products come before the machines that make them. The codes and titles are those of the official CPV 2008 vocabulary (Publications Office of the EU, CC BY 4.0).`}>
       {update && (
         // WP-110: a profile saved with an earlier version of a set is offered the current one; its own other codes stay
         <div className="mt-2 flex flex-col gap-1 rounded-md border border-line p-3" data-cpv-set-update={update.set.key}>

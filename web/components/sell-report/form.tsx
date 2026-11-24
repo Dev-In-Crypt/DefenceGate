@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { PLANS_FROM } from '@/lib/plans';
 import { ArrowRight } from 'lucide-react';
 import { CERTIFICATES, REGISTRATIONS, holds } from '@/lib/profile';
 import { L, type SellReport } from '@/lib/sell-report';
@@ -27,7 +28,7 @@ function fromKept(k: SellForm | null): State | null {
 
 function refusal(r: Extract<MakeResult, { ok: false }>): string {
   if (r.error === 'report_quota') return `${(r.message ?? 'No supplier reports left').replace(/^./, (c) => c.toUpperCase())}.`;
-  if (r.error === 'plan_required') return 'The supplier report comes with a paid plan (Pro, Team or Consultant). See Billing in your account.';
+  if (r.error === 'plan_required') return `The supplier report is part of the ${PLANS_FROM.pro}. See Billing in your account.`;
   if (r.status === 401) return 'Your session has ended. Sign in again, then generate the report.';
   if (r.status === 422) return 'An answer could not be read: check the country and the CPV codes.';
   if (r.status === 404) return 'Supplier reports are not open yet.';
@@ -92,7 +93,7 @@ export function SellReportForm({ kept }: { kept: SellForm | null }) {
       <TextInput label="Company name (optional, printed on the cover)" maxLength={120} value={s.name} onChange={(e) => set('name', e.target.value)} />
       <Select className="max-w-form" label="Country where your company is established" placeholder="Choose a country" options={COUNTRY_OPTIONS}
         value={s.country} aria-required="true" onChange={(e) => set('country', e.target.value)} />
-      <CpvPicker codes={s.cpv} onChange={(codes) => set('cpv', codes)} />
+      <CpvPicker required codes={s.cpv} onChange={(codes) => set('cpv', codes)} />
       <TextInput className="max-w-form" label="NACE code of your main activity (optional)" maxLength={12} value={s.nace} onChange={(e) => set('nace', e.target.value)} />
       <Radios legend="Size of your company" name="size" value={s.size} hint="Small or medium: fewer than 250 staff and a turnover of at most EUR 50 million (Commission Recommendation 2003/361/EC)."
         options={[{ value: 'sme', label: 'Small or medium' }, { value: 'large', label: 'Large' }]} onChange={(v) => set('size', v)} />

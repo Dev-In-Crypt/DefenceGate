@@ -3,11 +3,12 @@ import Link from 'next/link';
 import { Button } from '@/components/dg/button';
 import { ContentPage } from '@/components/dg/content-page';
 import { stopDigest } from './actions';
+import { getAccountStatus } from '@/lib/account';
 
 // The URL carries the stop token of one member's digest or one account's alerts: never cached, never indexed, never sent on
 // as a referrer. The proxy drops the `token` parameter from its logs (infra/caddy/Caddyfile).
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Stop e-mails', robots: { index: false, follow: false }, referrer: 'no-referrer' };
+export const metadata: Metadata = { title: 'Stop e-mails', description: 'Stop the weekly digest or the e-mail alerts of saved searches, from the link at the end of the mail.', robots: { index: false, follow: false }, referrer: 'no-referrer' };
 
 type Props = { searchParams: Promise<{ token?: string | string[]; kind?: string | string[]; done?: string; failed?: string }> };
 
@@ -40,8 +41,10 @@ export default async function UnsubscribePage({ searchParams }: Props) {
   const c = COPY[kind];
   const valid = typeof token === 'string' && /^[0-9a-f]{64}$/.test(token);
   const where = <Link href={c.where.href} className="font-semibold">{c.where.label}</Link>;
+  // A-16: "sign in and change it under …" only while sign-in is open; the page is in its own breadcrumb, as every page is
+  const { open } = await getAccountStatus();
   return (
-    <ContentPage crumbs={[{ label: 'Home', href: '/' }]} title={c.title}>
+    <ContentPage crumbs={[{ label: 'Home', href: '/' }, { label: c.title, href: '/unsubscribe' }]} title={c.title}>
       {sp.done ? (
         <p className="m-0 max-w-prose text-body" role="status" data-unsubscribed>
           {c.done} {where}.
@@ -57,7 +60,7 @@ export default async function UnsubscribePage({ searchParams }: Props) {
         </form>
       ) : (
         <p className="m-0 max-w-prose text-body text-ink-muted" data-unsubscribe-invalid>
-          {c.invalid} {where}.
+          {open ? <>{c.invalid} {where}.</> : `${c.invalid.split(', or sign in')[0]}.`}
         </p>
       )}
     </ContentPage>

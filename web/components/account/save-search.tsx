@@ -7,7 +7,8 @@ import { suggestSearchName } from '@/lib/account-format';
 import type { SearchFilters, SearchKind } from '@/lib/types';
 import { Button } from '../dg/button';
 import { TextInput } from '../dg/form';
-import { saveSearch } from './actions';
+import { saveSearch, searchAllowed } from './actions';
+import { PLANS_FROM } from '@/lib/plans';
 import { useAccountsOpen } from './accounts-open';
 import { useAccountState } from './use-account-state';
 
@@ -18,7 +19,7 @@ import { useAccountState } from './use-account-state';
 export function SaveSearch({ kind, filters }: { kind: SearchKind; filters: SearchFilters }) {
   const open = useAccountsOpen();
   const { mode } = useAccountState(null);
-  const [step, setStep] = useState<'closed' | 'editing' | 'saving' | 'saved'>('closed');
+  const [step, setStep] = useState<'closed' | 'asking' | 'plan' | 'editing' | 'saving' | 'saved'>('closed');
   const [signedOut, setSignedOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,9 +37,24 @@ export function SaveSearch({ kind, filters }: { kind: SearchKind; filters: Searc
       </p>
     );
   }
-  if (step === 'closed') {
+  if (step === 'plan') {
     return (
-      <Button variant="secondary" icon={Bookmark} fullWidth disabled={mode === 'loading'} aria-busy={mode === 'loading'} onClick={() => setStep('editing')}>
+      <p role="status" className="m-0 rounded-lg border border-transparent bg-surface p-4 text-small text-ink" data-save-search-plan>
+        Saved searches and their e-mail alerts are part of the {PLANS_FROM.pro}. See <Link href="/app/billing" className="font-semibold">Billing</Link> in your account.
+      </p>
+    );
+  }
+  if (step === 'closed' || step === 'asking') {
+    // E-13: the plan is asked first, so an account without saved searches is told before it names one
+    const ask = async () => {
+      setStep('asking');
+      const a = await searchAllowed(kind).catch(() => 'unavailable' as const);
+      if (a === 'anonymous') { setSignedOut(true); setStep('closed'); return; }
+      setStep(a === 'plan' ? 'plan' : 'editing');
+    };
+    const busy = mode === 'loading' || step === 'asking';
+    return (
+      <Button variant="secondary" icon={Bookmark} fullWidth disabled={busy} aria-busy={busy} onClick={() => { void ask(); }}>
         Save this search
       </Button>
     );
@@ -53,7 +69,7 @@ export function SaveSearch({ kind, filters }: { kind: SearchKind; filters: Searc
       const r = await saveSearch(kind, name, filters);
       if (r.ok) { setStep('saved'); return; }
       if (r.mode === 'anonymous') { setSignedOut(true); return; }
-      setError(r.message ?? 'Could not save this search.');
+      setError(r.message ? r.message.replace(/^./, (c) => c.toUpperCase()) : 'Could not save this search.');
     } catch {
       setError('Could not save this search.');
     }

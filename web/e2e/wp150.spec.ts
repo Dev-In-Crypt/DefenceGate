@@ -163,7 +163,7 @@ test.describe('the dashboard, against the fake account API', () => {
     expect(errors).toEqual([]);
   });
 
-  test('C2: no title in a dashboard block is underlined at rest; a title underlines on its own hover', async ({ page }) => {
+  test('C2: no title in a dashboard block is underlined, at rest or under the pointer; the row shows the hover', async ({ page }) => {
     await page.goto('/app', { waitUntil: 'networkidle' });
     await page.mouse.move(0, 0);   // the pointer is left where "Sign in" was, over a title of the dashboard: away, so nothing is hovered
     const titles = page.locator('main [data-item-title] a');
@@ -172,7 +172,11 @@ test.describe('the dashboard, against the fake account API', () => {
     if (!isMobile(page)) {
       const change = page.locator('section[aria-labelledby="changes"] [data-item-title] a');
       await change.hover();
-      await expect.poll(() => change.evaluate((e) => getComputedStyle(e).textDecorationLine)).toContain('underline');
+      // WP-176 (E-17), moved on purpose: owner's hover rule: the row is the target and highlights; its title never underlines
+      await page.waitForTimeout(300);
+      expect(await change.evaluate((e) => getComputedStyle(e).textDecorationLine)).toBe('none');
+      const row = change.locator('xpath=ancestor::li[1]');
+      expect(await row.evaluate((e) => getComputedStyle(e).borderTopColor)).not.toBe('rgba(0, 0, 0, 0)');
     }
   });
 });

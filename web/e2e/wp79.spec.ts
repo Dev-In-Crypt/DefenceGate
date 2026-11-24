@@ -19,9 +19,11 @@ test.describe('accounts closed (no API)', () => {
     });
   }
 
-  for (const [path, h1] of [['/auth/verify', 'Confirm your address'], ['/auth/reset', 'Set a new password'], ['/signin/code', 'Enter your code']] as const) {
-    test(`${path} without its token or ticket says the link is no longer valid`, async ({ page }) => {
-      await visit(page, path, { title: /./, h1, text: ['This link is no longer valid'] });
+  // WP-176 (E-26, moved on purpose): /signin/code is reached by no link, so without its ticket it says the sign-in timed out
+  for (const [path, h1, said] of [['/auth/verify', 'Confirm your address', 'This link is no longer valid'], ['/auth/reset', 'Set a new password', 'This link is no longer valid'],
+    ['/signin/code', 'Enter your code', 'Your sign-in has timed out']] as const) {
+    test(`${path} without its token or ticket says it is no longer valid`, async ({ page }) => {
+      await visit(page, path, { title: /./, h1, text: [said] });
       await expect(page.locator('main form')).toHaveCount(0);     // main: the site header has a search form since WP-86
     });
   }
@@ -67,11 +69,23 @@ test.describe('against the fake account API', () => {
     await page.getByRole('button', { name: 'Create account' }).click();
     await expect(page.getByText('Choose another password: use at least 12 characters.')).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'E-mail address' })).toHaveValue('new@example.test');
-    await expect(page.getByLabel('Password', { exact: true })).toHaveValue('');                       // never handed back
+    // WP-176 (E-11, moved on purpose): the typed password stays in the field (the browser keeps it; the server never hands it back)
+    await expect(page.getByLabel('Password', { exact: true })).toHaveValue('too short');
     await page.getByLabel('Password', { exact: true }).fill('a long enough passphrase');
     await page.getByRole('checkbox').check();
     await page.getByRole('button', { name: 'Create account' }).click();
     await expect(page.getByRole('heading', { name: 'Check your mail' })).toBeVisible();
+  });
+
+  test('WP-176 (E-11): registration says every refused field at once', async ({ page }) => {
+    await page.goto('/register');
+    await page.getByRole('textbox', { name: 'E-mail address' }).fill('not-an-address');
+    await page.getByLabel('Password', { exact: true }).fill('short');
+    await page.getByRole('button', { name: 'Create account' }).click();
+    await expect(page.getByText('That does not look like an e-mail address.')).toBeVisible();
+    await expect(page.getByText('Choose another password: use at least 12 characters.')).toBeVisible();
+    await expect(page.getByText('Tick the box to accept the terms of use and the privacy notice.')).toBeVisible();
+    await expect(page.getByLabel('Password', { exact: true })).toHaveValue('short');
   });
 
   test('registration without the tick is refused', async ({ page }) => {

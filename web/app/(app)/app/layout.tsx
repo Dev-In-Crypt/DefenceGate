@@ -62,7 +62,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // WP-157: Team while the plan has the workspace or the account is in one (to leave it); Clients with client profiles
   const nav = { apiKeys: state.user.apiKeys, eligibility: state.user.features.includes('eligibility_export'), association: state.user.association,
     team: state.user.features.includes('team_workspace') || !!state.user.workspace,
-    clients: state.user.features.includes('client_profiles') };
+    clients: state.user.features.includes('client_profiles'), offer: BILLING_OPEN };
   // WP-124: a paid plan chosen on the pricing page and not paid yet: the next step is payment, said on every account page.
   const toPay = plan === 'free' && planChoice && planChoice.plan !== 'free' && BILLING_OPEN;
   // A new version of the terms or the privacy notice: asked again here, as the sign-in form does.

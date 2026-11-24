@@ -119,7 +119,7 @@ export default async function RequirementsPage({ searchParams }: Props) {
       {failed && <ErrorState title="The catalogue could not be loaded" retryHref="/requirements" />}
       <form method="get" action="/requirements" aria-label="Who issues them in your country" className="flex flex-wrap items-end gap-3">
         <Select name="country" label="Who issues them in your country" placeholder="Choose a country" options={COUNTRIES} defaultValue={country} className="w-72" />
-        <button type="submit" className="inline-flex min-h-11 items-center rounded-pill border-strong border-ink bg-surface px-5 text-small font-bold text-ink">Show</button>
+        <button type="submit" className="inline-flex min-h-11 items-center rounded-pill border-strong border-ink bg-surface px-5 text-small font-bold text-ink">Apply</button>
       </form>
       {items.length > 0 && <JsonLd data={list} />}
       {country && elsewhere > 0 && (
@@ -142,7 +142,7 @@ export default async function RequirementsPage({ searchParams }: Props) {
       )}
       <ContentSection title="About the costs">
         <p className="m-0 text-body text-ink-muted">
-          Each card names the issuer in the countries covered so far, the source and the date it was last reviewed. Every cost on these pages that is not free comes from a certification body or a consultancy, and no neutral body publishes prices. They are shown as ranges, in the currency the vendor used, labelled as vendor ranges and not as a benchmark. Where a source states no cost or time, the page says so and shows none.
+          Each card names the issuer in the countries covered so far, the source and the date it was last reviewed; a source may have changed since, so open it before you act. Every cost on these pages that is not free comes from a certification body or a consultancy, and no neutral body publishes prices. They are shown as ranges, in the currency the vendor used, labelled as vendor ranges and not as a benchmark. Where a source states no cost or time, the page says so and shows none.
         </p>
       </ContentSection>
       <div>

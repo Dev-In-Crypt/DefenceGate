@@ -28,7 +28,7 @@ test('a visitor is asked to sign in, an account without the feature is told it i
   await expect(page.locator('[data-company-report]')).toHaveCount(0);
   await signIn(context, baseURL, 'b'.repeat(43));
   await visit(page, REPORT, TITLE);
-  await expect(page.locator('[data-report-plan]')).toContainText('comes with a paid plan');
+  await expect(page.locator('[data-report-plan]')).toContainText('part of the Pro, Team, Consultant and Founding customer plans');
   await expect(page.locator('[data-company-report]')).toHaveCount(0);
 });
 

@@ -381,3 +381,17 @@ def test_the_plan_is_the_largest_of_own_workspace_and_association(client, sent, 
     assert client.post("/v1/account/workspace/invites", headers=H(a), json={"email": "dan@example.com"}).status_code == 201
     assert client.post("/v1/account/workspace/join", headers=H(d),
                        json={"token": invite_token(sent, "dan@example.com")}).status_code == 200
+
+
+def test_two_client_profiles_of_a_workspace_never_share_a_name(client, sent):
+    # WP-176 (E-14): the switcher showed two "Acme" profiles
+    a, _ = sign_in(client, sent, email=ANN)
+    acme = client.post("/v1/account/clients", headers=H(a), json={"name": "Acme Defence"}).json()
+    other = client.post("/v1/account/clients", headers=H(a), json={"name": "Bolt Ltd"}).json()
+    r = client.post("/v1/account/clients", headers=H(a), json={"name": "  acme   DEFENCE "})
+    assert (r.status_code, r.json()["error"]) == (409, "name_taken")
+    r = client.patch(f"/v1/account/clients/{other['id']}", headers=H(a), json={"name": "ACME defence"})
+    assert (r.status_code, r.json()["error"]) == (409, "name_taken")
+    # its own name again is no clash
+    assert client.patch(f"/v1/account/clients/{acme['id']}", headers=H(a), json={"name": "Acme Defence"}).status_code == 200
+    assert len(client.get("/v1/account/clients", headers=H(a)).json()["items"]) == 2

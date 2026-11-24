@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getSupplier, getSupplierCompetition, isSupplierSlug, REMOVED, whenRemoved } from '@/lib/api';
 import { getAccountStatus, getFullCompetition, getUserState } from '@/lib/account';
+import { PLANS_FROM } from '@/lib/plans';
 import { displayName } from '@/lib/display-name';
 import { PageHeader } from '@/components/dg/page-header';
 import { Card } from '@/components/dg/card';
@@ -30,19 +31,23 @@ export default async function CompetitorsPage({ params }: Props) {
   const state = await getUserState();
   let c = pub;
   let gate: React.ReactNode = null;
+  // E-22 (F19): a gate only when the public answer leaves companies out, and it names who has the rest
+  const hidden = pub.competitorCount > pub.competitors.length;
   if (state.kind === 'anonymous' || state.kind === 'unauthorized') {
-    // WP-175 (F19): said as it is: the first five are free to everyone; the rest needs an account, and later a plan
-    const status = await getAccountStatus();
-    const plans = status.plansOnSale ? 'with the Pro, Team and Consultant plans' : 'free to every account while no paid plan is on sale; later part of the Pro, Team and Consultant plans';
-    gate = status.open
-      ? <>The first five competitors are free on the <Link href={`/suppliers/${s.slug}`} className="font-semibold">company page</Link>. The full list is {plans}: <Link href={`/signin?next=/suppliers/${s.slug}/competitors`} className="font-semibold">sign in</Link>.</>
-      : <>The first five competitors are free on the <Link href={`/suppliers/${s.slug}`} className="font-semibold">company page</Link>. The full list will come with an account ({status.plansOnSale ? 'with the Pro, Team and Consultant plans' : 'later part of the Pro, Team and Consultant plans'}); accounts are not open yet.</>;
+    // WP-175 + WP-176 (F19, E-22): only when companies are left out; the first five are free, the rest is said as it is
+    if (hidden) {
+      const status = await getAccountStatus();
+      const plans = `part of the ${PLANS_FROM.pro}`;
+      gate = status.open
+        ? <>The first five competitors are free on the <Link href={`/suppliers/${s.slug}`} className="font-semibold">company page</Link>. The full list is {status.plansOnSale ? plans : 'free to every account while no paid plan is on sale'}: <Link href={`/signin?next=/suppliers/${s.slug}/competitors`} className="font-semibold">sign in</Link>{status.plansOnSale && <> or see <Link href="/pricing" className="font-semibold">pricing</Link></>}.</>
+        : <>The first five competitors are free on the <Link href={`/suppliers/${s.slug}`} className="font-semibold">company page</Link>. The full list will come with an account ({status.plansOnSale ? plans : `later ${plans}`}); accounts are not open yet.</>;
+    }
   } else if (state.kind === 'unavailable') {
     gate = <>Your account could not be read just now. Try again in a moment.</>;
   } else {
     const full = await getFullCompetition(s.slug);
     if (full.ok) c = full.data;
-    else if (full.status === 402) gate = <span data-competitors-plan>The full list of competitors comes with the Pro, Team and Consultant plans: see <Link href="/app/billing" className="font-semibold">Billing</Link> in your account.</span>;
+    else if (full.status === 402) gate = hidden && <span data-competitors-plan>The full list of competitors is part of the {PLANS_FROM.pro}: see <Link href="/app/billing" className="font-semibold">Billing</Link> in your account.</span>;
     else gate = <>The full list could not be read just now. Try again in a moment.</>;
   }
   return (

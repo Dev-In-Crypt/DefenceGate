@@ -33,3 +33,13 @@ export function planSentence(c: PlanChoice, open = false): string {
 
 /** WP-124: payment is open when the site was built with it (NEXT_PUBLIC_BILLING_OPEN) and the API has every Creem setting. */
 export const billingOpen = (built: boolean, status: { billing: boolean }) => built && status.billing;
+
+/**
+ * WP-176 (E-27): the plans that have a paid feature, by the lowest plan that has it (backend billing.FEATURES), for the gate texts:
+ * "part of the Pro, Team, Consultant and Founding customer plans". Founding customer is Pro (/pricing: "Everything in Pro").
+ */
+export const PLANS_FROM = {
+  pro: 'Pro, Team, Consultant and Founding customer plans',
+  team: 'Team and Consultant plans',
+  consultant: 'Consultant plan',
+} as const;

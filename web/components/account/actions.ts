@@ -5,7 +5,7 @@
  * argument is checked here before it reaches the API. A 401 clears the session cookie (actions may set cookies).
  */
 import {
-  clearCookie, createSearch, deleteFollow, deleteShortlist, getState, putFollow, putShortlist, readSession, SESSION_COOKIE,
+  clearCookie, createSearch, deleteFollow, deleteShortlist, getMe, getState, putFollow, putShortlist, readSession, SESSION_COOKIE,
   type AccountResult,
 } from '@/lib/account';
 import { FILTER_KEYS } from '@/lib/account-format';
@@ -89,6 +89,18 @@ export async function setFollowed(kind: FollowKind, ref: string, on: boolean): P
 }
 
 /** `filters` are the list page's own query keys; anything else is dropped before the API sees it. */
+/**
+ * E-13: whether the account may save a search of this kind, asked when "Save this search" is pressed, so a plan without saved searches
+ * is told so before it names the search (the API's own rule: `saved_searches`, and `expiring_contracts` for contracts ending soon).
+ */
+export async function searchAllowed(kind: SearchKind): Promise<'ok' | 'plan' | SnapshotMode> {
+  if (!(await readSession())) return 'anonymous';
+  const r = await getMe();
+  if (!r.ok) return r.status === 401 ? (await dropSession(), 'anonymous') : 'unavailable';
+  const need = kind === 'ending' ? ['saved_searches', 'expiring_contracts'] as const : ['saved_searches'] as const;
+  return need.every((f) => r.data.features.includes(f)) ? 'ok' : 'plan';
+}
+
 export async function saveSearch(kind: SearchKind, name: string, filters: SearchFilters): Promise<ActionOutcome> {
   if (kind !== 'tender' && kind !== 'call' && kind !== 'ending') return { ok: false, mode: 'ready', message: 'Could not save this search.' };
   const clean: SearchFilters = {};

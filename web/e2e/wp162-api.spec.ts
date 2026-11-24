@@ -43,9 +43,9 @@ test('a visitor is asked to sign in; an account without the feature is told it i
   await expect(page.locator('[data-sr-signin-gate]')).toContainText('for signed-in accounts');
   await signIn(context, baseURL, 'b'.repeat(43));
   await visit(page, FORM, { title: /Who to sell to/, h1: 'Who to sell to' });
-  await fill(page, '34330000');
-  await page.getByRole('button', { name: 'Make the report' }).click();
-  await expect(page.locator('[data-sr-error]')).toContainText('comes with a paid plan');
+  // WP-176 (E-03, moved on purpose): told before the form, which is not shown to a plan without the report
+  await expect(page.locator('[data-sr-plan-gate]')).toContainText('part of the Pro, Team, Consultant and Founding customer plans');
+  await expect(page.getByRole('button', { name: 'Make the report' })).toHaveCount(0);
 });
 
 test('an account makes the report from the form; consent is off by default', { tag: '@fake-api' }, async ({ page, context, baseURL }) => {

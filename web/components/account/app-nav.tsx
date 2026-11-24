@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bell, Bookmark, Briefcase, CreditCard, FileCheck, KeyRound, LayoutDashboard, Search, Settings, Users, UsersRound } from 'lucide-react';
+import { Bell, Bookmark, Briefcase, CreditCard, FileCheck, KeyRound, LayoutDashboard, Lock, Search, Settings, Users, UsersRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Icon } from '../dg/icon';
 
@@ -28,11 +28,14 @@ const PACK = { label: 'Eligibility pack', href: '/app/eligibility', icon: FileCh
 const ASSOCIATION = { label: 'Association', href: '/app/association', icon: Users } as const;
 
 /** Sidebar on desktop, the list inside the mobile menu below lg. The dashboard matches /app exactly. */
-export function AppNav({ label = 'Account', apiKeys = false, eligibility = false, association = false, team = false, clients = false }:
-  { label?: string; apiKeys?: boolean; eligibility?: boolean; association?: boolean; team?: boolean; clients?: boolean }) {
+export function AppNav({ label = 'Account', apiKeys = false, eligibility = false, association = false, team = false, clients = false, offer = false }:
+  { label?: string; apiKeys?: boolean; eligibility?: boolean; association?: boolean; team?: boolean; clients?: boolean; offer?: boolean }) {
   const pathname = usePathname();
-  // after Following: Eligibility pack (WP-156), Team and Clients (WP-157); before Settings: Association (WP-158), API keys (WP-153)
-  const middle = [...(eligibility ? [PACK] : []), ...(team ? [TEAM] : []), ...(clients ? [CLIENTS] : [])];
+  // after Following: Eligibility pack (WP-156), Team and Clients (WP-157); before Settings: Association (WP-158), API keys (WP-153).
+  // E-21: with plans on sale (`offer`) the three are listed for every plan, a lock on those the plan lacks: each page says which plan has it
+  const middle: { label: string; href: string; icon: typeof Lock; locked?: boolean }[] = offer
+    ? [{ ...PACK, locked: !eligibility }, { ...TEAM, locked: !team }, { ...CLIENTS, locked: !clients }]
+    : [...(eligibility ? [PACK] : []), ...(team ? [TEAM] : []), ...(clients ? [CLIENTS] : [])];
   const base = [...ITEMS.slice(0, 4), ...middle, ...ITEMS.slice(4)];
   const extra = [...(association ? [ASSOCIATION] : []), ...(apiKeys ? [KEYS] : [])];
   const items = [...base.slice(0, -1), ...extra, base[base.length - 1]];
@@ -47,6 +50,7 @@ export function AppNav({ label = 'Account', apiKeys = false, eligibility = false
                 className={cn('flex min-h-11 items-center gap-3 rounded-pill px-4 text-body font-semibold no-underline transition-colors duration-dg hover:no-underline',
                   active ? 'bg-primary text-on-primary' : 'text-ink hover:bg-surface-inset')}>
                 <Icon icon={i.icon} />{i.label}
+                {'locked' in i && i.locked && <><Icon icon={Lock} size="inline" className="ml-auto text-ink-muted" data-locked /><span className="sr-only"> (not in your plan)</span></>}
               </Link>
             </li>
           );

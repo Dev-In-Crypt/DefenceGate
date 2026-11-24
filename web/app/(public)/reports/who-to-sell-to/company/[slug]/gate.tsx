@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { L } from '@/lib/sell-report';
+import { L, SR_CRUMBS } from '@/lib/sell-report';
 import { PageHeader } from '@/components/dg/page-header';
 import { Card } from '@/components/dg/card';
 
@@ -9,7 +9,7 @@ export const SLUG = /^\d{1,19}(-[a-z0-9-]{0,100})?$/;
 export function Gate({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <PageHeader crumbs={[{ label: 'Reports', href: '/reports/who-to-sell-to' }]} title={L.title} />
+      <PageHeader crumbs={SR_CRUMBS} title={L.title} />
       <Card><div className="flex flex-col gap-3 text-body" data-sr-gate>{children}
         <p className="m-0"><Link href="/reports/who-to-sell-to/sample" prefetch={false} className="font-semibold">See the sample report</Link></p></div></Card>
     </>

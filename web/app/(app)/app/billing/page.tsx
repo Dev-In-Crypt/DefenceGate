@@ -46,10 +46,10 @@ export default async function BillingPage({ searchParams }: Props) {
         <p className="m-0 text-body" data-current-plan>
           {/* WP-158: a plan with no subscription comes from an association's licence */}
           {!sub && state.plan !== 'free' && me.association
-            ? <>Your plan is {PLAN_LABELS[state.plan]}, through your association&apos;s licence (<Link href="/app/association" className="font-semibold">Association</Link>).</>
+            ? <>Your plan is {PLAN_LABELS[state.plan]}, through your association&apos;s licence: see <Link href="/app/association" className="font-semibold">your association&apos;s page</Link>.</>
             /* WP-161: a member of a team workspace has its owner's plan (it said "Free") */
             : !sub && state.plan !== 'free' && me.workspace
-            ? <>Your plan is {PLAN_LABELS[state.plan]}, through the team workspace you are a member of (<Link href="/app/team" className="font-semibold">Team</Link>). Its owner manages the subscription.</>
+            ? <>Your plan is {PLAN_LABELS[state.plan]}, through the team workspace you are a member of: see <Link href="/app/team" className="font-semibold">your team</Link>. Its owner manages the subscription.</>
             : <>Your plan is {sub && state.plan !== 'free' ? planName(sub.plan, sub.period) : 'Free'}.</>}
           {sub && <> Status: <span data-status={sub.status}>{STATUS_LABEL[sub.status] ?? sub.status}</span>.</>}
           {sub && periodLine(sub) && <> {periodLine(sub)}</>}
@@ -60,6 +60,7 @@ export default async function BillingPage({ searchParams }: Props) {
             <p className="m-0 max-w-prose text-body text-ink-muted">
               In Creem&rsquo;s customer portal you can cancel the subscription, change the payment method and get your invoices.
               A cancellation there takes effect at once; your saved searches stay, but they stop running and send no alerts.
+              To move to another plan, cancel this one there, then choose the new plan on this page.
             </p>
             <Button type="submit" variant="secondary">Manage subscription</Button>
           </form>
@@ -81,15 +82,18 @@ export default async function BillingPage({ searchParams }: Props) {
                   <Button type="submit">Continue to payment</Button>
                 </form>
               )}
-              {founding && <p className="m-0 text-small text-ink-muted" data-founding-left>Founding customer: {founding}</p>}
+              {/* E-38: the places left stand on the Founding customer row; alone only when that row is not listed */}
+              {founding && !others.some((o) => o.plan === 'founding') && <p className="m-0 text-small text-ink-muted" data-founding-left>Founding customer: {founding}</p>}
               <ul className="m-0 flex list-none flex-col gap-2 p-0" aria-label={chosen ? 'Other plans' : 'Plans'}>
                 {others.map((o) => (
                   <li key={`${o.plan}-${o.billing}`}>
-                    <form action={continueToPayment} className="flex flex-wrap items-center gap-3">
+                    <form action={continueToPayment} className="flex flex-wrap items-center gap-x-3 gap-y-1">
                       <input type="hidden" name="plan" value={o.plan} />
                       <input type="hidden" name="billing" value={o.billing} />
-                      <Button type="submit" variant="secondary">{`Pay for ${o.label}`}</Button>
+                      {/* E-38: one button width, so the prices beside them line up */}
+                      <Button type="submit" variant="secondary" className="w-full justify-center sm:w-80">{`Pay for ${o.label}`}</Button>
                       <span className="text-small text-ink-muted">{o.price}, excluding VAT</span>
+                      {o.plan === 'founding' && founding && <span className="basis-full text-small text-ink-muted sm:basis-auto" data-founding-left>Founding customer: {founding}</span>}
                     </form>
                   </li>
                 ))}

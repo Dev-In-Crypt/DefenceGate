@@ -7,7 +7,7 @@ import { formatDateUtc, formatNumber } from '@/lib/format';
 import type { Buyer, Follow } from '@/lib/types';
 import { Button } from '@/components/dg/button';
 import { Tag } from '@/components/dg/tag';
-import { AppHeader, LoadFailed, NextStep, Notice } from '@/components/account/ui';
+import { AppHeader, LoadFailed, NextStep, Notice, ROW_HOVER, ROW_LINK } from '@/components/account/ui';
 import { unfollow } from '../actions';
 
 export const dynamic = 'force-dynamic';
@@ -42,18 +42,18 @@ export default async function FollowingPage({ searchParams }: Props) {
             const d = describe(f);
             const href = followHref(f.kind, f.ref, d.slug);
             return (
-              <li key={`${f.kind}/${f.ref}`} className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+              <li key={`${f.kind}/${f.ref}`} className={`flex flex-col gap-3 rounded-lg bg-surface p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6 ${ROW_HOVER}`}>
                 <div className="flex min-w-0 flex-col gap-2">
                   <div><Tag>{f.kind === 'buyer' ? 'Buyer' : 'Programme'}</Tag></div>
                   <h2 className="m-0 break-words text-h3">
-                    {href ? <Link href={href} className="text-ink">{d.name}</Link> : d.name}
+                    {href ? <Link href={href} className={ROW_LINK} data-row-link>{d.name}</Link> : d.name}
                   </h2>
                   <p className="m-0 font-mono text-mono text-ink-muted">
                     {d.open === null ? 'No longer available' : `${formatNumber(d.open)} open`}
                     {d.latest ? ` · latest ${formatDateUtc(d.latest)}` : ''}
                   </p>
                 </div>
-                <form action={unfollow}>
+                <form action={unfollow} className="relative z-10">
                   <input type="hidden" name="kind" value={f.kind} />
                   <input type="hidden" name="ref" value={f.ref} />
                   <Button type="submit" variant="secondary" icon={BellOff} aria-label={`Unfollow ${d.name}`}>Unfollow</Button>

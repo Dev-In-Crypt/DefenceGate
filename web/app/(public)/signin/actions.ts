@@ -24,6 +24,8 @@ export interface AuthState {
   /** The address as typed, handed back only so a failed attempt does not empty the field. Never on `sent`. */
   email?: string;
   message?: string;
+  /** E-11: registration names every field it refuses at once, not the first only (status is the first of them). */
+  fields?: { email?: boolean; password?: string; terms?: boolean };
 }
 
 const EMAIL_MAX = 254;
@@ -69,8 +71,15 @@ async function finish(d: SignInResult, next: string | null): Promise<never> {
 export async function register(_prev: AuthState, form: FormData): Promise<AuthState> {
   const address = email(form);
   const password = secret(form, 'password');
-  if (!looksLikeAddress(address)) return { status: 'invalid', email: address };
-  if (form.get('acceptTerms') !== 'on') return { status: 'terms', email: address };
+  // E-11: every field the form can check here is checked, and all of them are said together
+  const fields = {
+    email: !looksLikeAddress(address),
+    password: password.length < 12 ? 'use at least 12 characters' : undefined,
+    terms: form.get('acceptTerms') !== 'on',
+  };
+  if (fields.email || fields.password || fields.terms) {
+    return { status: fields.email ? 'invalid' : fields.password ? 'password' : 'terms', email: address, message: fields.password, fields };
+  }
   const r = await authRegister(address, password, {
     termsVersion: String(form.get('termsVersion') ?? '').slice(0, 20),
     privacyVersion: String(form.get('privacyVersion') ?? '').slice(0, 20),

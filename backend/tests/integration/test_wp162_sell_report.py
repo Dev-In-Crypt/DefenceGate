@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import re
 
 import pytest
 
@@ -131,6 +132,8 @@ def test_quotas_per_tariff_and_the_wp124_rule(conn, client, sent, world, monkeyp
     assert [gen().json()["quota"]["left"] for _ in range(3)] == [2, 1, 0]
     refused = gen()
     assert refused.status_code == 402 and refused.json()["error"] == "report_quota" and "3 of 3" in refused.json()["message"]
+    # WP-176 (E-30): the day as the site writes days ("1 Dec 2026"), not "2026-12-01 (UTC)"
+    assert re.search(r"starts again on \d{1,2} [A-Z][a-z]{2} \d{4}$", refused.json()["message"]), refused.json()["message"]
     on_plan(conn, "team")
     assert gen().json()["quota"]["limit"] == 15
     on_plan(conn, "consultant")

@@ -94,12 +94,14 @@ export default function PricingPage() {
       lead={BILLING_OPEN ? LEAD_OPEN : LEAD_CLOSED}
     >
       <PageSection title="Plans" id="plans" intro="Prices in euros, excluding VAT.">
-        <AutoGrid as="ul" min={260} fill aria-label="Plans">
+        {/* E-36: no `fill`: the fifth plan keeps a plan's width instead of spreading over a row */}
+        <AutoGrid as="ul" min={260} aria-label="Plans">
           {PLANS.map((p) => (
             <Card as="li" key={p.id} className="gap-4">
               <div className="flex flex-col gap-1">
                 <h3 className="m-0 text-h3">{p.name}</h3>
-                <p className="m-0 text-small text-ink-muted">{p.audience}</p>
+                {/* E-36: two lines kept for the audience, so the prices of one row start at one height */}
+                <p className="m-0 text-small text-ink-muted sm:min-h-10">{p.audience}</p>
               </div>
               <Prices plan={p} />
               <Features items={p.features} />

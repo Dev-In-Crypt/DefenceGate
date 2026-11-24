@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { PLANS_FROM } from '@/lib/plans';
 import Link from 'next/link';
 import { getEligibilityCalls, getUserState } from '@/lib/account';
 import { absoluteUrl } from '@/lib/seo';
@@ -22,7 +23,7 @@ export default async function EligibilityPage() {
         <AppHeader title="Eligibility pack" lead={lead} />
         <Block id="plan" title="Part of a paid plan">
           <p className="m-0 max-w-prose text-body text-ink-muted" data-pack-plan>
-            The eligibility pack is part of the Pro, Team and Consultant plans: see <Link href="/app/billing" className="font-semibold">Billing</Link>.
+            The eligibility pack is part of the {PLANS_FROM.pro}: see <Link href="/app/billing" className="font-semibold">Billing</Link>.
             The check itself stays free: <Link href="/readiness/results" className="font-semibold">your readiness results</Link>.
           </p>
         </Block>

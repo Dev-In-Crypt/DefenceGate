@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { NOT_FOUND_META } from '@/lib/seo';
 import { notFound } from 'next/navigation';
 import { getUserState } from '@/lib/account';
 import { formatNumber } from '@/lib/format';
@@ -20,9 +21,13 @@ import { openCompanyReport } from './actions';
  * an account's reports (security review of 5 November 2026).
  */
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Company report', robots: { index: false, follow: false } };
-
 type Props = { params: Promise<{ slug: string }> };
+
+// F-12: a 404 (reports switched off, or no such company) has the 404's title, not the report's
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const l = await loadReport((await params).slug);
+  return l.kind === 'missing' ? NOT_FOUND_META : { title: 'Company report', robots: { index: false, follow: false } };
+}
 
 export default async function CompanyReportPage({ params }: Props) {
   const { slug } = await params;

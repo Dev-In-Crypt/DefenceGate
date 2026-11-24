@@ -32,7 +32,7 @@ export default async function NotFound() {
       <div className="page pt-4">
         <HeaderBar accountsOpen={open} />
       </div>
-      <main id="main" className="page flex flex-col gap-8 py-8 md:gap-12 md:py-12">
+      <main id="main" className="page flex w-full flex-1 flex-col gap-8 py-8 md:gap-12 md:py-12">
         <header className="flex flex-col gap-3">
           <p className="m-0 font-mono text-mono text-ink-muted">Error 404</p>
           <h1 className="m-0 page-title">This page is not in the directory</h1>
@@ -42,8 +42,9 @@ export default async function NotFound() {
         </header>
         <AutoGrid as="ul" fill min={340}>
           {LINKS.map((l) => (
-            <li key={l.href} className="flex min-w-0 flex-col gap-1 rounded-lg border border-transparent bg-surface p-5">
-              <Link href={l.href} className="text-body font-bold">{l.label}</Link>
+            // A-24 (card hover rule): the card's edge shows the hover of its link, which is never underlined
+            <li key={l.href} className="flex min-w-0 flex-col gap-1 rounded-lg border border-transparent bg-surface p-5 transition-colors duration-dg has-[a:hover]:border-ink-muted has-[a:focus-visible]:border-ink-muted">
+              <Link href={l.href} className="text-body font-bold no-underline">{l.label}</Link>
               <span className="text-small text-ink-muted">{l.text}</span>
             </li>
           ))}
