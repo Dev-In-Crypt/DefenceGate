@@ -1,4 +1,4 @@
-import { etagOf } from '@/lib/atom';
+import { etagOf, feedHeaders } from '@/lib/atom';
 import { notModified } from '@/lib/etag';
 import { getRegulation } from '@/lib/regulation-api';
 import { buildRegulationAtom } from '@/lib/regulation';
@@ -21,5 +21,5 @@ export async function GET(request: Request): Promise<Response> {
   const etag = etagOf(body);
   const headers = { etag, 'last-modified': lastModified.toUTCString(), 'cache-control': 'public, max-age=3600' };
   if (notModified(request, etag, lastModified)) return new Response(null, { status: 304, headers });
-  return new Response(body, { headers: { ...headers, 'content-type': 'application/atom+xml; charset=utf-8' } });
+  return new Response(body, { headers: { ...headers, ...feedHeaders(request) } });
 }

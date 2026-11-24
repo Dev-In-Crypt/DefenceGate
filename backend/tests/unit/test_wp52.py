@@ -85,7 +85,8 @@ def test_a_planned_notice_is_planned_until_its_deadline_passes():
 
 def test_the_sql_says_the_same_and_closed_leaves_the_planned_out():
     assert "WHEN o.status = 'forthcoming' AND o.deadline_at < now() THEN 'expired'" in EFFECTIVE_STATUS_SQL
-    assert status_conditions("closed", "EFF") == ["EFF NOT IN ('open', 'forthcoming')"]
+    # WP-174 (B-20): and the notices whose status is unknown (they are in All)
+    assert status_conditions("closed", "EFF") == ["EFF NOT IN ('open', 'forthcoming', 'unknown')"]
     assert status_conditions("planned", "EFF")[0] == "EFF = 'forthcoming'"
 
 

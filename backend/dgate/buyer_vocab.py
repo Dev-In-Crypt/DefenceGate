@@ -482,6 +482,8 @@ MUNICIPAL = _rx(
     r"ayuntamiento|diputacion|cabildo|comunidad autonoma|generalitat|junta de|gobierno de|ajuntament",
     r"concello|\bconsell\b|mancomunidad|consorcio|area de gobierno|consejeria",
     r"comune di|provincia di|\bregione\b|citta metropolitana|unione dei comuni|unione montana",
+    # WP-174 (QA 24 Nov 2026, B-2): "Provincia Autonoma di Trento" buying flight simulators stood in the military goods
+    r"provincia autonoma",
     r"gemeente|provincie|waterschap|veiligheidsregio|omgevingsdienst",
     r"camara municipal|municipio|junta de freguesia|comunidade intermunicipal|freguesia",
     r"\bmesto\b|mestsk|\bobec\b|obecni|magistrat|statutarni|hlavni mesto|krajsky urad",
@@ -535,6 +537,8 @@ INFRASTRUCTURE = _rx(
     r"gasunie|\bervia\b|slovenske elektrarne|\bmvm\b|kopaln|teplarn|acquedotto|met eireann",
     r"miljodirektorat|kartverk|seaports|autoceste|avtocest|vodovod|romsilva|public works",
     r"regionalna dyrekcja ochrony srodowiska|park narodowy|national park|nationalpark",
+    # WP-174 (B-2): a Polish landscape park (Mazurski Park Krajobrazowy, nature-monitoring kit with one CPV 35512400 of six)
+    r"park krajobrazow|parkow krajobrazowych",
     r"железопътна инфраструктура|пътна инфраструктура|\bтец\b|\bтец",
 )
 

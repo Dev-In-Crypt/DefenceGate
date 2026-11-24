@@ -1,6 +1,6 @@
 import type { StatusKind, Tender } from './types';
 import { getTenderDeadline, now } from './deadline';
-import { formatDateUtc } from './format';
+import { formatDateTimeUtc, formatDateUtc } from './format';
 
 /**
  * What the two stamps of a tender's source badge mean. `retrievedAt` is the newest version that is not one of our own
@@ -120,7 +120,8 @@ export function noticeValueLabel(t: Pick<Tender, 'statusNative' | 'valueKind'>):
 export function searchStatusLine(t: Pick<Tender, 'status' | 'deadline'> & Partial<Pick<Tender, 'statusNative' | 'deadlineIsDate' | 'anomalies'>>, ref: Date = now()): string {
   const view = tenderStatusView(t, ref);
   if (view.kind === 'closed' || view.kind === 'upcoming' || view.kind === 'unknown') return view.label;
-  return t.deadline ? `Deadline ${formatDateUtc(t.deadline)}` : 'No deadline stated';
+  // WP-174 (B-15): with its time, as the list card says it ("26 Nov 2026, 11:00 UTC"); a date-only deadline as a day
+  return t.deadline ? `Deadline ${t.deadlineIsDate ? formatDateUtc(t.deadline) : formatDateTimeUtc(t.deadline)}` : 'No deadline stated';
 }
 
 /** WP-108: the noun of the search's "See ..." link: "open tender(s)" only when the matches listed are open. */

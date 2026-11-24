@@ -287,7 +287,7 @@ export default async function TenderDetailPage({ params }: Props) {
               <FactCell label="Notice ID">{tender.noticeId}</FactCell>
               <FactCell label={tender.publishedAt || !tender.noticeDate ? 'Published' : 'Notice date'}>
                 {tender.publishedAt
-                  ? <time dateTime={tender.publishedAt}>{formatDateUtc(tender.publishedAt)} UTC</time>
+                  ? <time dateTime={tender.publishedAt}>{formatDateUtc(tender.publishedAt)}</time>
                   : <span className="font-sans">{noticeDateLabel(tender) ?? 'Publication date not stated by the source'}</span>}
               </FactCell>
               <FactCell label="Procedure">

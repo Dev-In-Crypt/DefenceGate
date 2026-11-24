@@ -91,6 +91,8 @@ export function buildRegulationAtom(feed: RegulationFeed, o: RegulationAtomOptio
   ].join('\n'));
   return [
     '<?xml version="1.0" encoding="utf-8"?>',
+    // WP-174 (F24): read as a list in a browser (public/feed.css); feed readers ignore it
+    '<?xml-stylesheet type="text/css" href="/feed.css"?>',
     '<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">',
     `  <id>${xmlText(tagId(o.origin, 'regulation'))}</id>`,
     '  <title>DefenceGate: regulatory tracker</title>',

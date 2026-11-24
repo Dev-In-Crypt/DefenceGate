@@ -16,7 +16,8 @@ assert.equal(periodLine({ ...none, start: '2026-04-01', end: '2027-03-31', endBa
 assert.equal(periodLine({ ...none, start: '2026-04-01', end: '2027-04-01', endBasis: 'computed', duration: 12, durationUnit: 'MONTH' }),
   '1 Apr 2026 – 1 Apr 2027 · 12 months · computed from start + duration');
 assert.equal(periodLine({ ...none, end: '2027-01-15', endBasis: 'estimated', estimatedFrom: 'award_published', duration: 6, durationUnit: 'MONTH' }),
-  '? – 15 Jan 2027 · 6 months · estimated: award notice publication date + duration');
+  // WP-174 (B-11): "? – 15 Jan 2027" read as nothing; one end says which
+  'Ends 15 Jan 2027, start not stated · 6 months · estimated: award notice publication date + duration');
 assert.equal(periodLine({ ...none, duration: 1, durationUnit: 'YEAR' }), '1 year · duration only, no start: no end date');
 assert.equal(basisText({ ...none, renewal: true }), 'no end date stated');
 assert.equal(renewalText({ renewal: true, renewalsMax: 1 }), 'renewal options: up to 1 renewal');

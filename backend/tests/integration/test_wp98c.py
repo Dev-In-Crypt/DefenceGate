@@ -109,14 +109,15 @@ def test_the_worker_keeps_the_value_orders_and_the_feeds_first_page(client, conn
         assert warm_lists.run(conn, write=True)["failed"] == 0
         keys = {r["key"] for r in conn.execute("SELECT key FROM list_snapshot").fetchall()}
         assert {suppliers.value_order_key(False), suppliers.value_order_key(True)} <= keys
+        # WP-174 (A-6): the feed's pages are no longer kept: a kept first page and a live second one overlapped. Every page
+        # is read from the same live window; the candidates it reads are kept.
         base = {**warm_lists._defaults(changes.list_changes.__wrapped__), "with_meta": True, "pageSize": 200}
-        for page in (1, 2):
-            assert snapshot_key("changes", {**base, "page": page}) in keys
-        # the API serves the feed's second page from the snapshot (a marker in its body)
-        key = snapshot_key("changes", {**base, "page": 2})
-        conn.execute("UPDATE list_snapshot SET body = jsonb_set(body, '{total}', '4242') WHERE key = %s", (key,))
+        assert not any(k.startswith("changes?") for k in keys)
+        assert changes.CANDIDATES_KEY in keys
+        conn.execute("INSERT INTO list_snapshot (key, body, computed_at) VALUES (%s, %s, now())",
+                     (snapshot_key("changes", {**base, "page": 2}), Jsonb({"total": 4242})))
         conn.commit()
-        assert get(client, "/v1/changes", pageSize=200, page=2)["total"] == 4242
+        assert get(client, "/v1/changes", pageSize=200, page=2)["total"] != 4242
     finally:
         monkeypatch.setenv("DGATE_LIST_CACHE_SECONDS", "0")
         config.reset_cache()
@@ -126,7 +127,8 @@ def test_the_worker_keeps_the_value_orders_and_the_feeds_first_page(client, conn
 def test_the_worker_start_writes_the_first_views_only_when_missing(conn):
     _put(conn, "W-98c-2", status="closed")
     first = warm_lists.run_first(conn)
-    assert first["failed"] == 0 and first["written"] == first["views"] == 8     # 4 change pages, 2 value orders, WP-105: the contract values, WP-114: the change candidates
+    # 2 value orders, WP-105: the contract values, WP-114: the change candidates (WP-174: no change pages)
+    assert first["failed"] == 0 and first["written"] == first["views"] == 4
     keys = {r["key"] for r in conn.execute("SELECT key FROM list_snapshot").fetchall()}
     assert {suppliers.value_order_key(False), suppliers.value_order_key(True), "contract-values"} <= keys
     assert not any(k.startswith("tenders?") for k in keys)                      # not the whole run

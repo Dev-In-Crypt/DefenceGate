@@ -1,5 +1,5 @@
 import { ApiError, FEED_MAX_PAGE, FEED_PAGE_ENTRIES, getChangesForFeed } from '@/lib/api';
-import { buildAtom, etagOf, feedSubtitle } from '@/lib/atom';
+import { buildAtom, etagOf, feedSubtitle, feedHeaders } from '@/lib/atom';
 import { notModified } from '@/lib/etag';
 import { searchSummary } from '@/lib/feed-name';
 import { CHANGE_PARAMS, parseChangeFilters, toChangeQuery, unknownParams } from '@/lib/filters';
@@ -73,5 +73,5 @@ export async function GET(request: Request): Promise<Response> {
   };
   // WP-120: If-Modified-Since at the header's whole second (the feed's own Last-Modified got 200 and the whole body)
   if (notModified(request, etag, lastModified)) return new Response(null, { status: 304, headers });
-  return new Response(body, { headers: { ...headers, 'content-type': 'application/atom+xml; charset=utf-8' } });
+  return new Response(body, { headers: { ...headers, ...feedHeaders(request) } });
 }

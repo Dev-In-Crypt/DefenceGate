@@ -498,6 +498,14 @@ TED_PROCEDURES = {
     "oth-single": "Other single-stage procedure",
     "oth-mult": "Other multi-stage procedure",
     "comp-tend": "Competitive tendering",
+    # WP-174 (QA 16 Nov 2026, F15: "De-open" on a BKMS notice): the German national procedures below the EU thresholds
+    # (UVgO, VOB/A section 1) as the Bekanntmachungsservice codes them; `-w-call` / `-wo-call` with or without a call for
+    # competition (Teilnahmewettbewerb)
+    "de-open": "Open procedure (German national)",
+    "de-restricted-w-call": "Restricted procedure with a call for competition (German national)",
+    "de-restricted-wo-call": "Restricted procedure without a call for competition (German national)",
+    "de-comp-w-call": "Negotiated award with a call for competition (German national)",
+    "de-comp-wo-call": "Negotiated award without a call for competition (German national)",
 }
 
 
@@ -748,7 +756,7 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
         procedure_from = "ted_twin" if procedure else None
     deadline, deadline_from, first_passed = shown_deadline(deadline, extra.get("deadline"))
     eff = api.effective_status(r.get("status"), deadline, r.get("published_at"),
-                               superseded=superseded, procedure=r.get("procedure_type"))
+                               superseded=superseded, procedure=r.get("procedure_type"), notice_date=r.get("notice_date"))
     notes = anomalies(deadline, r.get("published_at"))
     if deadline_from:
         notes.append("deadline-differs-from-ted-twin")
@@ -1112,13 +1120,19 @@ ORDER_VALUE_DESC = (f"({_VALUE_CURRENCY} IS DISTINCT FROM 'EUR'), {_VALUE_CURREN
                     f"(CASE WHEN o.value_amount > {PLACEHOLDER_VALUE_MAX} THEN o.value_amount END) DESC NULLS LAST, o.id DESC")
 ORDER_CPV_ASC = "(o.cpv_codes[1]) ASC NULLS LAST, o.id ASC"
 SORT_PATTERN = "^(core-first|open-first|deadline-asc|deadline-desc|published-desc|value-desc|cpv-asc)$"
+# The orders in which `all` is its open notices first and then the rest (`list_tenders`)
+ALL_OPEN_FIRST_SORTS = (None, "open-first", "deadline-asc")
+# WP-174 (B-3): a notice whose stated deadline has passed, or that states none
+DEADLINE_PASSED = "(o.deadline_at <= now() OR o.deadline_at IS NULL)"
 
 
 def core_first(status: str, scope: str, sort: str | None) -> bool:
     """WP-87: whether a list leads with its core notices: the default view (open, the defence-relevant scope, no
     sort asked for) and an explicit `core-first`. Musical instruments and stair repairs bought by a defence body
-    stood first because their deadline was soonest; a core notice now always comes before them."""
-    return status == "open" and scope == "relevant" and sort in (None, "core-first")
+    stood first because their deadline was soonest; a core notice now always comes before them.
+    WP-174 (QA 24 Nov 2026, B-7): Everything (`all`) mixes them too, and the site's sort box said "Military goods and works
+    first" over it; a list of one group (`core`, `supply`) has nothing to put first."""
+    return status == "open" and scope in ("relevant", "all") and sort in (None, "core-first")
 
 
 def tender_order(sort: str | None, status: str, eff: str) -> str:
@@ -1161,12 +1175,14 @@ def status_conditions(status: str, eff: str) -> list[str]:
     use them) the stored status is `open` and the deadline is ahead or not stated: that is 2,600 of 357,000
     rows, found by index, where the expression alone made it read every notice of a search word.
     `closed` is everything that is no longer taking tenders and is not planned; `planned` a notice that
-    announces one (`api.EFFECTIVE_STATUS_SQL`); `rest` (internal) is everything but open."""
+    announces one (`api.EFFECTIVE_STATUS_SQL`); `rest` (internal) is everything but open.
+    WP-174 (QA 24 Nov 2026, B-20): a notice whose status the source does not state (`unknown`) is not in Closed: the
+    list showed it there as "Status unknown". It is in All."""
     if status == "open":
         return [f"{eff} = 'open'", "o.status = 'open'",
                 "(o.deadline_at >= now() OR o.deadline_at IS NULL)"]
     if status == "closed":
-        return [f"{eff} NOT IN ('open', 'forthcoming')"]
+        return [f"{eff} NOT IN ('open', 'forthcoming', 'unknown')"]
     if status == "planned":
         return [f"{eff} = 'forthcoming'", "o.status = 'forthcoming'"]
     if status == "rest":
@@ -1683,7 +1699,9 @@ def _snapshot_total(conn, asked: dict[str, Any]) -> tuple[int, bool] | None:
     "Closed" then says what page 1 says (287,634), not "10,000 or more". None when there is none."""
     from .listcache import SNAPSHOT_HOURS, snapshot_key
 
-    key = snapshot_key("tenders", {**asked, "page": 1, "pageSize": SNAPSHOT_PAGE_SIZE, "with_meta": True})
+    # WP-174 (B-4): the order does not change how many notices a list holds; the worker stores the default order only, so
+    # "deadline, latest first" said "at least 11,189" where the default order of the same list said 295,064
+    key = snapshot_key("tenders", {**asked, "sort": None, "page": 1, "pageSize": SNAPSHOT_PAGE_SIZE, "with_meta": True})
     try:
         with conn.transaction():        # a savepoint: a role that may not read the table loses nothing else
             row = conn.execute(
@@ -1699,7 +1717,12 @@ def _snapshot_total(conn, asked: dict[str, Any]) -> tuple[int, bool] | None:
 
 def _kept_in_snapshot(kwargs: dict[str, Any]) -> bool:
     """The worker keeps the closed and all views; the open ones are read live, so that the counts beside a
-    list and the list are of the same moment (a stored open view is up to 8 hours behind the deadlines)."""
+    list and the list are of the same moment (a stored open view is up to 8 hours behind the deadlines).
+    WP-174 (QA 24 Nov 2026, B-1): an `all` view that opens with its open notices is read live too: a stored one led
+    "Open first" with notices closed since it was computed. Its total still comes from the stored first page
+    (`_snapshot_total`), so the deep count is not paid again."""
+    if kwargs.get("status") == "all" and kwargs.get("sort") in ALL_OPEN_FIRST_SORTS:
+        return False
     return kwargs.get("status") != "open"
 
 
@@ -1751,13 +1774,17 @@ def list_tenders(
              "sort": sort, "confidence": confidence, "cpvMain": cpvMain, "notCpv": notCpv, "unit": unit}
     start = (page - 1) * pageSize
     served = start < MAX_OFFSET
-    if status == "all" and sort in (None, "open-first", "deadline-asc"):
+    if status == "all" and sort in ALL_OPEN_FIRST_SORTS:
         # WP-106 (p02, p04, p07): after the open notices the rest runs newest deadline first, as the Closed list does; the
         # oldest first (2017 under the open ones) only when `deadline-asc` is asked for
         parts = [(status_conditions("open", eff), ORDER_OPEN_DEADLINE),
                  (status_conditions("rest", eff), ORDER_DEADLINE_ASC if sort == "deadline-asc" else ORDER_DEADLINE_DESC)]
     elif core_first(status, scope, sort):
         parts = [([CORE], ORDER_OPEN_DEADLINE), ([f"NOT ({CORE})"], ORDER_OPEN_DEADLINE)]
+    elif status == "closed" and sort in (None, "deadline-desc"):
+        # WP-174 (B-3): newest deadline first, the deadlines that have passed; a notice closed before the deadline it states
+        # (awarded or cancelled early, or a date that is not the offers deadline) comes after them, not first
+        parts = [([DEADLINE_PASSED], ORDER_DEADLINE_DESC), ([f"NOT ({DEADLINE_PASSED})"], ORDER_DEADLINE_DESC)]
     else:
         parts = [([], tender_order(sort, status, eff))]
 
@@ -1771,7 +1798,7 @@ def list_tenders(
             rows = _rows(conn, where, params, open_extra, open_order, pageSize, start)
             if open_capped and len(rows) < pageSize and (rows or start == 0):
                 n_open, open_capped = start + len(rows), False        # the end of the open part was read
-            elif open_capped:
+            elif open_capped and rows:
                 # The open part is longer than its count could say in time ("at least"): this page is all open
                 # notices, and the total is never below them (re-audit of the data pages, NEW-2: "at least 112"
                 # for Bundeswehr while the open notices alone were 116).
@@ -1787,6 +1814,10 @@ def list_tenders(
             n_rest, capped = few, False                               # counted in full by `_few`
         elif got_rest is not None and len(got_rest) < want and (got_rest or rest_start == 0):
             n_rest, capped = rest_start + len(got_rest), False       # the end of the list was read
+        elif status == "all" and with_meta is True and (stored := _snapshot_total(conn, asked)) is not None:
+            # WP-174 (B-1): the open part is read live, the whole list's total is the stored one (exact): the deep count of
+            # the rest is not paid on every read of the first pages
+            n_rest, capped = max(0, stored[0] - n_open), False
         else:
             n_rest, capped = _count(conn, where, params, rest_extra)
         total, capped = n_open + n_rest, capped or open_capped
@@ -2056,7 +2087,7 @@ def tender_calendar(
         deadline, deadline_from, first_passed = shown_deadline(r["deadline_at"],
                                                                (extras.get(r["id"]) or {}).get("deadline"))
         eff_status = api.effective_status(r.get("status"), deadline, r.get("published_at"),
-                                          procedure=r.get("procedure_type"))
+                                          procedure=r.get("procedure_type"), notice_date=r.get("notice_date"))
         notes = anomalies(deadline, r.get("published_at"))
         if deadline_from:
             notes.append("deadline-differs-from-ted-twin")

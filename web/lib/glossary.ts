@@ -169,7 +169,7 @@ export const GLOSSARY: GlossaryEntry[] = [
   },
   {
     id: 'notice-status', term: 'Notice status',
-    body: 'Open means the notice is still taking bids; a notice with no deadline counts as open for a year after publication. Closed means its deadline has passed, or that a notice without a deadline was published over a year ago. Awarded, Cancelled and Planned are read from the type of notice the source published. Status unknown means the source does not say, so check the original.',
+    body: 'Open means the notice is still taking bids; a notice with no deadline counts as open for a year after publication. Closed means its deadline has passed, or that a notice without a deadline was published over a year ago. Awarded, Cancelled and Planned are read from the type of notice the source published. Status unknown means the source does not say, so check the original; such a notice is listed under All, not under Closed.',
   },
   {
     id: 'prior-information-notice', term: 'Prior information notice', full: 'PIN',

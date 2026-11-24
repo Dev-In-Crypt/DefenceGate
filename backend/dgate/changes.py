@@ -457,7 +457,11 @@ def of_kind(event: dict[str, Any], kind: str) -> bool:
 
 
 @router.get("/v1/changes", response_model=ChangePage, dependencies=[Depends(T.known_params)])
-@cache_list("changes", ttl=5 * 60, snapshot=True)
+# WP-174 (QA 24 Nov 2026, A-6): no stored pages. The worker kept the first pages (up to 8 hours old) and a deeper page was read
+# live, so page 2 of the Atom feed began 171 entries back inside page 1 (the changes that had come in since). Every page is now
+# a slice of the same window (`window_events`, kept five minutes), whose costly part, the amendment candidates, the worker
+# still keeps (`CANDIDATES_KEY`).
+@cache_list("changes", ttl=5 * 60)
 def list_changes(
     country: str | None = Query(None, max_length=200),
     scope: str | None = Query(None, pattern="^(relevant|core|supply|all)$"),

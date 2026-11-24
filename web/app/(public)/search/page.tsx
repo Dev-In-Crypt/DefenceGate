@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { buildMetadata } from '@/lib/seo';
-import { countPlus, formatDateUtc, formatNumber, plural } from '@/lib/format';
+import { countPlus, formatDateTimeUtc, formatDateUtc, formatNumber, plural } from '@/lib/format';
 import { countryName } from '@/lib/taxonomy';
 import { displayName } from '@/lib/display-name';
 import { searchStatusLine, searchTenderNoun } from '@/lib/tender-status';
@@ -35,7 +35,8 @@ function rows(s: SiteSearch, key: Key): Row[] {
     case 'tenders': return s.tenders.items.map((t) => ({ href: `/tenders/${t.slug}`, title: t.title,
       line: join(displayName(t.buyerName), where(t.country), searchStatusLine(t)) }));
     case 'funding': return s.funding.items.map((c) => ({ href: `/funding/${c.slug}`, title: c.title,
-      line: join(c.programmeName, c.deadline ? `Deadline ${formatDateUtc(c.deadline)}` : 'No fixed deadline') }));
+      // WP-174 (B-15): the time where the source states one, as the call's card says it
+      line: join(c.programmeName, c.deadline ? `Deadline ${c.deadlineIsDate ? formatDateUtc(c.deadline) : formatDateTimeUtc(c.deadline)}` : 'No fixed deadline') }));
     case 'buyers': return s.buyers.items.map((b) => ({ href: `/buyers/${b.slug}`, title: displayName(b.name),
       line: join(where(b.country), `${formatNumber(b.tenderCount)} ${plural(b.tenderCount, 'tender')}, ${formatNumber(b.openCount)} open`) }));
     // WP-110 (p07): a company found by a name it was published under says that name ("Leonardo" found Megmar as a consortium partner)
@@ -110,7 +111,8 @@ function Part({ s, part }: { s: SiteSearch; part: (typeof GROUPS)[number]['parts
             ))}
           </ul>
           {/* WP-108: tenders found by a notice number may be awards: "open" only when the matches are open */}
-          <Link href={all} className="inline-flex min-h-11 items-center self-start text-small font-bold">See {g.total === 1 && !g.atLeast ? 'the' : 'all'} {total} {part.key === 'tenders' ? searchTenderNoun(s.tenders.items, g.total === 1 && !g.atLeast ? 1 : 2) : g.total === 1 && !g.atLeast ? part.one : part.noun}</Link>
+          {/* WP-174 (B-15): "See the 1 company in EU-funded defence projects" read oddly: one match is opened in its list */}
+          <Link href={all} className="inline-flex min-h-11 items-center self-start text-small font-bold">{g.total === 1 && !g.atLeast ? `Open it in the list of ${part.key === 'tenders' ? searchTenderNoun(s.tenders.items, 2) : part.noun}` : `See all ${total} ${part.key === 'tenders' ? searchTenderNoun(s.tenders.items, 2) : part.noun}`}</Link>
           {part.key === 'tenders' && <AlsoSearched also={s.alsoSearched} />}
           {part.key === 'tenders' && <CpvHints hints={s.cpvHints} hrefFor={cpvHref} />}
         </>

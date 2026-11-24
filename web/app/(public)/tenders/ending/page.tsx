@@ -122,7 +122,7 @@ export default async function EndingPage({ searchParams }: Props) {
       <section className="flex min-w-0 flex-col gap-4">
         <p className="m-0 max-w-prose text-body text-ink" data-why>{WHY}</p>
         <Filters f={f} />
-        {a && <p className="m-0 text-small text-ink-muted" data-window>Ending between {day(a.from)} and {day(a.to)}; soonest first. Each row says where its end date comes from.</p>}
+        {a && <p className="m-0 text-small text-ink-muted" data-window>Ending between {day(a.from)} and {day(a.to)}; soonest first. Each row says where its end date comes from. Contracts that run less than three months by their stated dates (one-off deliveries) are left out.</p>}
         {refused || !a ? (
           <EmptyState title={unknown.length > 0 ? 'Not a country' : 'These filters cannot be read'} action={<Button variant="secondary" href={clear}>Clear filters</Button>}>
             {unknown.length > 0
@@ -148,7 +148,8 @@ export default async function EndingPage({ searchParams }: Props) {
           An estimated one, shown only when you ask for it, is an award notice that states a duration and no start: its publication date plus
           the duration, since a contract usually starts near its award. A notice that states a duration and no start, and is not an award, has
           no end date here. Renewal options are shown apart and never added to the end. A contract published in several notices (its call and
-          its award, a national notice and its TED copy) is listed once. Check the notice before you act on a date.
+          its award, a national notice and its TED copy) is listed once. A contract whose stated start and end are less than three months
+          apart is not listed: a delivery due on a date is not a contract that is let again when it ends. Check the notice before you act on a date.
         </AboutData>}>{a ? coverageLine(a.coverage, countryName) : ''}</NoteLine>
       </section>
     </>

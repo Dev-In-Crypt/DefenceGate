@@ -13,7 +13,8 @@ const html = async (page: Page, path: string) => (await page.request.get(path)).
 
 test('T8: Planned is a status of its own, and Closed no longer lists a planned notice', async ({ page }) => {
   await visit(page, '/tenders?status=planned', { title: /tenders/i, h1: 'Tenders' });
-  await expect(page.locator('#results-heading')).toContainText(/Showing 1–\d+ of \d+ tenders/);
+  // WP-174 (F29): a list of one reads "1 tender"
+  await expect(page.locator('#results-heading')).toContainText(/Showing 1–\d+ of \d+ tenders|^1 tender$/);
   const card = page.locator('article', { hasText: 'Prior information: vehicle spare parts framework for 2027' });
   await expect(card).toBeVisible();
   // A planned notice has no countdown and is not "Closed".

@@ -48,7 +48,10 @@ const day = (iso: string) => {
 /** "1 Apr 2026 – 31 Mar 2027" (a missing side is "?"); null when the notice states neither date and no end is derived. */
 export function spanText(p: ContractPeriod): string | null {
   if (!p.start && !p.end) return null;
-  return `${p.start ? day(p.start) : '?'} – ${p.end ? day(p.end) : '?'}`;
+  // WP-174 (B-11): "? – 25 Nov 2026" said nothing; a period with one end says which
+  if (!p.start) return `Ends ${day(p.end!)}, start not stated`;
+  if (!p.end) return `Starts ${day(p.start)}, end not stated`;
+  return `${day(p.start)} – ${day(p.end)}`;
 }
 
 /** The one line a row or a page shows: span, duration, where the end comes from, renewal. */

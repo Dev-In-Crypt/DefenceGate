@@ -52,6 +52,8 @@ function useLiveForm(ref: React.RefObject<HTMLElement | null>, defaults: FormDef
   const sent = useRef<string | null>(null);
   const busy = useRef(false);
   const first = useRef(true);
+  // WP-174 (QA 24 Nov 2026, B-10): after "Apply filters" the page stayed where the button was and the new results were off screen
+  const reveal = useRef(false);
   const defaultsKey = JSON.stringify(defaults);
 
   busy.current = pending;
@@ -65,7 +67,7 @@ function useLiveForm(ref: React.RefObject<HTMLElement | null>, defaults: FormDef
     const go = () => {
       if (timer.current) { clearTimeout(timer.current); timer.current = null; }
       const query = formToQuery(form, d);
-      if (canonQuery(query, d) === canonQuery(sent.current ?? window.location.search, d)) return;
+      if (canonQuery(query, d) === canonQuery(sent.current ?? window.location.search, d)) { reveal.current = false; return; }
       sent.current = query;
       startTransition(() => router.push(`${pathname}${query}`, { scroll: false }));
     };
@@ -76,7 +78,7 @@ function useLiveForm(ref: React.RefObject<HTMLElement | null>, defaults: FormDef
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(go, CHECKBOX_DEBOUNCE_MS);
     };
-    const onSubmit = (e: SubmitEvent) => { e.preventDefault(); go(); };
+    const onSubmit = (e: SubmitEvent) => { e.preventDefault(); reveal.current = true; go(); };
     form.addEventListener('change', onChange);
     form.addEventListener('submit', onSubmit);
     // WP-146: a tap before hydration (a slow phone) fired its `change` before these listeners existed; the form still holds it.
@@ -96,6 +98,12 @@ function useLiveForm(ref: React.RefObject<HTMLElement | null>, defaults: FormDef
     if (first.current) { first.current = false; return; }
     // Whatever was sent has landed (a navigation that finished at once never shows `pending`, so this is the reset that matters).
     if (!busy.current) sent.current = null;
+    if (reveal.current && !busy.current) {
+      reveal.current = false;
+      const results = document.getElementById('results');
+      const top = results?.getBoundingClientRect().top;
+      if (results && top !== undefined && (top < 0 || top > window.innerHeight * 0.8)) results.scrollIntoView({ block: 'start' });
+    }
     const form = ref.current?.querySelector('form');
     if (!form || timer.current || busy.current) return;
     const d: FormDefaults = JSON.parse(defaultsKey);

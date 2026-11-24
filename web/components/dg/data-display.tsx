@@ -50,7 +50,8 @@ export function CountryLabel({ code, className }: { code: string; className?: st
 export function LangLabel({ kind, code, className }: { kind: 'language' | 'title'; code: string | null | undefined; className?: string }) {
   const name = code ? languageName(code) : null;
   return (
-    <span className={cn('font-mono text-mono text-ink-muted', className)}>
+    // WP-174 (B-13): a phrase, not a code: in the text face, not monospace
+    <span className={cn('text-small text-ink-muted', className)}>
       {kind === 'language' ? 'Original language' : 'Original title'}{name ? `, ${name}` : ''}
     </span>
   );

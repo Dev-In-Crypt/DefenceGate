@@ -165,7 +165,8 @@ export function countsSentence(d: Pick<Digest, 'counts'>): string {
   return [
     part(c.callsNew, 'new funding call', 'new funding calls'), part(c.callsOpened, 'call opened', 'calls opened'),
     part(c.callsClosing, 'call closing within 14 days', 'calls closing within 14 days'),
-    part(c.tendersNew, 'new defence notice', 'new defence notices'), part(c.tendersAmended, 'amended notice', 'amended notices'),
+    // WP-174 (B-17): the count holds the new award notices too (/changes lists them apart): it says so
+    part(c.tendersNew, 'new defence notice (call or award)', 'new defence notices (calls and awards)'), part(c.tendersAmended, 'amended notice', 'amended notices'),
   ].join(', ') + (c.cascade > 0 ? `; ${c.cascade} with cascade funding` : '') + '.';
 }
 
@@ -196,6 +197,8 @@ export function buildDigestAtom(issues: Digest[], o: DigestAtomOptions): string 
   });
   return [
     '<?xml version="1.0" encoding="utf-8"?>',
+    // WP-174 (F24): read as a list in a browser (public/feed.css); feed readers ignore it
+    '<?xml-stylesheet type="text/css" href="/feed.css"?>',
     '<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">',
     `  <id>${xmlText(tagId(o.origin, 'digest', o.country ?? 'all', ...(o.cpv?.length ? [`cpv-${o.cpv.join('-')}`] : [])))}</id>`,
     '  <title>DefenceGate: weekly digest</title>',

@@ -49,6 +49,10 @@ CSV_FEATURE = "expiring_contracts_csv"
 BASES = ("stated", "computed", "estimated")
 # The longest duration an end is computed from, per unit: a century
 END_LIMITS = {"DAY": 36600, "WEEK": 5220, "MONTH": 1200, "YEAR": 100}
+# WP-174 (QA 24 Nov 2026, B-11; 16 Nov, F18): the list led with one-off deliveries ("24-25 Nov", KNDS), contracts that are not
+# re-let when they end. A contract whose stated start and end are less than this apart is left out; one with no start
+# stated is kept (its length is not known).
+MIN_PERIOD_DAYS = 90
 
 
 def _interval(p: str) -> str:
@@ -73,6 +77,7 @@ def basis_sql(p: str = "o.") -> str:
 
 
 END_SQL = end_sql()
+SHORT_SQL = f"(o.contract_start IS NOT NULL AND {END_SQL} < o.contract_start + {MIN_PERIOD_DAYS})"
 DATED_SQL = "(o.contract_end IS NOT NULL OR o.contract_start IS NOT NULL)"      # stated or computed, given END_SQL
 PERIOD_COLUMNS = (", ".join(f"o.{c}" for c in db.CONTRACT_PERIOD_COLUMNS)
                   + f", {END_SQL} AS period_end, {basis_sql()} AS end_basis")
@@ -166,7 +171,8 @@ def _window(conn, within: int, country: str | None, cpv: str | None, buyer: int 
             SELECT o.id, o.native_id, o.ted_ref, o.source_id, o.status, o.published_at, {END_SQL} AS period_end,
                    COALESCE(o.procedure_identifier, 'id:' || o.id) AS contract
               FROM opportunity o
-             WHERE {' AND '.join(where)} AND o.status IS DISTINCT FROM 'cancelled' AND {END_SQL} BETWEEN %s AND %s),
+             WHERE {' AND '.join(where)} AND o.status IS DISTINCT FROM 'cancelled' AND {END_SQL} BETWEEN %s AND %s
+               AND NOT {SHORT_SQL}),
         kept AS (
             SELECT DISTINCT ON (m.contract) m.id, m.period_end FROM m
              WHERE NOT (m.ted_ref IS NOT NULL AND EXISTS (

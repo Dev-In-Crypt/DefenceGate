@@ -30,7 +30,7 @@ type Props = { searchParams: Promise<SearchParams> };
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const f = parseTenderFilters(await searchParams);
   // Filtered, sorted or paged views are shareable but canonicalise to /tenders and stay out of the index.
-  let noindex = activeTenderFilterCount(f) > 0 || (f.page ?? 1) > 1 || f.sort !== defaultTenderSort(f.status);
+  let noindex = activeTenderFilterCount(f) > 0 || (f.page ?? 1) > 1 || f.sort !== defaultTenderSort(f.status, f.scope);
   if (!noindex) {
     // The default list is also what the page renders (same cached fetch); a thin one is not indexed.
     try { noindex = (await getTenders(f)).items.length < MIN_LIST_ITEMS; } catch { noindex = true; }
@@ -83,9 +83,9 @@ export default async function TendersPage({ searchParams }: Props) {
       // Every status and scope with nothing to narrow them is refused by the export (400): no link to a refusal.
       exportHref={tooBroad(filters) ? undefined : `/tenders/export.csv${toTenderQuery({ ...filters, page: 1, pageSize: undefined })}`}
       exportStatus={filters.status}
-      noun="tenders" page={result.page} pageSize={result.pageSize} total={result.total}
+      noun="tenders" nounOne="tender" page={result.page} pageSize={result.pageSize} total={result.total}
       totalText={totalWords(result)} reachable={reachable} limitNote={cutSentence(result)}
-      sort={{ value: filters.sort ?? defaultTenderSort(filters.status), options: tenderSortOptions(filters.status) }}
+      sort={{ value: filters.sort ?? defaultTenderSort(filters.status, filters.scope), options: tenderSortOptions(filters.status, filters.scope) }}
       notices={[...(stale ? [stale] : []), ...ignoredFilters(sp, 'tenders')]}
       clearHref="/tenders"
       listNote={<><AlsoSearched also={result.alsoSearched} /><CpvHints hints={result.cpvHints} hrefFor={cpvHref} /><ClassifiedNote tenders={result.items} /></>}
