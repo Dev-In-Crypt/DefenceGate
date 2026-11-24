@@ -4,7 +4,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { CalendarPlus, ExternalLink } from 'lucide-react';
 import { getCall, getOpenCallsForRelated, relatedCallsFrom, REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
-import { callStatusKind, getCallDeadline, localDeadline } from '@/lib/deadline';
+import { callStatusKind, getCallDeadline, localDeadline, now } from '@/lib/deadline';
 import { displayName } from '@/lib/display-name';
 import { documentBudgetLine, formatDateLabelledUtc, formatDateUtc, formatMoney, funderLine, openingPhrase, isoDatesToSite, portalFilingNote } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
@@ -32,7 +32,7 @@ import { Icon } from '@/components/dg/icon';
 import { FollowButton, SaveButton } from '@/components/account/save-button';
 import { LongText } from '@/components/funding/long-text';
 import { mergeSameText } from '@/lib/long-text';
-import { otherTopicCode, whatItFunds, whoLimits } from '@/lib/funding-path';
+import { cutOffRow, otherTopicCode, whatItFunds, whoLimits } from '@/lib/funding-path';
 import { WHO_BADGE } from '@/lib/filters';
 import { ApplySummary, UkraineOnly } from '@/components/funding/apply-summary';
 import { UA_NO_FUNDING } from '@/lib/eligibility-check';
@@ -122,6 +122,7 @@ export default async function CallDetailPage({ params }: Props) {
   // Two rows with the same sentence ("Described in section 6 of the call document.") are one row.
   const whoRows = mergeSameText(who);
   const limits = whoLimits(call);
+  const cutOffs = cutOffRow(call, now());
   const ukraine = ukraineSentence(call.openToUkraine, call.ukraineBasis?.reason);
   const documentCode = otherTopicCode(call.topicId, Object.values(call.documentEligibility?.facts ?? {}).map((f) => `${f.quote ?? ''} ${f.note ?? ''}`).join(' '));
   const edip = call.rulesApply && (call.rulesApply.regime.code === 'EDIP' || call.rulesApply.regime.code === 'EDIP-USI') ? call.rulesApply.regime.name : null;
@@ -259,6 +260,8 @@ export default async function CallDetailPage({ params }: Props) {
                   ? <span className="font-sans" data-key-deadline>{d.utc}{d.rolling ? ' (passed; the source publishes no next cut-off yet)' : ''}</span>
                   : <span className="font-sans" data-key-deadline>Not stated by the source</span>}
               </FactCell>
+              {/* WP-173 (C-1, C-9): the stages of a two-stage call, the cut-offs of a multiple cut-off call */}
+              {cutOffs && <FactCell label={cutOffs.label}><span className="font-sans" data-cut-offs>{cutOffs.value}</span></FactCell>}
               <FactCell label="Opening date">
                 {call.openingDate
                   ? <time dateTime={call.openingDate}>{formatDateLabelledUtc(call.openingDate)}</time>

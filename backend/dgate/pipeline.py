@@ -760,6 +760,7 @@ def run_eu_portal() -> None:
                     except ValueError as exc:
                         log.warning("skipping malformed call: %s", exc)
                         continue
+                    call = eu_portal.with_stored_cut_offs(conn, call, clean)  # WP-173: the next cut-off (C-1)
                     call = eu_portal.with_document_time(conn, call)     # WP-113: 17:00 Brussels where the document says so
                     if h not in known:
                         key = _store_raw(code, call.native_id, clean, writer, content_hash=h)
@@ -1062,7 +1063,7 @@ def run_bdns(days: int = 14, since: date | None = None) -> None:
                         wanted[number] = None
             for held in conn.execute(
                     """SELECT c.native_id FROM call c JOIN source s ON s.id = c.source_id
-                        WHERE s.code = %s AND c.status IN ('open', 'forthcoming')""",
+                        WHERE s.code = %s AND (c.status IN ('open', 'forthcoming') OR c.deadline_at >= now())""",
                     (code,)).fetchall():
                 wanted[held["native_id"]] = None
             log.info("%s: %s calls scanned since %s, %s details to read", code, fetched,

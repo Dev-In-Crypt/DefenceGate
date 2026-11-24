@@ -200,12 +200,20 @@ def test_a_call_with_no_closing_date_has_none_not_a_guess():
     assert bdns.deadline(INTA_SCHOLARSHIP) is None
 
 
-def test_status_follows_the_registers_own_flag_and_the_opening_date():
+def test_status_follows_the_application_dates_and_the_flag_only_without_them():
     assert bdns.status(CDTI, today=TODAY) == "open"
     assert bdns.status({**CDTI, "abierto": False, "fechaInicioSolicitud": "2026-11-01"},
                        today=TODAY) == "forthcoming"
+    # WP-173 (C-2): the flag said closed while the dates said open (CDTI 941239, 17 Nov to 23 Dec 2026); the dates decide
     assert bdns.status({**CDTI, "abierto": False, "fechaInicioSolicitud": "2026-06-18"},
-                       today=TODAY) == "closed"
+                       today=TODAY) == "open"
+    assert bdns.status({**CDTI, "abierto": False, "fechaInicioSolicitud": "2026-11-17", "fechaFinSolicitud": "2026-12-23"},
+                       today=date(2026, 11, 24)) == "open"
+    assert bdns.status({**CDTI, "abierto": True, "fechaFinSolicitud": "2026-10-05"}, today=TODAY) == "closed"
+    assert bdns.status({**CDTI, "fechaFinSolicitud": "2026-10-06"}, today=TODAY) == "open"      # the last day is a day to apply
+    no_dates = {**CDTI, "fechaInicioSolicitud": None, "fechaFinSolicitud": None}
+    assert bdns.status(no_dates, today=TODAY) == "open"
+    assert bdns.status({**no_dates, "abierto": False}, today=TODAY) == "closed"
 
 
 # ----------------------------------------------------------- the mapping

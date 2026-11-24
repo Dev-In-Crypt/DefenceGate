@@ -114,8 +114,8 @@ assert.notEqual(factDisplay('consortium_required', usiFacts), 'No');
 assert.match(factDisplay('consortium_required', usiFacts), /^Not for every applicant\. A single applicant may apply under a condition: The single applicant must be established/);
 const withFacts = applySummary({ rulesApply: usiRules, documentEligibility: { documentUrl: null, extractedAt: '2026-10-18T00:00:00Z', facts: usiFacts as NonNullable<Call['documentEligibility']>['facts'] } }, 'PL')!;
 assert.match(withFacts.lines.find((l) => l.key === 'consortium')!.text, /^No consortium for every applicant: a single applicant may apply under a condition/);
-assert.equal(whatItFunds({ title: 'Counter-drone', scope: ['Unmanned systems', 'Sensors'], actionType: null }), 'Counter-drone. The source’s keywords for this topic: Unmanned systems, Sensors.');
-assert.equal(whatItFunds({ title: 'X', scope: [], actionType: null }), 'X. The source gives no topic keywords for it.');
+assert.equal(whatItFunds({ title: 'Counter-drone', scope: ['Unmanned systems', 'Sensors'], actionType: null }), 'The source’s keywords for this topic: Unmanned systems, Sensors.'); // WP-173 (F13): no title repeated
+assert.equal(whatItFunds({ title: 'X', scope: [], actionType: null }), 'The source gives no summary or topic keywords for it.');
 
 // ---------------------------------------------------------------- 7. software or services; topics
 const sw: Profile = { ...emptyProfile(), country: 'PL', legalForm: 'legal_person', offering: 'software_services', step: 6, componentPct: '50', restricted: 'yes', uaComponents: 'yes', eeaComponents: 'yes' };

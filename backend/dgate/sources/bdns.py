@@ -239,13 +239,18 @@ def deadline(detail: dict[str, Any]) -> datetime | None:
 
 
 def status(detail: dict[str, Any], *, today: date | None = None) -> str:
+    """The application window by its dates; the register's `abierto` flag only where it states none.
+
+    WP-173 (QA C-2, 24 Nov 2026): CDTI INNTERCONECTA-STEP 941239, EUR 150 m, carried `abierto: false` while its own dates
+    said 17 Nov to 23 Dec 2026 and the register's page showed it open; it was served closed.
+    """
     today = today or date.today()
-    if detail.get("abierto"):
-        return "open"
-    start = opens_at(detail)
+    start, end = opens_at(detail), _day(detail.get("fechaFinSolicitud"))
     if start and start > today:
         return "forthcoming"
-    return "closed"
+    if end is not None:
+        return "open" if end >= today else "closed"
+    return "open" if detail.get("abierto") else "closed"
 
 
 def call_url(number: str | int) -> str:

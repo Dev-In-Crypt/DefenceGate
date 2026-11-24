@@ -163,6 +163,10 @@ export interface Call {
    * of the Horizon Europe Regulation) and the exclusion of entities controlled from elsewhere (`control`), each with the call's sentence.
    */
   whoMayApplyLimits?: WhoLimit[];
+  /** Detail only (WP-173): every deadline day the portal lists for the topic when it lists several (stages or cut-offs), earliest first. */
+  cutOffs?: string[];
+  /** Detail only (WP-173): the portal's deadline model when `cutOffs` is served (`two-stage`, `multiple cut-off`). */
+  deadlineModel?: string | null;
 }
 
 export type WhoLimit = { kind: 'established' | 'control' | string; quote: string; note: string };
