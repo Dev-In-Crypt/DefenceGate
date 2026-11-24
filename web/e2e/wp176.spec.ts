@@ -137,7 +137,8 @@ test.describe('signed in, against the fake account API', () => {
     await page.getByLabel('Password', { exact: true }).fill('right password here');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await page.waitForURL(/\/app$/);
-    await page.goto('/about');
+    // a page rendered per request (a statically built one carries the build's answer to "are accounts open")
+    await page.goto('/unsubscribe');
     const header = page.locator('header').first();
     if (isMobile(page)) await page.getByRole('button', { name: 'Open menu' }).click();
     const mine = (isMobile(page) ? page.getByRole('navigation', { name: 'Main menu' }) : header).getByRole('link', { name: 'My account', exact: true });

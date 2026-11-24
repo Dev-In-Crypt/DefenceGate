@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronDown, Menu, Search, X } from 'lucide-react';
+import { ChevronDown, LogIn, Menu, Search, UserRound, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MAIN_NAV, MORE_NAV, type NavItem } from '@/lib/nav';
 import { Button } from './button';
@@ -103,7 +103,13 @@ function Bar({ accountsOpen }: { accountsOpen: boolean }) {
             </Link>
           )}
           <ThemeToggle />
-          {cta && <Button href={cta.href} className="hidden lg:inline-flex">{cta.label}</Button>}
+          {cta && <Button href={cta.href} className="hidden xl:inline-flex">{cta.label}</Button>}
+          {/* A-14: between 1024 and 1280 px the bar has room for the menu only with an icon here (the name is its label) */}
+          {cta && (
+            <Link href={cta.href} aria-label={cta.label} title={cta.label} className="hidden size-11 items-center justify-center rounded-pill bg-primary text-on-primary no-underline lg:flex xl:hidden">
+              <Icon icon={cta === MY_ACCOUNT ? UserRound : LogIn} />
+            </Link>
+          )}
           <button ref={toggleRef} type="button" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} aria-controls="mobile-nav" onClick={() => setOpen(!open)}
             className="flex size-11 items-center justify-center rounded-pill bg-surface-inset text-ink lg:hidden">
             <Icon icon={open ? X : Menu} />

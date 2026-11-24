@@ -100,9 +100,14 @@ async function trySaveSearch(page: Page, name: string): Promise<void> {
     await page.waitForTimeout(5_000);
   }
   await page.getByRole('button', { name: 'Save this search' }).click();
-  await page.getByLabel('Name of this search').fill(name);
+  // WP-176 (E-13, moved on purpose): a plan without saved searches is told so before it names the search
+  const named = page.getByLabel('Name of this search');
+  await expect(named.or(page.locator('[data-save-search-plan]'))).toBeVisible();
+  if (!(await named.isVisible())) return;
+  await named.fill(name);
   await page.getByRole('button', { name: 'Save', exact: true }).click();
 }
+const PLAN_GATE = 'Saved searches and their e-mail alerts are part of the Pro, Team, Consultant and Founding customer plans.';
 
 test.describe('against the real API, billing open (test mode, Creem stand-in)', () => {
   test.skip(!process.env.E2E_REAL_BILLING || !MAIL_DIR || !SECRET || !CREEM, 'needs E2E_REAL_BILLING=1, E2E_MAIL_DIR, E2E_CREEM_WEBHOOK_SECRET, E2E_CREEM_MOCK_URL');
@@ -124,7 +129,7 @@ test.describe('against the real API, billing open (test mode, Creem stand-in)', 
     // Free until paid: the next step is said on the account pages, and saved searches are closed
     await expect(page.locator('[data-pay-now]')).toContainText('You chose Pro, monthly. Your plan is Free until it is paid.');
     await trySaveSearch(page, 'Before paying');
-    await expect(page.getByText('saved searches and e-mail alerts are part of Pro')).toBeVisible();
+    await expect(page.locator('[data-save-search-plan]')).toContainText(PLAN_GATE);
 
     // continue to payment -> Creem's hosted checkout (the stand-in): nothing granted by going there or coming back
     await page.goto('/app');
@@ -180,7 +185,7 @@ test.describe('against the real API, billing open (test mode, Creem stand-in)', 
     await expect(page.getByRole('heading', { name: 'Armoured vehicles' })).toBeVisible();
     await expect(page.locator('[data-paused]')).toContainText('Paused: your plan has no saved searches or alerts.');
     await trySaveSearch(page, 'After cancelling');
-    await expect(page.getByText('saved searches and e-mail alerts are part of Pro')).toBeVisible();
+    await expect(page.locator('[data-save-search-plan]')).toContainText(PLAN_GATE);
   });
 
   test('/app/billing at this width: the chosen plan and every other one, no horizontal scroll', async ({ page }, info) => {
