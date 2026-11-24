@@ -33,6 +33,7 @@ from ..buyer_family import (
     is_sub_unit,
 )
 from ..config import settings
+from . import buyer_split
 
 log = logging.getLogger("buyer_families")
 
@@ -236,8 +237,31 @@ def all_groups(conn, extra_pairs: list[tuple[int, int]] = ()) -> list[Group]:
     country = {r[0]: r[1] for r in rows}
     companies = {c for c in winners if c in buyers and not is_public_body(buyers[c].name, country.get(c))}
     groups += twin_groups(groups, [(c, t) for c, t in pairs if c not in companies], buyers)
+    groups = apply_splits(groups, buyer_split.split_decisions(conn), buyers)
     groups.sort(key=lambda g: (-g.notices, g.key))
     return groups
+
+
+def apply_splits(groups: list[Group], splits: list[dict], buyers: dict[int, Member]) -> list[Group]:
+    """WP-175 (D-4): a person's reviewed split (`ops.buyer_split`) outranks every rule: the row leaves the family it was put
+    in, and joins the family of the body it belongs to (`to`) with the method `reviewed_split`; a family left with no member
+    is no family."""
+    if not splits:
+        return groups
+    for s in splits:
+        for g in groups:
+            g.members = [m for m in g.members if m.org_id != s["member"]]
+        to = s["to"]
+        if not to or to == s["member"] or s["member"] not in buyers:
+            continue
+        home = next((g for g in groups if to in {g.head.org_id, *(m.org_id for m in g.members)}), None)
+        if home is None and to in buyers:
+            home = Group(f"split:{to}", buyers[to])
+            groups.append(home)
+        if home is not None and home.head.org_id != s["member"]:
+            m = buyers[s["member"]]
+            home.members.append(Member(m.org_id, m.name, m.notices, buyer_split.SPLIT, s["confidence"], m.reg_no))
+    return [g for g in groups if g.members]
 
 
 def run(conn, *, write: bool = False, extra_pairs: list[tuple[int, int]] = (), out=None,

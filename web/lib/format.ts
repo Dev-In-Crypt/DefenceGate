@@ -152,6 +152,18 @@ export function variantsLine(n: number): string | null {
   return n > 0 ? `Includes ${n} other name ${n === 1 ? 'variant' : 'variants'} of this body` : null;
 }
 
+/**
+ * WP-175 (D-4, D-6): the buyer page's line, which can show the names: `records` other organisation rows of the body (`nameVariants`),
+ * published under `names` other names (the names shown, case, accents and punctuation aside). "145 name variants" over a list of 60
+ * names, or over no list at all, read as names hidden. Null when the body is one row.
+ */
+export function variantsSummary(records: number, names: number): string | null {
+  if (records <= 0) return null;
+  const rows = `${records === 1 ? 'one other record' : `${records} other records`} of this body`;
+  if (names <= 0) return `Joins ${rows}, all under this name (spelt differently only in case, accents or punctuation)`;
+  return `Published under ${names === 1 ? 'one other name' : `${names} other names`} (${rows})`;
+}
+
 /** "European Commission · European Defence Fund": who pays and the programme in full; said once when they are the same. */
 export function funderLine(c: { funder: string; programmeName: string; programme?: string }): string {
   const name = programmeNameOf(c);

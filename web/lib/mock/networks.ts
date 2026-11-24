@@ -202,7 +202,7 @@ export function ukrainePartners(since: number, programmes: string[] = [], q = ''
 
 export function consortiumGaps(f: { programme: string; topic?: string; lacking: string }): ConsortiumGaps {
   return {
-    programme: [f.programme], topic: f.topic ?? null, lacking: f.lacking, minProjects: 2, projectsInArea: 2,
+    programme: [f.programme], topic: f.topic ?? null, lacking: f.lacking, minProjects: 2, projectsInArea: 2, projectsWithLacking: f.lacking === 'UA' ? 0 : 1,
     definition: `Capability area: the projects of the programme(s) named, narrowed by the topic you give. An organisation is listed when it took part in at least 2 projects of the area and no project of the area it took part in had a participant established in ${f.lacking}.`,
     items: [{ organisation: ref(B), projects: 2, roles: { coordinator: 1, participant: 3, thirdParty: 0, other: 0 }, partnerCountries: ['DE', 'ES'], recentProjects: [{ ...ref3(PROJECTS[2]), category: 'CYBER', countries: ['DE', 'ES', 'FR'] }] }],
     areas: [{ code: 'CYBER', projects: 2 }, { code: 'GROUND', projects: 2 }],

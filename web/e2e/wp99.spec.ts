@@ -75,7 +75,7 @@ test('a funding search can be subscribed to, and its calendar keeps the search',
 
 test('the Ukraine partners table labels each coordinator, takes a keyword and keeps it in its links', async ({ page }) => {
   await visit(page, '/networks/ukraine-partners?programme=all', { title: /Ukrainian/, h1: 'Ukraine partners' });
-  await expect(page.getByRole('columnheader', { name: 'Projects are' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Kind of projects' })).toBeVisible();   // WP-175 (D-13): renamed header
   await expect(page.locator('[data-ua-group]').first()).toHaveText(/^(Defence|Dual-use|Civil)$/);
   await page.getByLabel('Project keyword').fill('alpha');
   await page.getByRole('button', { name: 'Apply' }).click();

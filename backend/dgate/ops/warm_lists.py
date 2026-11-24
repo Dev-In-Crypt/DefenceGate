@@ -8,7 +8,7 @@ deeper page of the same filters repeats the exact total from here). Open lists a
 kept: a few thousand rows, read live, so that the counts beside a list are the list's own at the same
 time (WP-52, T13). Also kept here: the sitemap's tender and buyer slugs (T15), and the buyer aggregate, a
 pass over every core notice that the buyer pages and the directory read (T14), (WP-144) each buyer's units (the names its
-notices state, `tenders.compute_buyer_units`), and (WP-142) the match sets of the
+notices state, `tenders.compute_buyer_units`), (WP-175) the profiles of the largest buyers (`stats.buyer_profile`), and (WP-142) the match sets of the
 frequent search words (`tenders.refresh_search_sets`, table `search_match_set`). The API
 (`listcache.cache_list` with `snapshot=True`) reads a row by key when its memory has no answer. Derived data:
 a snapshot never replaces the live query for a filter that was not computed, and an old one (over
@@ -33,7 +33,7 @@ import time
 from fastapi.encoders import jsonable_encoder
 from psycopg.types.json import Jsonb
 
-from .. import changes, db, money, suppliers, tenders
+from .. import changes, db, money, stats, suppliers, tenders
 from ..config import settings
 from ..listcache import snapshot_key, stored
 
@@ -48,6 +48,10 @@ CHANGE_PAGE_SIZES = (25, 100)  # the page (web/lib/filters.ts CHANGE_PAGE_SIZE) 
 # kept here so the first reader after a deploy or a quiet hour does not wait for the window to be computed (5.1 s cold)
 FEED_PAGE_SIZE = 200
 FEED_API_PAGES = (1, 2)
+# WP-175 (D-3): the profiles of the buyers with the most notices (`stats.BUYER_PROFILE_KEY`), which the buyer page reads first.
+# ponytail: a fixed count of the largest bodies (the cost grows with a body's notices: 4.5 s for 9,109); a smaller buyer's profile
+# is still computed on its page's first open (well under a second), raise this if the slowest pages move down the list.
+PROFILES_KEPT = 200
 
 
 def _defaults(endpoint) -> dict:
@@ -112,11 +116,18 @@ def views(countries: list[str]) -> list[tuple[str, str, dict]]:
     return out
 
 
+def profile_views(conn) -> list[tuple[str, str, dict]]:
+    """The buyer profiles to keep: the PROFILES_KEPT buyers with the most notices in the buyer aggregate (the list's order)."""
+    org_ids, counts, *_ = tenders.buyer_base(conn)
+    top = sorted(range(len(org_ids)), key=lambda i: (-counts[i], org_ids[i]))[:PROFILES_KEPT]
+    return [("buyer-profile", f"{stats.BUYER_PROFILE_KEY}{org_ids[i]}", {"org": org_ids[i]}) for i in top]
+
+
 def run(conn, *, write: bool = False) -> dict[str, int]:
     countries = [r["country"] for r in conn.execute(
         """SELECT DISTINCT country FROM opportunity
             WHERE is_defence AND NOT suppressed AND country IS NOT NULL ORDER BY country""").fetchall()]
-    todo = views(countries)
+    todo = views(countries) + profile_views(conn)
     done = failed = 0
     kept: list[str] = []
     exact = tenders.EXACT_TOTALS.set(True)
@@ -176,6 +187,10 @@ def _write_views(conn, todo, kept: list[str], write: bool) -> tuple[int, int]:
                 body = money.compute(conn)
             elif name == "supplier-values":
                 body = suppliers.compute_value_order(conn, kw["ted_only"])
+            elif name == "buyer-profile":
+                body = jsonable_encoder(stats.buyer_profile(conn, kw["org"]))
+                if body is None:            # no notice of the default scope any more: nothing to keep
+                    continue
             else:
                 body = jsonable_encoder(fn.__wrapped__(**kw, conn=conn))
             conn.execute(

@@ -10,7 +10,7 @@ test('the buyer page lists the names of the rows it includes', async ({ page }) 
   await visit(page, '/buyers/1-demo-armaments-agency', { title: /Demo Armaments Agency/i, h1: 'Demo Armaments Agency' });
   const fold = page.locator('[data-variant-names]');
   await expect(fold).toBeVisible();
-  await expect(fold.locator('summary')).toHaveText(/Includes 2 other name variants of this body: show the names/);
+  await expect(fold.locator('summary')).toHaveText(/Published under 2 other names \(2 other records of this body\): show the names/);   // WP-175 (D-6): names counted as shown
   await fold.locator('summary').click();
   await expect(fold.locator('li')).toHaveText(['Skarb Panstwa - Demo Armaments Agency', 'DEMO ARMAMENTS AGENCY, WARSZAWA']);
 });

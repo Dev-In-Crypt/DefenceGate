@@ -40,9 +40,11 @@ export function renewalText(p: Pick<ContractPeriod, 'renewal' | 'renewalsMax'>):
   return n ? `renewal options: up to ${n} renewal${n === 1 ? '' : 's'}` : 'renewal possible';
 }
 
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const day = (iso: string) => {
   const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  // WP-175 (D-20): the site's month names ("Sep", as formatDateUtc writes them), not the locale's ("Sept" in newer ICU)
+  return Number.isNaN(d.getTime()) ? iso : `${d.getUTCDate()} ${SHORT_MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 };
 
 /** "1 Apr 2026 – 31 Mar 2027" (a missing side is "?"); null when the notice states neither date and no end is derived. */

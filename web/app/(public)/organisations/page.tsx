@@ -55,6 +55,10 @@ export default async function OrganisationsPage({ searchParams }: Props) {
     // it as 503 with Retry-After and no-store (infra/Caddyfile), and error.tsx beside this page shows the message.
     throw e;
   }
+  // WP-175 (F21): an empty answer in the defence default (no EDF project has a Ukrainian participant) says how many the same filters
+  // find in all programmes, with the link, instead of the generic "try fewer filters"
+  const wider = result.total === 0 && !filters.allProgrammes && !(filters.programme?.length)
+    ? await getOrganisations({ ...filters, allProgrammes: true, page: 1 }).catch(() => null) : null;
   const last = lastPage(result.total, result.pageSize);
   if (result.total > 0 && (filters.page ?? 1) > last) redirect(`/organisations${toOrgQuery({ ...filters, page: last })}`);
   return (
@@ -77,7 +81,12 @@ export default async function OrganisationsPage({ searchParams }: Props) {
         notices={[...(result.staleAsOf ? [staleNote(result.staleAsOf, formatDateTimeUtc) as string] : []), ...ignoredFilters(sp, 'organisations')]}
         clearHref="/organisations"
         emptyTitle="No organisations match these filters"
-        emptyText="Try a shorter name or fewer filters. Only organisations that took part in at least one project we hold are listed."
+        emptyText={wider && wider.total > 0 ? (
+          <span data-orgs-wider>
+            None in the defence programmes; all programmes, civil research included, hold {wider.total.toLocaleString('en-GB')}{wider.totalExact ? '' : ' or more'}:{' '}
+            <Link href={`/organisations${toOrgQuery({ ...filters, allProgrammes: true, page: 1 })}`} className="font-semibold">show them</Link>.
+          </span>
+        ) : 'Try a shorter name or fewer filters. Only organisations that took part in at least one project we hold are listed.'}
         hrefFor={(p) => `/organisations${toOrgQuery({ ...filters, page: p })}`}
         footnote={<AboutData summary="How we count">Counts are projects with an active participant, as the sources list them today. Defence projects are those of the European Defence Fund and its predecessors (EDIDP, the European Defence Industrial Development Programme, and PADR, the Preparatory Action on Defence Research); the other figures count every programme, civil research included. A name that looks like a natural person is not listed; to ask for a removal, write to the contact in the imprint (privacy notice, section 9).</AboutData>}
       >

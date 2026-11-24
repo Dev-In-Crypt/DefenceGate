@@ -40,7 +40,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from . import textsearch
 from .classify import CORE_SQL, DEFENCE_PROGRAMMES
 from .funding import get_conn, make_slug
-from .listcache import cache_list
+from .listcache import LIST_STALE_SECONDS, cache_list
 from .normalise import http_url, redact_emails
 from .partners import past_roles
 from .suppress import INDIVIDUAL_NAME, WITHHELD_NAME, not_published, removed
@@ -845,7 +845,7 @@ def relevance(programme: str | None, call_code: str | None) -> int:
 
 
 @router.get("/v1/analytics/ukraine-partners")
-@cache_list("ukraine_partners", ttl=15 * 60)
+@cache_list("ukraine_partners", ttl=15 * 60, stale=LIST_STALE_SECONDS)  # WP-175 (F-14)
 def ukraine_partners(
     since: int = Query(DEFAULT_SINCE, ge=1990, le=2100),
     programme: str | None = Query(None, max_length=100, description="comma-separated programme codes, e.g. EDF,EDIDP; empty: all"),
@@ -961,7 +961,7 @@ EDF_PROGRAMMES = ("EDF", "EDIDP", "PADR")
 
 
 @router.get("/v1/analytics/consortium-gaps")
-@cache_list("consortium_gaps", ttl=15 * 60)
+@cache_list("consortium_gaps", ttl=15 * 60, stale=LIST_STALE_SECONDS)   # WP-175 (F-14)
 def consortium_gaps(
     programme: str = Query("EDF", max_length=100),
     topic: str | None = Query(None, max_length=60),
@@ -1039,6 +1039,8 @@ def consortium_gaps(
     return {
         "programme": programmes, "topic": topic, "lacking": lack, "minProjects": minProjects,
         "projectsInArea": len(area),
+        # WP-175 (D-14): the area's projects with a participant from the chosen country; 0 makes the list every repeat participant
+        "projectsWithLacking": len(with_lack),
         "definition": ("Capability area: the projects of the programme(s) named, narrowed by the topic you give, which "
                        "is the EDF capability category (for example CYBER, GROUND) or the start of a topic code. The "
                        "data holds no finer taxonomy. Country: where a participant is established (its country of "

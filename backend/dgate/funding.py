@@ -431,8 +431,25 @@ class Health(BaseModel):
 
 # ----------------------------------------------------------------- mapping
 
+# WP-175 (D-18): Greek and Cyrillic letters in Latin for an address, which kept only the id of a Greek or Bulgarian buyer
+# ("/buyers/12345" beside "/buyers/196-bundesamt-fur-..."). One letter or two per letter, by the usual romanisations (ELOT 743
+# without its digraph rules, the Bulgarian Streamlined System); for the address only, never for a name or a match.
+_SLUG_LETTERS = str.maketrans({
+    **dict(zip("αβγδεζηθικλμνξοπρσςτυφχψω", ["a", "v", "g", "d", "e", "z", "i", "th", "i", "k", "l", "m", "n", "x", "o", "p",
+                                              "r", "s", "s", "t", "y", "f", "ch", "ps", "o"], strict=True)),
+    **dict(zip("абвгдежзийклмнопрстуфхцчшщъьюяєіїґђјљњћџёыэ",
+               ["a", "b", "v", "g", "d", "e", "zh", "z", "i", "y", "k", "l", "m", "n", "o", "p", "r", "s", "t", "u", "f", "h",
+                "ts", "ch", "sh", "sht", "a", "", "yu", "ya", "ye", "i", "yi", "g", "dj", "j", "lj", "nj", "c", "dz", "e", "y",
+                "e"], strict=True)),
+})
+
+
 def slugify(text: str) -> str:
-    folded = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    # The Cyrillic letters NFKD would split (й into и and a breve) are taken first; then accents go (Greek tonos too)
+    s = unicodedata.normalize("NFC", text.lower()).translate(str.maketrans({"й": "y", "ё": "e", "ї": "yi"}))
+    s = "".join(c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c))
+    folded = s.replace("ου", "ou").translate(_SLUG_LETTERS)
+    folded = folded.encode("ascii", "ignore").decode()
     return re.sub(r"[^a-z0-9]+", "-", folded.lower()).strip("-")
 
 

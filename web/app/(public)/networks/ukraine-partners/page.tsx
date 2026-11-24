@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getUkrainePartners } from '@/lib/networks-api';
 import { buildMetadata } from '@/lib/seo';
-import { DEFENCE_PROGRAMMES, DEFENCE_PROGRAMMES_WORDS, PROGRAMME_WORD, yearsLabel } from '@/lib/networks';
+import { DEFENCE_PROGRAMMES, DEFENCE_PROGRAMMES_WORDS, PROGRAMME_WORD } from '@/lib/networks';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
 import { AboutData } from '@/components/dg/about-data';
 import { CountryNote, DataSources, OrgLink, TableBox } from '@/components/networks/parts';
@@ -69,6 +69,7 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
     } catch { /* keep the empty defence view and its link to all programmes */ }
   }
   const others = (data.byProgramme ?? []).filter((b) => !codes.includes(b.code));
+  const hasDefence = data.coordinators.some((c) => (c.defenceProjects ?? 0) > 0);
   const base = `/networks/ukraine-partners?since=${since}${q ? `&q=${encodeURIComponent(q)}` : ''}`;
   const pageCount = Math.max(1, Math.ceil(data.coordinators.length / UA_PAGE_SIZE));
   const page = Math.min(pageOf(sp), pageCount);
@@ -78,7 +79,11 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
     <ContentPage
       crumbs={partnerCrumbs('Ukraine partners', '/networks/ukraine-partners')}
       title="Ukraine partners"
-      lead="Organisations that led an EU-funded project with a Ukrainian participant: primes that already work with Ukrainian companies, and consortia to join."
+      // WP-175 (D-12, F04): the lead says what the table holds. It promised "primes that already work with Ukrainian companies" over a
+      // table of civil research, as no project of the defence programmes has a Ukrainian participant yet
+      lead={hasDefence
+        ? 'Organisations that led an EU-funded project with a Ukrainian participant, defence projects first: who already works with Ukrainian organisations, and consortia to join.'
+        : `Organisations that led an EU-funded project with a Ukrainian participant. None of these projects is of ${DEFENCE_PROGRAMMES_WORDS}: they are research, dual-use first, so this is who already works with Ukrainian organisations, not a list of defence primes.`}
       wide
     >
         <>
@@ -106,14 +111,15 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
           </p>
           {/* WP-88: the definition, the totals and the limits are one collapsed block; the table follows the scope line. */}
           <AboutData summary="How we count">
-            <h3 className="m-0 text-h4">What this counts</h3>
+            {/* WP-175 (F): h2 in the heading order (an h3 before the page's first h2 skipped a level) */}
+            <h2 className="m-0 text-h4">What this counts</h2>
             <p className="m-0">{data.definition}</p>
             <p className="m-0">
               {data.totals.projects} {data.totals.projects === 1 ? 'project' : 'projects'} since {data.since} had a Ukrainian participant; {data.totals.coordinators} {data.totals.coordinators === 1 ? 'coordinator' : 'coordinators'} led {data.totals.projects === 1 ? 'it' : 'them'}
               {data.totals.projectsCoordinatedFromUkraine > 0 ? `, and ${data.totals.projectsCoordinatedFromUkraine} were led from Ukraine` : ''}.
               {' '}{data.totals.ukrainianOrganisations} Ukrainian {data.totals.ukrainianOrganisations === 1 ? 'organisation' : 'organisations'} took part.
             </p>
-            <h3 className="m-0 text-h4">Limits</h3>
+            <h2 className="m-0 text-h4">Limits</h2>
             <ul className="m-0 list-disc pl-5 [&>li+li]:mt-1">{data.limits.map((l) => <li key={l}>{l}</li>)}</ul>
           </AboutData>
           <ContentSection title="Coordinators">
@@ -145,8 +151,9 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
                   <thead>
                     <tr className="border-b border-line">
                       <th scope="col" className="py-2 pr-4 font-semibold">Coordinator</th>
-                      <th scope="col" className="py-2 pr-4 font-semibold">Projects are</th>
-                      <th scope="col" className="py-2 pr-4 text-right font-semibold">Projects</th>
+                      {/* WP-175 (D-13, F35): headers that read on their own; the year beside the count is said as the latest */}
+                      <th scope="col" className="py-2 pr-4 font-semibold">Kind of projects</th>
+                      <th scope="col" className="py-2 pr-4 text-right font-semibold">Projects, latest start</th>
                       <th scope="col" className="py-2 pr-4 font-semibold">Ukrainian participants</th>
                       <th scope="col" className="py-2 font-semibold">Recent projects</th>
                     </tr>
@@ -155,8 +162,8 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
                     {shown.map((c) => (
                       <tr key={c.organisation.id ?? c.organisation.name} className="border-b border-line align-top last:border-0">
                         <th scope="row" className="py-2 pr-4 font-normal"><OrgLink org={c.organisation} />{c.organisation.country ? <span className="text-ink-muted"> ({c.organisation.country})</span> : null}</th>
-                        <td data-label="Projects are" className="py-2 pr-4" data-ua-group={groupOf(c)}>{groupOf(c)}</td>
-                        <td data-label="Projects" className="py-2 pr-4 text-right font-mono tabular-nums">{c.projects}<span className="block text-ink-muted">{yearsLabel(null, c.lastYear)}</span></td>
+                        <td data-label="Kind of projects" className="py-2 pr-4" data-ua-group={groupOf(c)}>{groupOf(c)}</td>
+                        <td data-label="Projects" className="py-2 pr-4 text-right font-mono tabular-nums">{c.projects}{c.lastYear ? <span className="block font-sans text-ink-muted" data-ua-latest>latest {c.lastYear}</span> : null}</td>
                         <td data-label="Ukrainian participants" className="py-2 pr-4">
                           <ul className="m-0 list-none p-0">{c.ukrainianParticipants.map((u) => <li key={u.organisation.id ?? u.organisation.name}><OrgLink org={u.organisation} /> <span className="text-ink-muted">({u.projects})</span></li>)}</ul>
                         </td>

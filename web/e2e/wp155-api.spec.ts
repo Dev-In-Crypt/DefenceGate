@@ -33,7 +33,7 @@ test('competitors: five on the supplier page, the full list for a plan that has 
   const all = `/suppliers/${PRIME}/competitors`;
   const want = { title: /Competitors/, h1: 'Competitors of Fake Prime SA' };
   await visit(page, all, want);
-  await expect(page.locator('[data-competitors-gate]')).toContainText('for signed-in accounts');
+  await expect(page.locator('[data-competitors-gate]')).toContainText('The first five competitors are free');   // WP-175 (F19): the gate's words
   await expect(page.locator('[data-competitor]')).toHaveCount(5);
   await shot(page, 'competitors-anonymous');
   await signIn(context, baseURL, S.none);

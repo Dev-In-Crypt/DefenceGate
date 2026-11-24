@@ -50,7 +50,9 @@ NO_WINNER_CODES = frozenset({"3", "4"})
 def _country(w: dict[str, Any]) -> str | None:
     cc = (w.get("country") or "").strip().upper()
     if len(cc) == 2 and cc.isalpha():
-        return cc
+        # WP-175 (D-7): "UK" is no ISO code; the United Kingdom is GB, as the TED reader has it (`normalise._country2`). The
+        # supplier list by country showed "United Kingdom" twice, the second row from PLACSP's award rows.
+        return "GB" if cc == "UK" else cc
     # A Spanish tax number names a Spanish taxpayer even where the address block is missing.
     return "ES" if awards.es_tax_kind(w.get("identifier"), None) else None
 

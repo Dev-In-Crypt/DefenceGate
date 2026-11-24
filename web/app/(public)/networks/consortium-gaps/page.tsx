@@ -97,10 +97,10 @@ export default async function ConsortiumGapsPage({ searchParams }: Props) {
       <form method="get" action="/networks/consortium-gaps" aria-label="Choose the area and the country" className="flex flex-wrap items-end gap-3">
         <Select name="programme" label="Programme" options={GAP_PROGRAMMES} defaultValue={GAP_PROGRAMMES.some((p) => p.value === q.programme) ? q.programme : 'EDF'} className="w-64" />
         <label className="flex flex-col gap-1 text-label" htmlFor="topic">Capability category or topic code start
-          <input id="topic" name="topic" defaultValue={q.topic ?? ''} maxLength={60} placeholder="For example CYBER" className="h-11 w-56 rounded-md border-strong border-input-edge bg-surface px-4 font-mono text-body text-ink" />
+          <input id="topic" name="topic" defaultValue={q.topic ?? ''} maxLength={60} placeholder="For example CYBER" className="h-11 w-56 rounded-md border-strong border-input-edge bg-surface px-4 font-mono text-body text-ink placeholder:font-sans placeholder:font-normal" />
         </label>
         <Select name="lacking" label="With no participant from" options={COUNTRIES.some((c) => c.value === q.lacking) ? COUNTRIES : [...COUNTRIES, { value: q.lacking, label: `${countryName(q.lacking)} (${q.lacking})` }]} defaultValue={q.lacking} className="w-56"
-          hint="Ukraine unless you choose another country." />
+          />
         <button type="submit" className="inline-flex min-h-11 items-center rounded-pill border-strong border-ink bg-surface px-5 text-small font-bold text-ink">Apply</button>
       </form>
       <FilterNotices notices={notices} />
@@ -113,9 +113,17 @@ export default async function ConsortiumGapsPage({ searchParams }: Props) {
               {data.projectsInArea} projects are in this area. {data.items.length} {data.items.length === 1 ? 'organisation was' : 'organisations were'} funded {data.minProjects} or more times in it
               with no participant from {countryName(data.lacking)}.
             </p>
+            {/* WP-175 (D-14): with no participant from the country anywhere in the area (Ukraine in the EDF), the list is everyone funded
+                that often there: said where it is read, not only under How we count */}
+            {data.projectsWithLacking === 0 && data.projectsInArea > 0 && (
+              <p className="m-0 max-w-prose rounded-md border-l-4 border-ink bg-surface-inset px-4 py-2.5 text-body" role="note" data-gaps-none>
+                No project of this area has a participant from {countryName(data.lacking)} at all, so this is every organisation funded {data.minProjects} or more
+                times in it, not a gap of theirs. Choose a country that does take part in the area to see who has never worked with it.
+              </p>
+            )}
             {/* WP-166: the other side of the gap, the Ukrainian organisations themselves */}
             {data.lacking === 'UA' && (
-              <p className="m-0 text-body" data-ua-partners-link>The Ukrainian organisations of EU-funded projects, with how many they coordinated:<Link href="/networks/ukraine-partners" className="font-semibold">Ukraine partners</Link>.</p>
+              <p className="m-0 text-body" data-ua-partners-link>The Ukrainian organisations of EU-funded projects, with how many they coordinated:{' '}<Link href="/networks/ukraine-partners" className="font-semibold">Ukraine partners</Link>.</p>
             )}
             {data.areas.length > 0 && (
               <>

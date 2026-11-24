@@ -50,7 +50,7 @@ export function TableBox({ label, children }: { label: string; children: React.R
  */
 export function OrgCard({ org, scope = 'all' }: { org: OrgListItem; scope?: 'defence' | 'all' }) {
   const defence = scope === 'defence';
-  const num = (n: number) => <span className="tabular-nums">{n}</span>;
+  const num = (n: number) => <span className="tabular-nums">{formatNumber(n)}</span>;   // WP-175 (D-15): "2,739", not "2739"
   return (
     <article className={cn(CARD, 'text-ink')}>
       <div className={cn(CARD_BODY, 'cqw:grid-cols-[minmax(0,1fr)_560px]')}>
