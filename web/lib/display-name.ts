@@ -31,6 +31,8 @@ const NAME_KNOWN = [
   'CNRS', 'TNO', 'VTT', 'INRIA', 'EDF', 'CEA', 'DLR', 'AIT', 'SINTEF', 'NLR', 'ONERA', 'CSIC', 'CNR', 'ENEA', 'GTS', 'MBDA',
   'KNDS', 'BAE', 'OHB', 'GMV', 'ISD', 'DNV', 'GKN', 'ICT', 'INESC', 'INEGI', 'IMDEA', 'FFI', 'DTU', 'KTH', 'NTNU', 'EPFL', 'NOAA',
   'UNESCO', 'OECD', 'CERN', 'JRC', 'TUBITAK',
+  // WP-175 (F28): "Tkms Atlas Elektronik" is TKMS (thyssenkrupp Marine Systems)
+  'TKMS',
   // legal forms that are no word
   'SAS', 'SARL', 'SRO', 'DOO', 'UAB', 'SIA', 'ASA', 'EOOD', 'OOD', 'JSC', 'CLG', 'LBG', 'EEIG', 'ASBL', 'ETS', 'SLU', 'SAU',
   'IKE', 'SCPA', 'SNC', 'AIE', 'GIE', 'ApS', 'Kft', 'Lda', 'ehf', 'mbH', 'gGmbH',
@@ -184,8 +186,16 @@ export function shownVariants(names: readonly string[], own: string): string[] {
 export function displayName(text: string, kind: NameKind = 'sentence'): string {
   if (!text) return text;
   text = withoutRemovedToken(text);
-  if (kind === 'title') return tidyName(text);
+  if (kind === 'title') return tidyName(unpaired(text));
   return shoutCase(text, kind);
+}
+
+/** WP-175 (F28): a guillemet or a straight double quote the source left open or closed alone ("«LEONARDO SpA") is dropped from a name. */
+function unpaired(text: string): string {
+  let t = text;
+  if ((t.match(/«/g) ?? []).length !== (t.match(/»/g) ?? []).length) t = t.replace(/[«»]\s*/g, '');
+  if ((t.match(/"/g) ?? []).length % 2 === 1) t = t.replace(/"\s*/g, '');
+  return t.trim();
 }
 
 /** WP-104: a name of at most three words of at most four letters each, all in capitals, is a row of abbreviations ("DID SDS":

@@ -18,19 +18,35 @@ export function countShare(s: CompetitionShare): string {
   return `${formatNumber(s.contracts)} of ${formatNumber(s.total)} (${sharePercent(s.contracts, s.total)})`;
 }
 
-/** "EUR 1,000,000 of EUR 3,000,000 (33%), over 2 valued contracts", or null when the slice states no value. */
+/**
+ * "EUR 1,000,000 of EUR 3,000,000 (33%), over 2 valued contracts", or null when the slice states no value. WP-175 (D-2): when none of
+ * the company's own contracts there states a value in that currency, it says so, never "EUR 0 of ... (0%)" (a share it may well have).
+ */
 export function valueShare(s: CompetitionShare): string | null {
   if (!s.currency || s.valueTotal == null || !s.valuedTotal) return null;
+  const all = `${s.currency} ${formatNumber(s.valueTotal)} over ${formatNumber(s.valuedTotal)} ${s.valuedTotal === 1 ? 'contract' : 'contracts'} with a stated value`;
+  if (!s.valued) return `Not stated: none of its contracts there states a value in ${s.currency} (all stated there: ${all})`;
   const own = s.value ?? 0;
-  return `${s.currency} ${formatNumber(own)} of ${s.currency} ${formatNumber(s.valueTotal)} (${sharePercent(own, s.valueTotal)}), over ${formatNumber(s.valuedTotal)} contracts with a stated value`;
+  return `${s.currency} ${formatNumber(own)} of ${s.currency} ${formatNumber(s.valueTotal)} (${sharePercent(own, s.valueTotal)}), over ${formatNumber(s.valuedTotal)} ${s.valuedTotal === 1 ? 'contract' : 'contracts'} with a stated value`;
 }
 
-/** The typical stated contract value, with how many contracts state none: never a median of nothing. */
+/**
+ * The typical stated contract value, with how many contracts state none: never a median of nothing. WP-175 (D-9, F20): one value is
+ * that value, not a median of one; "1 contract", not "1 contracts"; and when every contract states a value it says that, not "0 of its
+ * 15 contracts state no value".
+ */
 export function sizeLine(c: Pick<SupplierCompetition, 'size' | 'withoutValue' | 'contracts'>): string {
-  const none = `${formatNumber(c.withoutValue)} of its ${formatNumber(c.contracts)} contracts state no contract value`;
+  const none = c.contracts === 1
+    ? `its one contract states ${c.withoutValue ? 'no' : 'a'} contract value`
+    : c.withoutValue === 0
+      ? `all ${formatNumber(c.contracts)} of its contracts state a contract value`
+      : `${formatNumber(c.withoutValue)} of its ${formatNumber(c.contracts)} contracts state no contract value`;
   if (!c.size) return `No contract value stated: ${none}.`;
   const other = c.size.otherCurrencies ? `; ${formatNumber(c.size.otherCurrencies)} more in another currency` : '';
-  return `Median ${c.size.currency} ${formatNumber(c.size.median)}, over the ${formatNumber(c.size.valued)} contracts with a value in ${c.size.currency}${other}. ${none}.`;
+  const typical = c.size.valued === 1
+    ? `${c.size.currency} ${formatNumber(c.size.median)}, the one contract with a value in ${c.size.currency}`
+    : `Median ${c.size.currency} ${formatNumber(c.size.median)}, over the ${formatNumber(c.size.valued)} contracts with a value in ${c.size.currency}`;
+  return `${typical}${other}. ${none.charAt(0).toUpperCase()}${none.slice(1)}.`;
 }
 
 /**

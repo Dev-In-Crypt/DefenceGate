@@ -142,7 +142,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
         {summary && (
           <p className="m-0">
             {formatNumber(summary.suppliers)} {plural(summary.suppliers, 'supplier')} and {formatNumber(summary.awards)} {plural(summary.awards, 'win')} in {formatNumber(summary.noticesWithSupplier)} {plural(summary.noticesWithSupplier, 'contract')}
-            {summary.firstPublished && summary.lastPublished ? `, published ${formatDateUtc(summary.firstPublished)} to ${formatDateUtc(summary.lastPublished)} UTC` : ''}.
+            {summary.firstPublished && summary.lastPublished ? `, published ${formatDateUtc(summary.firstPublished)} to ${formatDateUtc(summary.lastPublished)}` : ''}.
             {' '}{formatNumber(summary.skippedNaturalPersons)} {summary.skippedNaturalPersons === 1 ? 'winner that is a natural person (a sole trader under their own name) is' : 'winners that are natural persons (sole traders under their own name) are'} left out.
           </p>
         )}
@@ -276,6 +276,8 @@ export default async function SuppliersPage({ searchParams }: Props) {
             {result.items.map((s) => (
               <li key={s.id} className="flex flex-col gap-1 rounded-lg border border-transparent bg-surface p-4">
                 <Link href={`/suppliers/${s.slug}`} className="inline-flex min-h-8 items-center break-words text-h3 font-semibold">{displayName(s.name, 'title')}</Link>
+                {/* WP-175 (D-23): found by a name it was published under, not its own: that name, so the row says why it is here */}
+                {s.matchedAs && <span className="text-small text-ink-muted" data-matched-as>Named in an award as &ldquo;{s.matchedAs}&rdquo;</span>}
                 <span className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-small text-ink-muted">
                   <CountryLabel code={s.country} />
                   <span>

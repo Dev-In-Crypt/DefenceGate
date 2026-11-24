@@ -354,6 +354,8 @@ class ValueSum(BaseModel):
 
 
 class SupplierListItem(SupplierItem):
+    # WP-175 (D-23): with a name search, the name it was published under that the words found, when its own does not hold them
+    matchedAs: str | None = None
     # WP-98b: the contract values of the wins the filters select, per currency (never converted), as `value_totals` sums them
     # (WP-95: contract values only; a unit price under SUSPECT_VALUE_MAX in no sum); empty when none states one.
     contractValues: list[ValueSum] = []
@@ -681,8 +683,13 @@ def list_suppliers(
     if offset >= MAX_OFFSET:
         raise HTTPException(422, f"page: the list serves the first {MAX_OFFSET} suppliers only; search by name, "
                                  "country or product group")
-    return {**supplier_rows(conn, q, country, cpv, buyerCountry, group, sort, source, min(pageSize, MAX_OFFSET - offset), offset),
-            "page": page, "pageSize": pageSize}
+    out = supplier_rows(conn, q, country, cpv, buyerCountry, group, sort, source, min(pageSize, MAX_OFFSET - offset), offset)
+    if q and q.strip() and out["items"]:
+        # WP-175 (D-23): "leonardo" listed Megmar Logistics with nothing on the row about Leonardo; the site search's rule
+        # (`search.named_first`) says by which stated name, and the list keeps its own order
+        from .search import named_first
+        named_first(conn, q, out["items"])
+    return {**out, "page": page, "pageSize": pageSize}
 
 
 def supplier_rows(conn, q: str | None, country: str | None, cpv: str | None, buyerCountry: str | None, group: str | None,
@@ -1028,6 +1035,14 @@ def _namesakes(conn, org_id: int, org: dict[str, Any]) -> dict[str, Any]:
     from .supplier_identity import namesakes, own_number
 
     others = namesakes(conn, org_id, org["country"], org["canonical_name"])
+    # WP-175 (D-8): each one's contracts as its own page and the supplier list count them (the award set: the last three years,
+    # one procurement once), not every award row it ever had ("32 awards" beside a list that says 30 wins); one with none in
+    # the set has no page to link, and is left out
+    if others:
+        wins = {r["id"]: r["n"] for r in conn.execute(
+            f"SELECT org.id, count(DISTINCT {KEY_HASH}) AS n {FROM} WHERE {scope()} AND org.id = ANY(%(ids)s) GROUP BY org.id",
+            {"since": since(), "ids": [o["id"] for o in others]}).fetchall()}
+        others = [{**o, "awards": wins[o["id"]]} for o in others if wins.get(o["id"])]
     if not others:
         return {}
     own = conn.execute("SELECT national_reg_no, vat_number FROM organisation WHERE id = %s", (org_id,)).fetchone()
@@ -1160,7 +1175,7 @@ class BuyerSuppliers(BaseModel):
 
 
 @router.get("/v1/buyers/{slug}/suppliers", response_model=BuyerSuppliers)
-@cache_list("buyer-suppliers", ttl=30 * 60)
+@cache_list("buyer-suppliers", ttl=30 * 60, stale=LIST_STALE_SECONDS)   # WP-175 (D-3)
 def buyer_suppliers(slug: str, cpv: str | None = Query(None, max_length=200), conn=Depends(get_conn)):
     """Who won this buyer's contracts (WP-90, the analyst's "top suppliers of this buyer"): the award set of the
     supplier map (`award_set.scope`: defence scope, last three years, legal entities only, a TED+PLACSP twin once),

@@ -759,6 +759,27 @@ class BuyerProfile(BaseModel):
     basis: dict[str, str]
 
 
+# WP-175 (D-3, F05, F-14): the profiles of the buyers with the most notices, computed by the worker (`ops.warm_lists`, every four
+# hours) into `list_snapshot` under this key and the buyer's id. A large body's profile took 4.5 s on its first open (Ministerstvo
+# obrany, 9,109 notices, production 24 November 2026; BAAINBw, the DGA and the Czech ministry 3.5-7.7 s for the whole page), and
+# a page's first visitor after an hour waited for it.
+BUYER_PROFILE_KEY = "buyer-profile?org="
+
+
+def stored_buyer_profile(conn, org_id: int) -> dict[str, Any] | None:
+    """The worker's profile of `org_id` when it holds one younger than `listcache.SNAPSHOT_HOURS`, else None."""
+    from .listcache import SNAPSHOT_HOURS
+
+    try:
+        with conn.transaction():        # a savepoint: a role that may not read the table loses nothing else
+            row = conn.execute("SELECT body FROM list_snapshot WHERE key = %s "
+                               "AND computed_at > now() - make_interval(hours => %s)",
+                               (f"{BUYER_PROFILE_KEY}{org_id}", SNAPSHOT_HOURS)).fetchone()
+    except Exception:  # noqa: BLE001 - a snapshot is a shortcut, never a failure
+        return None
+    return row["body"] if row and isinstance(row["body"], dict) else None
+
+
 @router.get("/v1/buyers/{slug}/profile", response_model=BuyerProfile)
 def get_buyer_profile(slug: str):
     with _connection() as conn:
@@ -766,6 +787,8 @@ def get_buyer_profile(slug: str):
 
     def build():
         with _connection() as conn:
+            if settings().list_cache_seconds > 0 and (kept := stored_buyer_profile(conn, org_id)) is not None:
+                return kept
             return buyer_profile(conn, org_id)
     found = cached(("buyer", org_id), build)
     with _connection() as conn:

@@ -5,6 +5,7 @@ import { ApiError, getSignal } from '@/lib/api';
 import { getFirstSignal, getFullSignal, readSession } from '@/lib/account';
 import { formatDateUtc, formatNumber, plural } from '@/lib/format';
 import { countryName } from '@/lib/taxonomy';
+import { SOURCE_SHORT } from '@/lib/coverage-copy';
 import { parseCountries } from '@/lib/country-input';
 import { displayName } from '@/lib/display-name';
 import { buildMetadata } from '@/lib/seo';
@@ -47,11 +48,17 @@ function Source({ n, label }: { n: SignalNotice; label: string }) {
     <span>
       {label}{' '}
       {n.sourceUrl ? <a href={n.sourceUrl} rel="noopener" className="font-mono">{n.noticeId}</a> : n.noticeId}
-      {' '}({n.source === 'ted' ? 'TED' : n.source.toUpperCase()}{n.publishedAt ? `, ${formatDateUtc(n.publishedAt)}` : ''}),{' '}
+      {' '}({SOURCE_SHORT[n.source] ?? n.source}{n.publishedAt ? `, ${formatDateUtc(n.publishedAt)}` : ''}),{' '}
       <Link href={`/tenders/${n.slug}`}>our copy</Link>
     </span>
   );
 }
+
+const RANKED: Record<string, string> = {
+  growing: 'Largest rise first: procurements won in the last 12 months less those of the 12 months before, then the most in the last 12 months.',
+  markets: 'Newest first win first, then the most wins in that country.',
+  funding: 'Companies new to the EU defence programmes first, then the most projects of the latest call year.',
+};
 
 const ROW = 'flex min-w-0 flex-col gap-1 rounded-lg border border-transparent bg-surface p-4';
 const FACTS = 'flex flex-wrap items-baseline gap-x-4 gap-y-1 text-small text-ink-muted';
@@ -198,6 +205,8 @@ export default async function SignalsPage({ searchParams }: Props) {
         </nav>
         <Filters f={f} />
         {a && <p className="m-0 max-w-prose text-small text-ink" data-kind-line>{kindLine(a, day, latestYear)}</p>}
+        {/* WP-175 (D-11): the order of the rows, said (backend/dgate/signals.py) */}
+        {a && <p className="m-0 max-w-prose text-small text-ink-muted" data-rank-line>{RANKED[a.kind]}</p>}
         {refused || !a ? (
           <EmptyState title={unknown.length > 0 ? 'Not a country' : 'These filters cannot be read'} action={<Button variant="secondary" href={signalHref({ ...f, country: '', cpv: '', programme: '', page: 1 })}>Clear filters</Button>}>
             {unknown.length > 0

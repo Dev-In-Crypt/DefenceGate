@@ -64,8 +64,9 @@ def test_an_organisation_name_has_no_address_and_falls_back_to_the_key():
     assert "@" not in r["name"] and r["slug"].startswith("3-")
 
 
-def test_the_slug_of_a_name_without_latin_letters_is_the_id_alone():
-    assert org_ref({"id": 9, "display_name": "Київський інститут", "canonical_name": "x", "country": "UA"})["slug"] == "9"
+def test_the_slug_of_a_name_without_latin_letters_is_romanised():
+    # WP-175 (D-18): it was the id alone ("9"); a Cyrillic or Greek name is written in Latin letters in the address now
+    assert org_ref({"id": 9, "display_name": "Київський інститут", "canonical_name": "x", "country": "UA"})["slug"] == "9-kiyivskiy-institut"
 
 
 def test_a_name_with_a_telephone_number_is_not_an_alias_to_show():

@@ -5,7 +5,7 @@ import { EndingRow } from '@/components/tenders/contract-period';
 import { getBuyer, getBuyerProfile, getBuyerSuppliers, getEnding, getTenders, isBuyerSlug, PERSON, REMOVED, UNAVAILABLE, whenRemovedOrPerson } from '@/lib/api';
 import { NotShownPerson, RemovedOnRequest } from '@/components/dg/removed';
 import { displayName, shownVariants } from '@/lib/display-name';
-import { formatDateUtc, formatNumber, plural, variantsLine } from '@/lib/format';
+import { formatDateUtc, formatNumber, plural, variantsSummary } from '@/lib/format';
 import { MAX_PAGE, TENDER_PAGE_SIZE, lastPage, parseTenderFilters, toTenderQuery, type SearchParams } from '@/lib/filters';
 import { Select, TextInput } from '@/components/dg/form';
 import { BuyerTopSuppliers } from '@/components/market/buyer-suppliers';
@@ -119,6 +119,9 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
   const name = displayName(buyer.name, 'title');
   const variants = shownVariants(buyer.variantNames ?? [], buyer.name);
   const units = buyer.units && buyer.units.length >= 2 ? buyer.units : [];
+  // WP-87: the profile's total when there is one (notices shown once, the unit of every figure below), so the page has one number;
+  // WP-175 (D-5): the unit choice's "All units" says the same number (it said the directory's count, 1 to 7 apart)
+  const archived = profile?.tenderCount ?? buyer.tenderCount;
 
   return (
     <>
@@ -136,8 +139,7 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
           <FactCell label="Country">
             {buyer.country ? <CountryLabel code={buyer.country} className="font-sans" /> : <span className="font-sans">Not stated</span>}
           </FactCell>
-          {/* WP-87: the profile's total when there is one (notices shown once, the unit of every figure below), so the page has one number */}
-          <FactCell label="Tenders in archive"><span className="tabular-nums">{formatNumber(profile?.tenderCount ?? buyer.tenderCount)}</span></FactCell>
+          <FactCell label="Tenders in archive"><span className="tabular-nums">{formatNumber(archived)}</span></FactCell>
           <FactCell label="Open now">
             <span className="tabular-nums">{formatNumber(buyer.openCount)}</span>
             {typeof buyer.openCoreCount === 'number' && buyer.openCount > 0 && (
@@ -148,19 +150,19 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
           </FactCell>
           <FactCell label="Last published">
             {buyer.lastPublishedAt
-              ? <time dateTime={buyer.lastPublishedAt}>{formatDateUtc(buyer.lastPublishedAt)} UTC</time>
+              ? <time dateTime={buyer.lastPublishedAt}>{formatDateUtc(buyer.lastPublishedAt)}</time>
               : <span className="font-sans">Not stated</span>}
           </FactCell>
         </FactsGrid>
-        {variantsLine(buyer.nameVariants) && (variants.length > 0 ? (
+        {variantsSummary(buyer.nameVariants, variants.length) && (variants.length > 0 ? (
           /* WP-111 (p04): the names themselves, so a reader sees which notices are this buyer's (WP-121: without the removal token) */
           <details className="max-w-prose text-small text-ink-muted" data-variant-names>
-            <summary className="cursor-pointer">{variantsLine(buyer.nameVariants)}: show the names</summary>
+            <summary className="cursor-pointer">{variantsSummary(buyer.nameVariants, variants.length)}: show the names</summary>
             <ul className="m-0 mt-2 flex list-disc flex-col gap-1 pl-5">
               {variants.map((v) => <li key={v}>{v}</li>)}
             </ul>
           </details>
-        ) : <p className="m-0 max-w-prose text-small text-ink-muted">{variantsLine(buyer.nameVariants)}</p>)}
+        ) : <p className="m-0 max-w-prose text-small text-ink-muted" data-variant-records>{variantsSummary(buyer.nameVariants, 0)}.</p>)}
         {outside ? (
           <p className="m-0 max-w-prose text-body" data-outside-scope>
             None of this buyer&rsquo;s notices is in the default scope, {SCOPE_CHOICES.relevant.label} ({SCOPE_CHOICES.core.label.toLowerCase()} and {SCOPE_CHOICES.supply.label.toLowerCase()}).
@@ -186,7 +188,7 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
       {units.length > 0 && (
         <form method="get" action={`/buyers/${buyer.slug}`} aria-label="Choose a unit of this buyer"
           className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5 sm:flex-row sm:items-end" data-buyer-unit-form>
-          <Select name="unit" label="Unit" placeholder={`All units (${formatNumber(buyer.tenderCount)})`} defaultValue={unit?.key ?? ''}
+          <Select name="unit" label="Unit" placeholder={`All units (${formatNumber(archived)})`} defaultValue={unit?.key ?? ''}
             options={unitOptions(units)} className="min-w-0 sm:min-w-72 sm:max-w-xl" data-buyer-unit />
           {cpv && <input type="hidden" name="cpv" value={cpv.join(',')} />}
           <Button type="submit">Show unit</Button>

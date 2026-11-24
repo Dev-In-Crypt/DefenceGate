@@ -79,6 +79,8 @@ export default async function SupplierPage({ params, searchParams }: Props) {
           <FactCell label="Country"><CountryLabel code={s.country} className="font-sans" /></FactCell>
           <FactCell label="Contracts won, last three years">
             <span className="tabular-nums">{formatNumber(s.noticeCount)}</span>
+            {/* WP-175 (F20): three years back from today, so "2023 to 2026" under Years is four calendar years: the day it starts */}
+            {c?.since && <span className="block font-sans text-small font-normal text-ink-muted" data-since>Published since {formatDateUtc(c.since)}</span>}
             {s.underCodes && (
               <span className="block font-sans text-small font-normal text-ink-muted" data-under-codes>
                 {formatNumber(s.underCodes.contracts)} of them under your CPV codes{s.underCodes.buyerCountries.length ? `, in ${s.underCodes.buyerCountries.map(countryName).join(', ')}` : ''}, as in your supplier report
@@ -112,9 +114,9 @@ export default async function SupplierPage({ params, searchParams }: Props) {
             {(s.namesakes?.length ?? 0) === 1 ? 'Another company' : `${s.namesakes?.length} other companies`} won contracts under this name:{' '}
             {(s.namesakes ?? []).map((n, i) => (
               <span key={n.slug}>{i > 0 && '; '}<Link href={`/suppliers/${n.slug}`} className="font-semibold">{displayName(n.name, 'title')}</Link>
-                {n.identifiers.length ? ` (number ${n.identifiers.join(', ')})` : ' (no number stated)'}, {formatNumber(n.awards)} {n.awards === 1 ? 'award' : 'awards'}</span>
+                {n.identifiers.length ? ` (number ${n.identifiers.join(', ')})` : ' (no number stated)'}, {formatNumber(n.awards)} {n.awards === 1 ? 'contract' : 'contracts'}</span>
             ))}.
-            {' '}They are listed apart because each holds {s.ownNumbers?.length ? `a company number of its own (this one: ${s.ownNumbers.join(', ')})` : 'a company number of its own'}: we join two records only on evidence that they are one company.
+            {' '}Contracts as this page counts them (the last three years). They are listed apart because each holds {s.ownNumbers?.length ? `a company number of its own (this one: ${s.ownNumbers.join(', ')})` : 'a company number of its own'}: we join two records only on evidence that they are one company.
           </p>
         )}
         {/* WP-88: one line; the coverage, the method and the removal route are in About this data. */}

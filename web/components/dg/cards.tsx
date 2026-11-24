@@ -299,7 +299,7 @@ export function BuyerCard({ buyer, headingLevel = 'h2' }: { buyer: Buyer; headin
           <ListFact label="Open now" tone={buyer.openCount === 0 ? 'closed' : 'default'}><span className="tabular-nums">{formatNumber(buyer.openCount)}</span></ListFact>
           <ListFact label="Last published">
             {buyer.lastPublishedAt
-              ? <time dateTime={buyer.lastPublishedAt}>{formatDateUtc(buyer.lastPublishedAt)} UTC</time>
+              ? <time dateTime={buyer.lastPublishedAt}>{formatDateUtc(buyer.lastPublishedAt)}</time>
               : <span className="font-sans">Not stated</span>}
           </ListFact>
         </dl>

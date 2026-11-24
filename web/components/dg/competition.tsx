@@ -31,11 +31,12 @@ export function CompetitorsCard({ c, name, action, allHref }: { c: SupplierCompe
         <DataTable label={`Companies that won contracts of the same buyers under the same CPV classes as ${name}`} minWidth={620}>
           <thead>
             <tr>
+              {/* WP-175 (F-3): headers on one line; wrapped in narrow columns they made a tall empty band above Company at 375 px */}
               <th scope="col" className="min-w-52">Company</th>
               <th scope="col">Country</th>
-              <th scope="col" className="text-right">Its contracts in shared markets</th>
-              <th scope="col" className="text-right">Shared markets</th>
-              <th scope="col" className="text-right">{name}&rsquo;s contracts there</th>
+              <th scope="col" className="whitespace-nowrap text-right">Its contracts in shared markets</th>
+              <th scope="col" className="whitespace-nowrap text-right">Shared markets</th>
+              <th scope="col" className="whitespace-nowrap text-right">{name}&rsquo;s contracts there</th>
             </tr>
           </thead>
           <tbody>

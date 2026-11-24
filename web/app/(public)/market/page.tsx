@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getMarketStats } from '@/lib/api';
 import { MARKET_FIRST_YEAR, PARAM, parseMarketFilters, type SearchParams } from '@/lib/filters';
-import { BUYER_COUNTRIES, SCOPE_CHOICES } from '@/lib/taxonomy';
+import { BUYER_COUNTRIES, SCOPE_CHOICES, countryName } from '@/lib/taxonomy';
 import { Button } from '@/components/dg/button';
 import { Select, TextInput } from '@/components/dg/form';
 import { cpvGroupName } from '@/lib/cpv';
@@ -54,6 +54,10 @@ function Money({ m, basis, cpvLink }: { m: MarketMoney; basis: string; cpvLink: 
         {formatDateUtc(m.since)} to {formatDateUtc(m.until)}: <strong>{moneyLine(m.total.byCurrency) ?? 'no contract value stated'}</strong>{' '}
         (of the {formatNumber(m.total.of)} contracts and their winners in the award notices we read, {formatNumber(m.total.of - m.total.withoutValue)} state a contract value).
       </p>
+      {/* WP-175 (D-10): the values are of a wider set than the notice counts above: said, so food and services under them are not a surprise */}
+      <p className="m-0 max-w-prose text-small text-ink-muted" data-money-scope>
+        These values are of the supplier map&rsquo;s contracts: {SCOPE_CHOICES.relevant.label.toLowerCase()}, so the services and supplies defence buyers buy (catering and fuel among them) are in, unlike the notice counts above.
+      </p>
       <AutoGrid min={460}>
         <DataTable label="Contract values awarded by buyer country" minWidth={420}>
           <thead><tr><th scope="col">Buyer country</th><th scope="col">Contract values</th><th scope="col">Coverage</th></tr></thead>
@@ -78,7 +82,14 @@ function Money({ m, basis, cpvLink }: { m: MarketMoney; basis: string; cpvLink: 
           </tbody>
         </DataTable>
       </AutoGrid>
-      {m.byBuyer.length > 0 && (
+      {m.byBuyer.length > 0 && (<>
+        {/* WP-175 (D-22): the table has its own heading, and says why one country can fill it */}
+        <h3 className="m-0 text-h4" data-money-buyers-heading>Buyers with the most contracts that state a value</h3>
+        {m.byBuyer.every((b) => b.country === m.byBuyer[0].country) && m.byBuyer[0].country && (
+          <p className="m-0 max-w-prose text-small text-ink-muted" data-money-buyers-one-country>
+            All of them are in {countryName(m.byBuyer[0].country)}: {m.byBuyer[0].country === 'ES' ? 'Spain’s national portal (PLACSP) publishes the award results of every contract with its value, while other countries reach us mostly through TED' : 'its buyers state values most often in the award notices we read'}. Choose a buyer country above to see another country’s buyers.
+          </p>
+        )}
         <DataTable label="Buyers with the most contracts that state a value" minWidth={420}>
           <thead><tr><th scope="col">Buyer</th><th scope="col">Country</th><th scope="col">Contract values</th><th scope="col">Coverage</th></tr></thead>
           <tbody>
@@ -91,7 +102,7 @@ function Money({ m, basis, cpvLink }: { m: MarketMoney; basis: string; cpvLink: 
             ))}
           </tbody>
         </DataTable>
-      )}
+      </>)}
       <AboutData summary="How we count"><p className="m-0" data-money-basis>{basis}</p></AboutData>
     </div>
   );
@@ -172,8 +183,10 @@ export default async function MarketPage({ searchParams }: Props) {
       {/* WP-96: the set every figure counts, named once beside them, with the tender list of the same set (the list opens on
           All defence and shows a notice published in two sources once, so its default count differs: NL 384 here, 524 there) */}
       <p className="m-0 max-w-prose text-body" data-market-scope>
-        Every figure counts notices of <strong>{counted.label.toLowerCase()}</strong>{stats.scope === 'relevant' ? ' (military goods and works, and the services and supplies defence buyers buy)' : ' only'}, as each source published them: award notices
+        Every notice count counts notices of <strong>{counted.label.toLowerCase()}</strong>{stats.scope === 'relevant' ? ' (military goods and works, and the services and supplies defence buyers buy)' : ' only: notices that state the defence directive or carry a military product code'}, as each source published them: award notices
         and corrections included, and a notice published in TED and in a national portal counted once per source.
+        {/* WP-175 (D-10): why services lead "By subject" in a count of military goods and works */}
+        {stats.scope !== 'relevant' && ' A notice counts under every subject of its codes, so the services bought with military goods (repair, training, construction) show by subject too.'}
         {stats.scope === 'relevant'
           ? ' The tender list shows a notice published in two sources once, so its count can be lower than this one. '
           : ` The tender list opens on ${SCOPE_CHOICES.relevant.label} and shows such a notice once, so its default count is not this one; choose “${SCOPE_CHOICES.relevant.label}” above, with a country or a code, to count the services too. `}

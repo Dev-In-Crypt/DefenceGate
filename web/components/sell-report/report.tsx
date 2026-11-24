@@ -88,7 +88,7 @@ function Notice({ n }: { n: NoticeLink | null }) {
 function Table({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="min-w-0 overflow-x-auto" data-scroll role="region" aria-label={label} tabIndex={0}>
-      <table className="w-full min-w-[560px] border-collapse text-left text-small [&_td]:px-2.5 [&_td]:py-2 [&_td]:align-top [&_th]:px-2.5 [&_th]:py-2 [&_th]:font-semibold [&_thead_th]:bg-surface-inset [&_tbody_tr]:border-b [&_tbody_tr]:border-line">
+      <table className="w-full min-w-[560px] border-collapse text-left text-small [&_td]:px-2.5 [&_td]:py-2 [&_td]:align-top [&_tbody_th]:align-top [&_th]:px-2.5 [&_th]:py-2 [&_th]:font-semibold [&_thead_th]:bg-surface-inset [&_tbody_tr]:border-b [&_tbody_tr]:border-line">
         <caption className="sr-only">{label}</caption>
         {children}
       </table>

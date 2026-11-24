@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getSupplier, getSupplierCompetition, isSupplierSlug, REMOVED, whenRemoved } from '@/lib/api';
-import { getFullCompetition, getUserState } from '@/lib/account';
+import { getAccountStatus, getFullCompetition, getUserState } from '@/lib/account';
 import { displayName } from '@/lib/display-name';
 import { PageHeader } from '@/components/dg/page-header';
 import { Card } from '@/components/dg/card';
@@ -31,7 +31,12 @@ export default async function CompetitorsPage({ params }: Props) {
   let c = pub;
   let gate: React.ReactNode = null;
   if (state.kind === 'anonymous' || state.kind === 'unauthorized') {
-    gate = <>The full list of competitors is for signed-in accounts: <Link href={`/signin?next=/suppliers/${s.slug}/competitors`} className="font-semibold">sign in</Link>.</>;
+    // WP-175 (F19): said as it is: the first five are free to everyone; the rest needs an account, and later a plan
+    const status = await getAccountStatus();
+    const plans = status.plansOnSale ? 'with the Pro, Team and Consultant plans' : 'free to every account while no paid plan is on sale; later part of the Pro, Team and Consultant plans';
+    gate = status.open
+      ? <>The first five competitors are free on the <Link href={`/suppliers/${s.slug}`} className="font-semibold">company page</Link>. The full list is {plans}: <Link href={`/signin?next=/suppliers/${s.slug}/competitors`} className="font-semibold">sign in</Link>.</>
+      : <>The first five competitors are free on the <Link href={`/suppliers/${s.slug}`} className="font-semibold">company page</Link>. The full list will come with an account ({status.plansOnSale ? 'with the Pro, Team and Consultant plans' : 'later part of the Pro, Team and Consultant plans'}); accounts are not open yet.</>;
   } else if (state.kind === 'unavailable') {
     gate = <>Your account could not be read just now. Try again in a moment.</>;
   } else {

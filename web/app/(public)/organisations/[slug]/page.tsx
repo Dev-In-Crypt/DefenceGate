@@ -88,8 +88,8 @@ export default async function OrganisationPage({ params, searchParams }: Props) 
             {countryBasisNote(org) && <span className="block font-sans text-small font-normal text-ink-muted">{countryBasisNote(org)}</span>}
           </FactCell>
           <FactCell label="Defence projects"><span className="tabular-nums">{defenceProjectsOf(org)}</span></FactCell>
-          <FactCell label="Projects, all programmes"><span className="tabular-nums">{org.counts.projects}</span></FactCell>
-          <FactCell label="As coordinator"><span className="tabular-nums">{org.counts.coordinated}</span></FactCell>
+          <FactCell label="Projects, all programmes"><span className="tabular-nums">{formatNumber(org.counts.projects)}</span></FactCell>
+          <FactCell label="As coordinator"><span className="tabular-nums">{formatNumber(org.counts.coordinated)}</span></FactCell>
           <FactCell label="EU contribution">
             {org.counts.euContribution === null ? <span className="font-sans">{contributionMissing(org.programmes.map((p) => p.code))}</span> : formatEur(org.counts.euContribution)}
           </FactCell>

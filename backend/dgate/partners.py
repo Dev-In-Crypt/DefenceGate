@@ -366,11 +366,19 @@ def past_roles(conn, heads: list[int]) -> dict[int, dict[str, int]]:
     are summed as `other`. A project where two merged rows held different roles counts under both (rare; said nowhere)."""
     if not heads:
         return {}
+    # WP-175 (D-15): and the rows of its family (`organisation_family_member`, the name variants whose projects the directory and
+    # the organisation page count under it): TNO showed 942 projects beside roles that added up to 939
     rows = conn.execute(
-        """SELECT COALESCE(o.merged_into, o.id) AS head, pa.role, count(DISTINCT pa.project_id) AS n
-             FROM organisation o JOIN participation pa ON pa.organisation_id = o.id AND pa.active
-            WHERE (o.id = ANY(%s) OR o.merged_into = ANY(%s)) AND NOT o.suppressed AND o.individual_reason IS NULL
-            GROUP BY 1, 2""", (heads, heads)).fetchall()
+        """WITH fam AS (SELECT o.id, CASE WHEN COALESCE(o.merged_into, o.id) = ANY(%s) THEN COALESCE(o.merged_into, o.id)
+                                       ELSE fm.head_org_id END AS head
+                          FROM organisation o LEFT JOIN organisation_family_member fm ON fm.org_id = COALESCE(o.merged_into, o.id)
+                         WHERE (o.id = ANY(%s) OR o.merged_into = ANY(%s)
+                                OR COALESCE(o.merged_into, o.id) IN (SELECT org_id FROM organisation_family_member
+                                                                      WHERE head_org_id = ANY(%s)))
+                           AND NOT o.suppressed AND o.individual_reason IS NULL)
+           SELECT fam.head, pa.role, count(DISTINCT pa.project_id) AS n
+             FROM fam JOIN participation pa ON pa.organisation_id = fam.id AND pa.active
+            GROUP BY 1, 2""", (heads, heads, heads, heads)).fetchall()
     out = {h: {"coordinator": 0, "participant": 0, "thirdParty": 0, "other": 0} for h in heads}
     for r in rows:
         if r["head"] in out:

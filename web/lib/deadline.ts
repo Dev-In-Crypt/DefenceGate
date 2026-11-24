@@ -247,5 +247,5 @@ export function localDeadline(iso: IsoDateTime | null, country: string | null | 
   if (time === utcTime && /^(GMT|UTC)$/.test(abbr)) return null;
   const sameDay = Number(get(day, 'day')) === d.getUTCDate();
   const city = zone.split('/')[1].replace(/_/g, ' ');
-  return `${time} ${abbr}${sameDay ? '' : ` on ${get(day, 'day')} ${get(day, 'month')}`} (${city})`;
+  return `${time} ${abbr}${sameDay ? '' : ` on ${get(day, 'day')} ${get(day, 'month').replace(/^Sept$/, 'Sep')}`} (${city})`;
 }
