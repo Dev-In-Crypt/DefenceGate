@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from 'react';
 import { CircleAlert, CircleCheck, CircleHelp, CircleX } from 'lucide-react';
 import { applySummary } from '@/lib/funding-path';
-import { answersFit, answersOf, asksUaPartner, fitLabel, isLine, shownFit, type Answers, type FitResult } from '@/lib/fit';
+import { answersFit, answersOf, asksUaPartner, checkItems, fitLabel, isLine, shownFit, type Answers, type FitResult } from '@/lib/fit';
 import type { EligibilityFacts } from '@/lib/eligibility-check';
 import { useFit } from '@/lib/fit-hooks';
 import { fitFor, isLoaded, lookupFailed } from '@/lib/fit-store';
@@ -110,6 +110,11 @@ export function ApplySummary({ call }: { call: Pick<Call, 'id' | 'programme' | '
   const r = c.profileMode ? null : pageFit(call, c, null);
   const shown = r ? shownFit(r) : 'unknown';
   const blocking = (r?.result?.lines ?? []).filter((l) => l.verdict === 'no' && l.key !== 'who' && !l.key.startsWith('rule-'));
+  // WP-173 (QA F12, C-6): "N conditions to check" lists those N, one per line; the programme's lines below do not say the country again
+  // (a US company read the same "not among them" twice)
+  const toCheck = r && shown === 'check' ? checkItems(r) : [];
+  const saidAbove = new Set([...blocking, ...toCheck].map((l) => l.key));
+  const listed = summary ? (c.profileMode ? summary.lines : summary.lines.filter((l) => !(l.key === 'country' && saidAbove.has('country')))) : [];
   return (
     <section aria-labelledby="apply-summary" data-apply-summary className="flex max-w-prose flex-col gap-2 rounded-lg border border-line bg-surface p-4">
       <h2 id="apply-summary" className="m-0 text-h4">Can I apply?</h2>
@@ -118,7 +123,7 @@ export function ApplySummary({ call }: { call: Pick<Call, 'id' | 'programme' | '
           onChange={(e) => c.set({ country: e.target.value })} />
         <Select label="Your kind of organisation" placeholder="Choose" options={ORG_TYPES} value={answers.orgType}
           onChange={(e) => c.set({ orgType: e.target.value as Answers['orgType'] })} />
-        {asksUaPartner(call, answers.country) && (
+        {asksUaPartner(call, answers.country, call.documentEligibility?.facts as EligibilityFacts | undefined) && (
           <Select label="Does a legal entity established in Ukraine take part with you?" placeholder="Choose" className="sm:col-span-2"
             options={[{ value: 'yes', label: 'Yes, with its executive management in Ukraine' }, { value: 'no', label: 'No' }, { value: 'unsure', label: 'Not sure' }]}
             value={answers.uaPartner ?? ''} onChange={(e) => c.set({ uaPartner: e.target.value as Answers['uaPartner'] })} />
@@ -136,14 +141,21 @@ export function ApplySummary({ call }: { call: Pick<Call, 'id' | 'programme' | '
                 {blocking.map((l) => <li key={l.key} data-line={`block-${l.key}`}><strong>{l.label}:</strong> {l.reason}</li>)}
               </ul>
             )}
+            {toCheck.length > 0 && (
+              <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-body" data-to-check>
+                {toCheck.map((l) => <li key={l.key} data-line={`check-${l.key}`}>{l.label && <strong>{l.label}: </strong>}{l.reason}</li>)}
+              </ul>
+            )}
           </>
         )}
         {summary && answers.country ? (
           <>
             {c.profileMode && <p className="m-0 mt-2 text-small font-semibold text-ink-muted" data-verdict={summary.verdict}>What the rules say for any organisation of this country:</p>}
-            <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-body">
-              {summary.lines.map((l) => <li key={l.key} data-line={l.key}>{l.text}</li>)}
-            </ul>
+            {listed.length > 0 && (
+              <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-body">
+                {listed.map((l) => <li key={l.key} data-line={l.key}>{l.text}</li>)}
+              </ul>
+            )}
           </>
         ) : (
           <p className="m-0 text-body text-ink-muted">Choose your country to see whether an organisation from it can apply.</p>

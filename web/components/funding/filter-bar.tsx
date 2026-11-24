@@ -47,9 +47,9 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
       <form method="get" action={basePath} role="search" aria-label="Filter funding calls" className={FORM}>
         {/* WP-150 (as WP-149 on /tenders): one line under the field, what is searched one click away */}
         <div className="flex min-w-0 flex-col">
-          <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, call ID or keyword" defaultValue={filters.q ?? ''} hint="Matches whole words." />
+          <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, call ID or keyword" defaultValue={filters.q ?? ''} hint="Finds calls with every word, as whole words." />
           <AboutData summary="What is searched">
-            <p className="m-0">Titles, call IDs and the source’s topic keywords, as whole words; drone also finds unmanned.</p>
+            <p className="m-0">Titles, call IDs and the source’s topic keywords, every word as a whole word (a call the portal tags STEP is found by step); drone also finds unmanned.</p>
           </AboutData>
         </div>
         {show('status') && (

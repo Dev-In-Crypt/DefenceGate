@@ -272,7 +272,8 @@ export function RoadmapView() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-transparent bg-surface p-5">
         <p className="m-0 text-body">Steps in order, for a company established in <strong>{countryName(profile.country)}</strong>. Marking a step re-scores your results.</p>
-        <Button href="/readiness/results" variant="secondary">My results</Button>
+        {/* WP-173 (QA C-19): a link, not part of the printed roadmap */}
+        <Button href="/readiness/results" variant="secondary" className="print:hidden">My results</Button>
         {/* Always in the page, so that a screen reader announces the text when it is set. */}
         <p role="status" aria-live="polite" className={message ? 'm-0 w-full text-small font-semibold' : 'sr-only'}>{message}</p>
         {message && undo && <Button variant="secondary" onClick={takeBack} data-undo-mark={undo.code}>Undo</Button>}

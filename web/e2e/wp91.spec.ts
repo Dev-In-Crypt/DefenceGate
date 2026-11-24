@@ -128,7 +128,7 @@ test('the call page says what it funds and whether a company from Poland can app
   await save(page, PROFILE);
   await visit(page, USI, { title: /Supply chain security/, h1: /Supply chain security/ });
   const funds = page.locator('[data-what-it-funds]');
-  await expect(funds).toContainText('What it funds: Supply chain security for critical raw materials. The source’s keywords for this topic: Critical raw materials');
+  await expect(funds).toContainText('What it funds: The source’s keywords for this topic: Critical raw materials'); // WP-173 (F13): the title is not repeated
   await expect(funds.getByRole('link', { name: /Read the topic description at/ })).toBeVisible();
   const box = page.locator('[data-apply-summary]');
   await expect(box.locator('[data-line="country"]')).toHaveText(/^From Poland: only together with a partner established in Ukraine/);

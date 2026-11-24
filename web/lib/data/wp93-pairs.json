@@ -4154,7 +4154,7 @@
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
        "requirement": null,
-       "outcome": "info"
+       "outcome": "not_applicable"
       }
      ]
     }
@@ -4456,7 +4456,7 @@
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
        "requirement": null,
-       "outcome": "info"
+       "outcome": "not_applicable"
       }
      ]
     }
@@ -4737,7 +4737,7 @@
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
        "requirement": null,
-       "outcome": "info"
+       "outcome": "not_applicable"
       }
      ]
     }
@@ -5021,7 +5021,7 @@
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
        "requirement": null,
-       "outcome": "info"
+       "outcome": "not_applicable"
       }
      ]
     }
@@ -5328,7 +5328,7 @@
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
        "requirement": null,
-       "outcome": "info"
+       "outcome": "not_applicable"
       }
      ]
     }
@@ -5624,7 +5624,7 @@
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
        "requirement": null,
-       "outcome": "info"
+       "outcome": "not_applicable"
       }
      ]
     }
@@ -5922,7 +5922,7 @@
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
        "requirement": null,
-       "outcome": "info"
+       "outcome": "not_applicable"
       }
      ]
     }
@@ -6220,7 +6220,7 @@
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
        "requirement": null,
-       "outcome": "info"
+       "outcome": "not_applicable"
       }
      ]
     }
@@ -6527,7 +6527,7 @@
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
        "requirement": null,
-       "outcome": "info"
+       "outcome": "not_applicable"
       }
      ]
     }
@@ -10004,7 +10004,7 @@
   "P4|191": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Only these may apply and 1 more",
+   "word": "Blocked by: Only these may apply and Ownership control",
    "conditions": [],
    "lines": [
     {
@@ -10032,7 +10032,7 @@
   "P4|192": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Only these may apply and 1 more",
+   "word": "Blocked by: Only these may apply and Ownership control",
    "conditions": [
     "A consortium is required: at least 3 legal entities from at least 3 countries. Your profile does not say whether you have partners."
    ],
@@ -10404,7 +10404,7 @@
   "P5|116": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Established in the Union or an associated country and 1 more",
+   "word": "Blocked by: Established in the Union or an associated country and Executive management in the Union or an associated country",
    "conditions": [
     "European Defence Industry Programme (EDIP): the Programme: Established in the Union or an associated country",
     "European Defence Industry Programme (EDIP): the Programme: Executive management in the Union or an associated country"
@@ -10562,7 +10562,7 @@
   "P5|146": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Country and 1 more",
+   "word": "Blocked by: Country and Ownership control",
    "conditions": [],
    "lines": [
     {
@@ -10590,7 +10590,7 @@
   "P5|148": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Country and 1 more",
+   "word": "Blocked by: Country and Ownership control",
    "conditions": [],
    "lines": [
     {
@@ -10618,7 +10618,7 @@
   "P5|149": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Country and 1 more",
+   "word": "Blocked by: Country and Ownership control",
    "conditions": [],
    "lines": [
     {
@@ -11959,7 +11959,7 @@
     {
      "key": "country",
      "verdict": "yes",
-     "reason": "Your country is associated to Horizon Europe, and the call is open to the associated countries."
+     "reason": "Your country is an EEA member associated to Horizon Europe, and the call is open to them."
     },
     {
      "key": "sme",
@@ -13552,7 +13552,7 @@
   "P9|191": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Only these may apply and 1 more",
+   "word": "Blocked by: Only these may apply and Ownership control",
    "conditions": [],
    "lines": [
     {
@@ -13580,7 +13580,7 @@
   "P9|192": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Only these may apply and 1 more",
+   "word": "Blocked by: Only these may apply and Ownership control",
    "conditions": [
     "A consortium is required: at least 3 legal entities from at least 3 countries. Your profile does not say whether you have partners."
    ],

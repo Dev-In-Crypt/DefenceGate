@@ -53,7 +53,8 @@ export interface SummaryLine { key: string; verdict: Verdict | 'info'; text: str
 /** `unknown` (WP-93, finding 6): no rule of the call or its programme is held, so nothing is said either way. */
 export interface Summary { verdict: Verdict | 'unknown'; lines: SummaryLine[] }
 
-const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+// WP-173 (QA C-14): an acronym keeps its capitals ("eEA countries are eligible")
+export const lowerFirst = (s: string) => (/^[A-Z]{2}/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1));
 const worst = (a: Verdict, b: Verdict): Verdict => (a === 'no' || b === 'no' ? 'no' : a === 'check' || b === 'check' ? 'check' : 'yes');
 
 /**
@@ -167,10 +168,25 @@ export function whoLimits(call: Pick<Call, 'whoMayApply' | 'whoMayApplyLimits'>)
 
 /** The commercial subject of a call in plain words: its title and the source's topic keywords. No description is stored. */
 export function whatItFunds(call: Pick<Call, 'title' | 'scope' | 'actionType'>): string {
+  // WP-173 (QA F13): the title is the heading right above; it is not repeated as the answer
   const kw = call.scope.filter((s) => s.trim() !== '').slice(0, 8);
   return kw.length > 0
-    ? `${call.title}. The source’s keywords for this topic: ${kw.join(', ')}.`
-    : `${call.title}. The source gives no topic keywords for it.`;
+    ? `The source’s keywords for this topic: ${kw.join(', ')}.`
+    : 'The source gives no summary or topic keywords for it.';
+}
+
+/**
+ * WP-173 (QA C-1, C-9): every deadline the portal lists for a topic that has several, as one Key facts row: the two stages of a
+ * two-stage call ("Stage 1: 25 Feb 2027; Stage 2: 16 Sep 2027"), or the cut-offs of a multiple cut-off call, a passed one marked.
+ * Days as the portal states them (no time). Null for one deadline or none.
+ */
+export function cutOffRow(call: Pick<Call, 'cutOffs' | 'deadlineModel'>, ref: Date): { label: string; value: string } | null {
+  const days = (call.cutOffs ?? []).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
+  if (days.length < 2) return null;
+  const stages = call.deadlineModel === 'two-stage';
+  const today = ref.toISOString().slice(0, 10);
+  const items = days.map((d, i) => `${stages ? `Stage ${i + 1}: ` : ''}${formatDateUtc(`${d}T00:00:00Z`)}${d < today ? ' (passed)' : ''}`);
+  return { label: stages ? 'Stage deadlines' : 'All cut-offs', value: items.join('; ') };
 }
 
 // ---------------------------------------------------------------- 7. "Fits my profile" by the visitor's own topics

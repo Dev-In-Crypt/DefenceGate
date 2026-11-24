@@ -232,11 +232,14 @@ def _moment(match: re.Match[str], published: date | None) -> datetime | None:
                 year += 1
         except ValueError:
             return None
-    hour, minute = 23, 59                       # a date alone closes at the end of the day
+    # A date alone (or "a minuit") closes at the end of the day: 23:59:59, the end-of-day mark `is_end_of_day` reads as "date only".
+    # WP-173 (QA C-7): a time the page states, 23h59 included, is kept as that time (23:59:00): the Cyber defi 201 said "23h59 CET"
+    # and was served "4 Dec (date only)" with an all-day calendar event.
+    hour, minute, second = 23, 59, 59
     if groups.get("h"):
-        hour, minute = int(groups["h"]), int(groups.get("m") or 0)
+        hour, minute, second = int(groups["h"]), int(groups.get("m") or 0), 0
     try:
-        return datetime(year, month, day, hour, minute, tzinfo=PARIS).astimezone(UTC)
+        return datetime(year, month, day, hour, minute, second, tzinfo=PARIS).astimezone(UTC)
     except ValueError:
         return None
 
@@ -268,10 +271,10 @@ def deadlines(text: str, published: date | None = None) -> list[datetime]:
 
 
 def is_end_of_day(moment: datetime) -> bool:
-    """A date with no hour is stored as 23:59 Paris; so is an explicit "a minuit". Both
-    say "that day", and the site prints the date only."""
+    """A date with no hour is stored as 23:59:59 Paris; so is an explicit "a minuit". Both
+    say "that day", and the site prints the date only. A stated 23h59 is 23:59:00, a time (WP-173)."""
     local = moment.astimezone(PARIS)
-    return (local.hour, local.minute) == (23, 59)
+    return (local.hour, local.minute, local.second) == (23, 59, 59)
 
 
 def opening(text: str) -> date | None:

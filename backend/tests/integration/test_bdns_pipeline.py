@@ -10,7 +10,7 @@ the API.
 from __future__ import annotations
 
 import copy
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -122,7 +122,8 @@ def test_a_call_that_closes_is_updated_not_duplicated(conn, fs_store, monkeypatc
     register = _register(monkeypatch, [CDTI])
     pipeline.run_bdns(days=14)
     register["912587"]["abierto"] = False
-    register["912587"]["fechaFinSolicitud"] = date.today().isoformat()    # still this year
+    # WP-173: yesterday, not today: the last day is still a day to apply, and the dates decide (C-2); on 1 January it is last year
+    register["912587"]["fechaFinSolicitud"] = (date.today() - timedelta(days=1)).isoformat()
     pipeline.run_bdns(days=14)
 
     rows = conn.execute("SELECT status, deadline_at FROM call WHERE country = 'ES'").fetchall()
@@ -138,10 +139,25 @@ def test_a_call_already_held_is_re_read_even_when_the_window_no_longer_shows_it(
 
     monkeypatch.setattr(bdns, "search_central", lambda since, client=None, max_pages=0: iter([]))
     register["912587"]["abierto"] = False
-    register["912587"]["fechaFinSolicitud"] = date.today().isoformat()
+    register["912587"]["fechaFinSolicitud"] = (date.today() - timedelta(days=1)).isoformat()    # WP-173, as above
     pipeline.run_bdns(days=14)
     assert conn.execute("SELECT status FROM call WHERE country = 'ES'").fetchone()["status"] \
         == "closed"
+
+
+def test_a_call_held_closed_with_its_window_ahead_is_re_read_and_served_open(conn, fs_store, monkeypatch):
+    """WP-173 (QA C-2): the register's flag said closed while the call's dates said open; once the search window no longer
+    lists the call, it must still be read again while its deadline is ahead, and the dates decide."""
+    flagged = {**CDTI, "abierto": False, "fechaInicioSolicitud": (date.today() - timedelta(days=3)).isoformat(),
+               "fechaFinSolicitud": (date.today() + timedelta(days=30)).isoformat()}
+    _register(monkeypatch, [flagged])
+    pipeline.run_bdns(days=14)
+    assert conn.execute("SELECT status FROM call WHERE country = 'ES'").fetchone()["status"] == "open"
+    conn.execute("UPDATE call SET status = 'closed' WHERE country = 'ES'")       # as served before this fix
+    conn.commit()
+    monkeypatch.setattr(bdns, "search_central", lambda since, client=None, max_pages=0: iter([]))
+    pipeline.run_bdns(days=14)
+    assert conn.execute("SELECT status FROM call WHERE country = 'ES'").fetchone()["status"] == "open"
 
 
 def test_one_unreadable_call_does_not_stop_the_run(conn, fs_store, monkeypatch):

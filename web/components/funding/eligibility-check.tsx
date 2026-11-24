@@ -79,7 +79,7 @@ export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_doc
   // that names countries, a Ukrainian partner where the programme's rules ask for one
   const asksSize = Boolean(sizeRule(facts) || facts.max_group_headcount);
   const asksController = Boolean(facts.ownership_control_restriction?.value === true && p.controlledAbroad === 'yes');
-  const asksUa = asksUaPartner({ rulesApply }, p.country);
+  const asksUa = asksUaPartner({ rulesApply }, p.country, facts);
   const shown = Object.keys(FACT_LABELS).filter((k) => facts[k]);
   const doc = documentUrl ? safeHttpUrl(documentUrl) : null;
   const fromProgramme = basis === 'work_programme';

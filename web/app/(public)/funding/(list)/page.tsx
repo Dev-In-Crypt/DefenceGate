@@ -28,10 +28,12 @@ const CHIPS: EntryChip[] = [
   { label: 'National', href: '/funding?programme=NATIONAL' },
   { label: 'Defence', href: '/funding?regime=defence' },
   { label: 'Dual-use', href: '/funding?regime=dual-use' },
-  { label: 'PL Poland', href: '/funding?country=PL' },
-  { label: 'SE Sweden', href: '/funding?country=SE' },
-  { label: 'FR France', href: '/funding?country=FR' },
-  { label: 'ES Spain', href: '/funding?country=ES' },
+  // WP-173 (QA C-12): a country chip lists all of that country's calls, the open ones first: under the default "Open" the Swedish and the
+  // Spanish chips led to "No calls" while their calls had closed or not opened
+  { label: 'PL Poland', href: '/funding?country=PL&status=all' },
+  { label: 'SE Sweden', href: '/funding?country=SE&status=all' },
+  { label: 'FR France', href: '/funding?country=FR&status=all' },
+  { label: 'ES Spain', href: '/funding?country=ES&status=all' },
 ];
 
 type Props = { searchParams: Promise<SearchParams> };

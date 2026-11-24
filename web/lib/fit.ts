@@ -15,7 +15,7 @@
  * (a legal entity established in Ukraine, a SEAP): a condition of exactly those two kinds is met by the answer, and only then is the
  * line "yes". Without the answer, or with another condition on partners, it stays "check".
  */
-import { BAND_RANGE, CONTROL_WAY_ROUND, EU27, PARTNER_ONLY, check, consortiumUnclear, partnerLine, unclearConsortiumText, type CallContext, type Controller, type EligibilityFacts, type Headcount, type Line, type OrgKind, type OrgType, type Profile as CheckProfile, type Result, type Tri, type Verdict } from './eligibility-check';
+import { BAND_RANGE, CONTROL_WAY_ROUND, EU27, PARTNER_ONLY, check, consortiumUnclear, countryStatus, partnerLine, unclearConsortiumText, type CallContext, type Controller, type EligibilityFacts, type Headcount, type Line, type OrgKind, type OrgType, type Profile as CheckProfile, type Result, type Tri, type Verdict } from './eligibility-check';
 import { controlCountryOf, managementCountryOf, type ApplicantKind, type Profile } from './profile';
 import type { Assessment, ProgrammeAssessment, RoadmapStep } from './readiness-types';
 import type { RulesApply } from './types';
@@ -335,7 +335,13 @@ export function shownFit(r: FitResult): Fit {
 
 /** How many things the visitor still has to look at: the lines of the document that say "check" and the conditions. */
 export function conditionCount(r: FitResult): number {
-  return (r.result?.lines.filter((l) => l.verdict === 'check').length ?? 0) + r.conditions.length;
+  return checkItems(r).length;
+}
+
+/** WP-173 (QA F12): the things `conditionCount` counts, one item each, so a box that says "N conditions" can list exactly those N. */
+export function checkItems(r: FitResult): { key: string; label: string; reason: string }[] {
+  return [...(r.result?.lines ?? []).filter((l) => l.verdict === 'check').map((l) => ({ key: l.key, label: l.label, reason: l.reason })),
+    ...r.conditions.map((c, i) => ({ key: `condition-${i}`, label: '', reason: c }))];
 }
 
 /**
@@ -351,7 +357,9 @@ export function fitLabel(r: FitResult): { word: string; detail: string } {
     const more = r.blockedBy.length - 1;
     // a blocker named as a fact (BLOCKED_AS) reads "Blocked: <the fact>", a rule "Blocked by: <the rule>"
     const by = Object.values(BLOCKED_AS).includes(first) ? 'Blocked: ' : 'Blocked by: ';
-    return { word: `${by}${first}${more > 0 ? ` and ${more} more` : ''}`, detail: `${FIT_MEANING.no} Blocked by: ${r.blockedBy.join('; ') || first}.` };
+    // WP-173 (QA C-6): two blockers are both named ("Country and 1 more" left the second unsaid); three or more keep the count
+    const rest = more === 1 ? ` and ${rule(r.blockedBy[1])}` : more > 1 ? ` and ${more} more` : '';
+    return { word: `${by}${first}${rest}`, detail: `${FIT_MEANING.no} Blocked by: ${r.blockedBy.join('; ') || first}.` };
   }
   if (fit === 'check') {
     if (r.conditions.includes(NO_UA_PARTNER)) return { word: NO_UA_PARTNER, detail: [FIT_MEANING.check, ...r.conditions].join(' ') };
@@ -458,8 +466,12 @@ export function answersOf(p: Profile): Answers | null {
 export interface PageCall { facts: EligibilityFacts | null | undefined; programme: string; topic: string; rulesApply?: RulesApply | null }
 
 /** The page asks for a Ukrainian partner where the programme's rules need one for a company of this country (the Ukraine Support Instrument). */
-export function asksUaPartner(call: Pick<PageCall, 'rulesApply'>, country: string): boolean {
+export function asksUaPartner(call: Pick<PageCall, 'rulesApply'>, country: string, facts?: EligibilityFacts): boolean {
+  // WP-173 (QA C-6): not asked of a country the programme's rules or the call's own country list already exclude (a US company was
+  // asked about a Ukrainian partner on the Ukraine Support Instrument)
   if (!country || country === 'UA') return false;
+  if ((call.rulesApply?.byCountry?.[countryGroup(country)] ?? []).some((r) => r.outcome === 'not_met')) return false;
+  if (facts?.eligible_countries && countryStatus(facts.eligible_countries, country).verdict === 'no') return false;
   return (call.rulesApply?.byCountry?.[countryGroup(country)] ?? []).some((r) => r.asks.includes('ua_partner'));
 }
 

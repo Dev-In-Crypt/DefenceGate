@@ -168,7 +168,7 @@ ATTRIBUTION = {
     "es_placsp": "Source: Plataforma de Contratación del Sector Público, "
                  "Ministerio de Hacienda, Spain",
     "eu_portal": "Source: European Commission, Funding and Tenders Portal",
-    "pl_ncbr": "Zrodlo: Narodowe Centrum Badan i Rozwoju (NCBR), gov.pl",
+    "pl_ncbr": "Źródło: Narodowe Centrum Badań i Rozwoju (NCBR), gov.pl",
     "es_bdns": "Origen de los datos: Intervención General de la Administración del Estado "
                "(Base de Datos Nacional de Subvenciones, Ministerio de Hacienda)",
     "se_vinnova": "Källa: Vinnova, öppna data (CC0)",

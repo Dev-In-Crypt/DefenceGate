@@ -164,6 +164,9 @@ def test_an_aid_date_with_no_hour_is_flagged_and_one_with_an_hour_is_not():
     hour = aid.deadlines("Fermeture : 15/03/2026 à 15h00", date(2026, 1, 10))
     assert aid.is_end_of_day(day_only[-1])
     assert not aid.is_end_of_day(hour[-1])
+    # WP-173 (QA C-7): "23h59" is a time the page states, not "date only"
+    late = aid.deadlines("Fermeture : 04/12/2026 à 23h59", date(2026, 10, 1))
+    assert not aid.is_end_of_day(late[-1]) and late[-1] == datetime(2026, 12, 4, 22, 59, tzinfo=UTC)
 
 
 def _aid(text, published="2026-01-10"):

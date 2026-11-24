@@ -105,6 +105,12 @@ _CUE = re.compile(r"eligib|establish|particip|applican|apply|entit|countr|associ
 # A list of eligible countries that names the EEA countries one by one and no associated countries or Ukraine.
 _EEA_NAMED = re.compile(r"\b(?:Norway|Iceland|Liechtenstein)\b")
 _ASSOCIATED = re.compile(r"associated|Ukrain", re.I)
+# WP-173 (QA C-3, C-15): a control clause ("entities ... controlled by a third country other than Ukraine ... cannot participate",
+# "established in EU Member States, EEA countries ..., but are controlled from third countries may only participate on the condition")
+# is about who may control an applicant, not a list of eligible countries: it neither refuses Ukraine nor closes the list. It made EIC
+# STEP Scale Up 2027 and EIC Accelerator 2027 say both yes and no (unflagged), and was quoted as the country list of a Digital call.
+_CONTROL = re.compile(r"other\s+than\s+(?:\w+\s+){0,2}Ukrain|controll?ed\s+(?:directly\s+or\s+indirectly\s+)?(?:by|from)\s|"
+                      r"directly\s+or\s+indirectly\s+controll?ed", re.I)
 # "participation in this topic is limited to legal entities established in Member States and Associated Countries."
 # Not a list that adds or names other countries ("...and the following additional associated countries: Canada").
 _HORIZON_TOPIC = re.compile(
@@ -141,7 +147,7 @@ def text_statement(text: str | None, *, about_participation: bool = False) -> tu
         if not _UKRAINE.search(part):
             continue
         sentence = _clip(part)
-        if _TERRITORY.search(sentence) or not (about_participation or _CUE.search(sentence)):
+        if _TERRITORY.search(sentence) or _CONTROL.search(sentence) or not (about_participation or _CUE.search(sentence)):
             continue
         found.append((not _NEGATIVE.search(sentence), sentence))
     answers = {v for v, _ in found}
@@ -165,7 +171,7 @@ def _fact_answer(topic_code: str | None, fact: dict[str, Any]) -> tuple[bool, st
 def _closed_list(fact: dict[str, Any]) -> str | None:
     """The sentence of a call document that lists the eligible countries one by one without Ukraine or associated countries."""
     quote = fact.get("quote") or ""
-    if fact.get("scope") == "call_document" and _EEA_NAMED.search(quote) and not _ASSOCIATED.search(quote):
+    if fact.get("scope") == "call_document" and _EEA_NAMED.search(quote) and not _ASSOCIATED.search(quote)             and not _CONTROL.search(quote):
         return _clip(quote)
     return None
 

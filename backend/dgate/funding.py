@@ -102,12 +102,17 @@ ROLLING_MODELS = "('continuous', 'rolling', 'multiple cut-off')"
 # PROD-50 on 8 October, and were still served open on 25 October. Two complete runs in a row without the call, not one: in the 30
 # nightly runs before 25 October every call that dropped out stayed out (each rise of the count is a run's new calls), and one bad
 # snapshot must not unlist a call.
+#
+# WP-173 (QA A-7, F33, 24 Nov 2026): held open past its cut-off only for ROLLING_GRACE_DAYS. EIC Accelerator 2026 (cut-off 4 Nov) and
+# EIC STEP Scale Up 2026 (8 Oct) were still served Open on 24 Nov with no cut-off to come, beside their 2027 editions; the portal
+# had published no later cut-off for either. A call with a later cut-off gets it as its deadline (eu_portal.with_stored_cut_offs).
+ROLLING_GRACE_DAYS = 7
 UNLISTED_AFTER_RUNS = 2
 UNLISTED = f"(c.unlisted_runs >= {UNLISTED_AFTER_RUNS} AND c.status IN ('open', 'forthcoming'))"
 EFFECTIVE_STATUS = f"""(CASE
     WHEN c.status IN ('open', 'forthcoming') AND c.deadline_at < now()
-         AND COALESCE(lower(c.conditions_raw->>'deadline_model'), '')
-             NOT IN {ROLLING_MODELS} THEN 'closed'
+         AND (COALESCE(lower(c.conditions_raw->>'deadline_model'), '') NOT IN {ROLLING_MODELS}
+              OR c.deadline_at < now() - interval '{ROLLING_GRACE_DAYS} days') THEN 'closed'
     WHEN {UNLISTED} THEN 'unlisted'
     WHEN c.status = 'forthcoming' AND c.opens_at <= (now() AT TIME ZONE 'UTC')::date
          AND c.deadline_at >= now() THEN 'open'
@@ -331,6 +336,11 @@ class FundingCallDetail(FundingCall):
     # WP-132: the scope rule no longer takes the call (WP-109, `call.out_of_scope`): left out of the lists and the sitemap; its page
     # says it is outside DefenceGate's scope and is not indexed.
     outOfScope: bool = False
+    # WP-173 (QA C-1, C-9): every deadline the portal lists for the topic, earliest first, where it lists more than one: the stages of a
+    # two-stage call, the cut-offs of a multiple cut-off call (its `deadlineModel`, `deadlineModel` below). Days (YYYY-MM-DD, as the
+    # portal states them: a day, no time). Empty otherwise.
+    cutOffs: list[str] = []
+    deadlineModel: str | None = None
     # WP-137: the call's own limits beside "Companies can take part" (Art. 22.5 of the Horizon Europe Regulation, a control restriction):
     # who_apply.limits_of on the served facts; empty when the call states none
     whoMayApplyLimits: list[WhoLimit] = []
@@ -592,11 +602,37 @@ def scope_keywords(programme_code: str, cond: dict[str, Any]) -> list[str]:
     return []
 
 
+# WP-173 (QA C-9, A-7): the EIC schemes by the word in their topic code. The portal titles the yearly editions alike ("EIC STEP Scale Up"
+# for 2026 and 2027, both listed), titles a topic by its stage alone ("Short proposal", EIC Accelerator 2027) or by its code
+# ("HORIZON-EIC-2027-PATHFINDEROPEN-two-stage"); the heading names the scheme and the edition's year.
+_EIC_CODE = re.compile(r"^HORIZON-EIC-(20\d\d)-([A-Z]+)")
+EIC_SCHEMES = {"ACCELERATOR": "EIC Accelerator", "PATHFINDEROPEN": "EIC Pathfinder Open",
+               "PATHFINDERCHALLENGES": "EIC Pathfinder Challenges", "TRANSITION": "EIC Transition",
+               "STEP": "EIC STEP", "DEFENCE": "EIC STEP Defence"}
+
+
+def edition_title(title: str, topic_code: str | None) -> str:
+    """An EIC topic's title that tells its edition apart (EIC_SCHEMES); any other title unchanged."""
+    code = (topic_code or "").upper()
+    m = _EIC_CODE.match(code)
+    bare = title.strip().upper() == code
+    if not m or (not bare and re.search(r"(?<!\d)20\d\d(?!\d)", title)):
+        return title
+    year, scheme = m.group(1), EIC_SCHEMES.get(m.group(2))
+    if scheme is None:
+        return f"{title} {year}"
+    if bare:
+        return f"{scheme} {year}" + (" (two-stage)" if "TWO-STAGE" in code else "")
+    if scheme.lower() not in title.lower() and not title.lower().startswith(scheme.lower().split()[0] + " "):
+        return f"{scheme} {year}: {title}"
+    return f"{title} {year}"
+
+
 def titles(programme_code: str, country: str | None, title: str,
-           cond: dict[str, Any]) -> tuple[str, str, str | None, str | None]:
+           cond: dict[str, Any], topic_code: str | None = None) -> tuple[str, str, str | None, str | None]:
     """(heading, its language, other title, its language)."""
     if not NATIONAL_PROGRAMME.match(programme_code):
-        return title, "en", None, None
+        return edition_title(title, topic_code), "en", None, None
     national = LANGUAGE_BY_COUNTRY.get(country or "", "en")
     original = cond.get("title_sv") if programme_code == "SE-VINNOVA" else None
     if original and original.strip() != title.strip():
@@ -737,7 +773,7 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
 
     cond = r.get("conditions_raw") or {}
     prog = r["programme_code"]
-    heading, lang, original, original_lang = titles(prog, r.get("country"), r["title"], cond)
+    heading, lang, original, original_lang = titles(prog, r.get("country"), r["title"], cond, r.get("topic_code"))
     status = r["effective_status"]
     out = {
         "id": str(r["id"]),
@@ -746,7 +782,7 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         "programmeName": programme_name_of(programme_of(prog, r.get("topic_code")), r["programme_name"]),
         "funder": redact_emails(funder_of(prog, r.get("issuer"), r["programme_name"])),
         "callId": r.get("call_identifier"),
-        "topicId": r.get("topic_code") or r["native_id"],
+        "topicId": source_id_of(r.get("topic_code") or r["native_id"]),
         "title": redact_emails(heading),
         "titleLanguage": lang,
         "originalTitle": redact_emails(original),
@@ -769,7 +805,8 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         "budgetScope": r.get("budget_scope"),
         "budgetNote": budget_note(prog, cond) if r.get("budget") is None else None,
         "documentBudget": document_budget_of(r),
-        "actionType": r.get("type_of_action"),
+        # WP-173 (QA C-13): NCBR's programme type codes ("eu") are no action type; Terms says them as "Programme type"
+        "actionType": None if prog == "PL-NCBR" else r.get("type_of_action"),
         "fundingRate": None,
         "scope": scope_keywords(prog, cond),
         "eligibility": redact_emails(eligibility_rows(prog, cond, r)),
@@ -807,7 +844,27 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         out["fundsSummary"] = redact_emails(summary) if summary else None
         out["whoCanApply"] = redact_emails(who_can_apply(out["conditionsText"], out["eligibility"]))
         out["documents"] = documents_of(cond) if may_serve else []
+        out["cutOffs"] = cut_offs(cond)
+        out["deadlineModel"] = (str(cond.get("deadline_model") or "").strip().lower() or None) if out["cutOffs"] else None
     return out
+
+
+def source_id_of(value: str) -> str:
+    """WP-173 (QA C-13): the source's key as an ID: NCBR's key is its page path ("/web/ncbr/feng0101-ip01-00426-sciezka-smart-..."), shown
+    by its last part."""
+    return value.rstrip("/").rsplit("/", 1)[-1] if value.startswith("/") else value
+
+
+def cut_offs(cond: dict[str, Any]) -> list[str]:
+    """The days the topic's stored budget line lists as deadlines (`FundingCallDetail.cutOffs`), when it lists more than one."""
+    line = cond.get("budget_line")
+    days: set[str] = set()
+    for value in (line.get("deadlineDates") or []) if isinstance(line, dict) else []:
+        try:
+            days.add(datetime.fromtimestamp(int(value) / 1000, timezone.utc).date().isoformat())
+        except (TypeError, ValueError, OSError):
+            continue
+    return sorted(days) if len(days) > 1 else []
 
 
 SELECT = f"""

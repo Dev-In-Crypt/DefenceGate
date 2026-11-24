@@ -144,12 +144,22 @@ def deadline(record: dict[str, Any]) -> datetime | None:
     return datetime.fromtimestamp(min(stamps) / 1000, UTC)
 
 
+def deadline_model(record: dict[str, Any]) -> str:
+    """The deadline model the record states, lower case; "" when it states none. The topic's own field first, then its
+    actions' (the topic page states it per action, or only in its budget line)."""
+    for value in (record.get("deadlineModel"), *[a.get("deadlineModel") for a in record.get("actions") or []
+                                                  if isinstance(a, dict)]):
+        name = value if isinstance(value, str) else _one(value).get("abbreviation")
+        if name and str(name).strip():
+            return str(name).strip().lower()
+    return ""
+
+
 def _closing_stamp(record: dict[str, Any], now: datetime | None = None) -> int | None:
     stamps = _stamps(record)
     if not stamps:
         return None
-    model = str(_one(record.get("deadlineModel")).get("abbreviation") or "").lower()
-    if model != MULTIPLE_CUT_OFF:
+    if deadline_model(record) != MULTIPLE_CUT_OFF:
         return min(stamps)
     # Each cut-off of a multiple cut-off call is a chance to apply, and the call stays
     # open between them: the deadline that matters is the next one still to come.
@@ -246,6 +256,31 @@ def with_document_time(conn, call: Any) -> Any:
     if stated is None:
         return call
     call.deadline_at, call.deadline_precision = stated, None
+    return call
+
+
+def with_stored_cut_offs(conn, call: Any, record: dict[str, Any], *, now: datetime | None = None) -> Any:
+    """A multiple cut-off call's next cut-off, where the calendar record does not say the call has several.
+
+    WP-173 (QA C-1, A-7, 24 Nov 2026): the support-for-SEAPs topic was served "last cut-off 12 Nov, no next published" and
+    left out of the .ics, while the portal lists 16 Feb 2027, 28 Sep 2027, 27 Jan 2028 and 30 May 2028. The calendar record
+    states no deadline model, so its earliest date was taken as the deadline; the topic page (stored by `run_topic_details`
+    as `conditions_raw`) says `multiple cut-off` and lists every cut-off in its budget line. Nothing is fetched here."""
+    if deadline_model(record):
+        return call
+    row = conn.execute(
+        """SELECT c.conditions_raw->>'deadline_model' AS model, c.conditions_raw->'budget_line'->'deadlineDates' AS dates
+             FROM call c JOIN programme p ON p.id = c.programme_id WHERE p.code = %s AND c.native_id = %s""",
+        (call.programme_code, call.native_id)).fetchone()
+    if not row or str(row["model"] or "").strip().lower() != MULTIPLE_CUT_OFF:
+        return call
+    dates = row["dates"] if isinstance(row["dates"], list) else []
+    merged = {**record, "deadlineModel": {"abbreviation": MULTIPLE_CUT_OFF},
+              "actions": [*(record.get("actions") or []), {"deadlineDates": dates}]}
+    stamp = closing(merged, now=now)
+    if stamp is not None:
+        call.deadline_at = stamp
+        call.deadline_precision = "date" if closing_is_date(merged, now=now) else None
     return call
 
 

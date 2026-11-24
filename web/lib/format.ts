@@ -95,6 +95,23 @@ export function isPlaceholderAmount(amount: number): boolean {
 }
 
 /**
+ * WP-173 (QA F03, F14, A-8, C-8): whose budget a figure is, in the same words on every page, card and feed. A national call is one call
+ * with one budget ("Call budget"); an EU call's figure is the topic's own or the call's, shared by all its topics.
+ */
+export function budgetLabel(c: { budgetScope: 'call' | 'topic' | null; programme?: string }): string {
+  if (c.budgetScope === 'topic') return 'Topic budget';
+  if (c.budgetScope === 'call') return c.programme === 'NATIONAL' ? 'Call budget' : 'Call budget, all topics';
+  return 'Budget';
+}
+
+/** The sentence under the figure on a call page (WP-173, as `budgetLabel`); null without a scope. */
+export function budgetScopeLine(c: { budgetScope: 'call' | 'topic' | null; programme?: string }): string | null {
+  if (c.budgetScope === 'topic') return 'Budget of this topic';
+  if (c.budgetScope === 'call') return c.programme === 'NATIONAL' ? 'Budget of the whole call' : 'Shared by all topics of the same call';
+  return null;
+}
+
+/**
  * The calls whose call-level budget (`budgetScope: 'call'`) already appeared earlier in this list: the amount is
  * shown once, on the first topic, and the others say it is shared. A topic budget is each topic's own.
  */

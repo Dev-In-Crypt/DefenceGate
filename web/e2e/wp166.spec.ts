@@ -34,11 +34,12 @@ test('home: the consortium path comes first, four steps through existing pages, 
   if (!isMobile(page)) expect(await steps.evaluateAll((ts) => Math.max(...ts.map((t) => t.getBoundingClientRect().bottom)))).toBeLessThanOrEqual(page.viewportSize()!.height);
   // the Ukraine flags in sight, with the counts of the lists they open
   const ua = pathBox.locator('[data-ukraine-line]');
-  await expect(ua.getByRole('link', { name: /open to Ukrainian participants$/ })).toHaveAttribute('href', '/funding?ukraine=true');
+  // WP-173 (F10): the calls that open soon too
+  await expect(ua.getByRole('link', { name: /open to Ukrainian participants, now or soon$/ })).toHaveAttribute('href', '/funding?ukraine=true&status=open-forthcoming');
   await expect(ua.getByRole('link', { name: /Ukraine Support Instrument calls?$/ })).toHaveAttribute('href', '/funding?programme=EDIP-USI');
   await expect(ua.getByRole('link', { name: 'Ukraine partners' })).toHaveAttribute('href', '/networks/ukraine-partners');
-  const n = (await ua.getByRole('link', { name: /open to Ukrainian participants$/ }).innerText()).match(/^([\d,]+) calls? open/)![1];
-  await visit(page, '/funding?ukraine=true', { title: /funding/i, h1: /funding/i });
+  const n = (await ua.getByRole('link', { name: /open to Ukrainian participants, now or soon$/ }).innerText()).match(/^([\d,]+) calls? open/)![1];
+  await visit(page, '/funding?ukraine=true&status=open-forthcoming', { title: /funding/i, h1: /funding/i });
   expect((await page.locator('#results-heading').innerText()).match(/of ([\d,]+)/)?.[1] ?? '0').toBe(n);
   // funding before tenders: the first tile's actions and the closing lists
   await visit(page, '/', HOME);

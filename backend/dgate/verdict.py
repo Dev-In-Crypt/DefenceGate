@@ -268,6 +268,13 @@ ASSOCIATION_SOURCES = {
 }
 
 
+# WP-173 (lib/eligibility-check.ts OPEN_BEYOND_EEA, NAMED_WORD): words that open a list beyond the associated EEA members it names
+_OPEN_BEYOND_EEA = re.compile(r"third[- ]countr|any (?:legal )?(?:entity|entities|country|countries)|regardless|other countries|"
+                              r"middle[- ]income|international organi|countries associated|associated countr", re.I)
+_NAMED_WORD = {"UA": "Ukraine", "CH": "Switzerland", "GB": "the United Kingdom", "NO": "Norway", "IS": "Iceland", "LI": "Liechtenstein"}
+_LIMITED_TO_SMES = re.compile(r"limited to SMEs[^.;]*", re.I)
+
+
 def named_countries(text: str) -> set[str]:
     return {code for pattern, code in _NAMED if re.search(pattern, text, re.I)}
 
@@ -303,8 +310,16 @@ def country_status(fact: dict[str, Any], country: str, ctx: dict[str, str] | Non
         return "yes", "Your country is named among the eligible countries."
     if opens and assoc == "EDF" and country == "UA":
         return ("check", EDF_UA_BEFORE) if (ctx or {}).get("ukraineBeforeAssociation") else ("yes", EDF_UA_YES)
+    # WP-173 (QA C-5): "an EEA member associated to Horizon Europe" opens the list to those EEA members only (lib/eligibility-check.ts)
+    opening = " ".join(part for part in re.split(r"(?<=[.;])\s+", text) if not re.search(r"controll?ed|exclusion rule", part, re.I))
+    if eea_assoc_only and not _OPEN_BEYOND_EEA.search(opening) and country not in EEA_EXTRA and country not in EU27 and country not in named:
+        order = list(dict.fromkeys(code for _, code in _NAMED if code in named))     # the browser's order (NAMED)
+        listed = f", {', '.join(_NAMED_WORD.get(c, c) for c in order)}" if named else ""
+        return "no", (f"The call is open to the Member States{listed} and the EEA members associated to {lst['name'] if lst else 'the programme'} "
+                      "only, and your country is not among them.")
     if opens and lst and country in lst["yes"]:
-        return "yes", f"Your country is associated to {lst['name']}, and the call is open to the associated countries."
+        return "yes", (f"Your country is an EEA member associated to {lst['name']}, and the call is open to them." if eea_assoc_only
+                       else f"Your country is associated to {lst['name']}, and the call is open to the associated countries.")
     if opens and lst and country in lst["no"]:
         return "no", f"Your country is not associated to {lst['name']}, and the call is open only to the Member States and the associated countries it names."
     if fact.get("scope") != "general" and eu and not _OPEN_LIST.search(text) and (named or re.search(r"\bEEA\b", text)):
@@ -328,6 +343,13 @@ def size_rule(facts: dict[str, Any]) -> dict[str, Any] | None:
     if kinds and facts.get("entity_types"):
         mid = any(_MIDCAP.search(k) for k in kinds)
         return {"limit": 499 if mid else 249, "midcap": None, "fact": facts["entity_types"],
+                "words": "SMEs and small mid-caps (up to 499 staff)" if mid else "SMEs"}
+    # WP-173 (QA C-5): the size limit inside the country sentence (Article 48(2) of the Horizon Europe Regulation, EIC STEP Defence)
+    where = facts.get("eligible_countries")
+    limited = (_LIMITED_TO_SMES.search(_str(where["value"])) or _LIMITED_TO_SMES.search(where.get("quote") or "")) if where else None
+    if where and limited:
+        mid = bool(_MIDCAP.search(limited.group(0)))
+        return {"limit": 499 if mid else 249, "midcap": None, "fact": where,
                 "words": "SMEs and small mid-caps (up to 499 staff)" if mid else "SMEs"}
     return None
 
@@ -457,7 +479,7 @@ def check(facts: dict[str, Any], p: dict[str, Any], ctx: dict[str, str] | None =
         elif org == "large" and rule["midcap"]:
             lines.append(_line("sme", "Organisation size", "check", f"The call is reserved for SMEs; a small mid-cap (up to 499 staff) may apply only on a condition: {rule['midcap']}", q))
         elif org == "large" and rule["limit"] == 499:
-            lines.append(_line("sme", "Organisation size", "check", f"The call names only these kinds of applicant: {'; '.join(small_kinds_only(facts) or [])}. It does not name a large company, so check your size class against the document before you go on.", q))
+            lines.append(_line("sme", "Organisation size", "check", f"The call names only these kinds of applicant: {'; '.join(small_kinds_only(facts) or [])}. It does not name a large company, so check your size class against the document before you go on." if small_kinds_only(facts) else f"The call is for {rule['words']} only, counted with the staff of linked enterprises. A company of 500 staff or more cannot apply; check your size class against the document.", q))
         elif org == "large" or rule["limit"] == 249:
             lines.append(_line("sme", "Organisation size", "no", "The call is reserved for SMEs.", q))
         else:
@@ -469,7 +491,13 @@ def check(facts: dict[str, Any], p: dict[str, Any], ctx: dict[str, str] | None =
 
     np_ = facts.get("natural_persons_allowed")
     if np_ and org == "individual":
-        if np_["value"] is False:
+        # WP-173 (QA C-6): the sole-trader exception is a business: the natural person is a "no", told to answer as one
+        sole_trader = bool(re.search(r"sole trader|self-employed", f"{np_.get('note') or ''} {np_.get('quote') or ''}", re.I))
+        if np_["value"] is False and sole_trader:
+            lines.append(_line("person", "Natural person", "no", "Natural persons are not eligible. The one exception is a self-employed person "
+                               "(sole trader) whose business has no legal personality separate from them: if that is you, answer as a small or "
+                               "medium enterprise.", np_.get("quote")))
+        elif np_["value"] is False:
             lines.append(_line("person", "Natural person", "check" if np_.get("note") else "no",
                                f"Natural persons are not eligible, with an exception: {np_['note']}" if np_.get("note") else "Natural persons are not eligible.", np_.get("quote")))
         else:
@@ -817,7 +845,9 @@ def fit_word(r: dict[str, Any]) -> str:
         first = rule(r["blockedBy"][0] if r["blockedBy"] else "a rule of the call")
         more = len(r["blockedBy"]) - 1
         by = "Blocked: " if first in BLOCKED_AS.values() else "Blocked by: "
-        return f"{by}{first}{f' and {more} more' if more > 0 else ''}"
+        # WP-173 (QA C-6): two blockers are both named
+        rest = f" and {rule(r['blockedBy'][1])}" if more == 1 else f" and {more} more" if more > 1 else ""
+        return f"{by}{first}{rest}"
     if fit == "check":
         if NO_UA_PARTNER in r["conditions"]:
             return NO_UA_PARTNER

@@ -15,10 +15,12 @@ from dgate.normalise import from_aid, strip_personal_data
 from dgate.sources import aid
 
 
-def paris(y, mo, d, h=23, mi=59):
-    """A Paris wall-clock time as the UTC instant the connector should produce."""
+def paris(y, mo, d, h=None, mi=59):
+    """A Paris wall-clock time as the UTC instant the connector should produce. No hour: a date alone, the end of that day
+    (23:59:59); WP-173: an hour the page states, 23h59 included, is that minute (C-7)."""
     from zoneinfo import ZoneInfo
-    return datetime(y, mo, d, h, mi, tzinfo=ZoneInfo("Europe/Paris")).astimezone(UTC)
+    hour, second = (23, 59) if h is None else (h, 0)
+    return datetime(y, mo, d, hour, mi, second, tzinfo=ZoneInfo("Europe/Paris")).astimezone(UTC)
 
 
 # ------------------------------------------------------------ the dates
