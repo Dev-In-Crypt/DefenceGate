@@ -69,7 +69,8 @@ const kids = (n: Node, name: string) => n.children.filter((c) => c.name === name
 const RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
 
 const xml = buildAtom(changes, options);
-assert.ok(xml.startsWith('<?xml version="1.0" encoding="utf-8"?>\n<feed xmlns="http://www.w3.org/2005/Atom"'), 'declaration and namespace');
+// WP-174 (F24, moved on purpose): the feed stylesheet line follows the declaration
+assert.ok(xml.startsWith('<?xml version="1.0" encoding="utf-8"?>\n<?xml-stylesheet type="text/css" href="/feed.css"?>\n<feed xmlns="http://www.w3.org/2005/Atom"'), 'declaration and namespace');
 const feed = parseXml(xml);
 assert.equal(feed.name, 'feed');
 assert.equal(feed.attrs.xmlns, 'http://www.w3.org/2005/Atom');

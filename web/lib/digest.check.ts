@@ -57,7 +57,8 @@ const issue = (week: string, to: string, over: Partial<Digest> = {}): Digest => 
 const o = { origin: 'https://defencegatehub.com', generatedAt: '2026-10-17T00:00:00Z' };
 const issues = [issue('2026-W41', '2026-10-12T00:00:00Z'), issue('2026-W40', '2026-10-05T00:00:00Z')];
 const atom = buildDigestAtom(issues, o);
-assert.ok(atom.startsWith('<?xml version="1.0" encoding="utf-8"?>\n<feed xmlns="http://www.w3.org/2005/Atom"'));
+// WP-174 (F24, moved on purpose): the feed stylesheet line follows the declaration
+assert.ok(atom.startsWith('<?xml version="1.0" encoding="utf-8"?>\n<?xml-stylesheet type="text/css" href="/feed.css"?>\n<feed xmlns="http://www.w3.org/2005/Atom"'));
 assert.ok(atom.trimEnd().endsWith('</feed>'));
 assert.equal((atom.match(/<entry>/g) ?? []).length, 2);
 assert.equal((atom.match(/<\/entry>/g) ?? []).length, 2);
