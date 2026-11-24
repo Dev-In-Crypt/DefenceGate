@@ -208,8 +208,6 @@ export default async function SignalsPage({ searchParams }: Props) {
         </nav>
         <Filters f={f} />
         {a && <p className="m-0 max-w-prose text-small text-ink" data-kind-line>{kindLine(a, day, latestYear)}</p>}
-        {/* WP-175 (D-11): the order of the rows, said (backend/dgate/signals.py) */}
-        {a && <p className="m-0 max-w-prose text-small text-ink-muted" data-rank-line>{RANKED[a.kind]}</p>}
         {refused || !a ? (
           <EmptyState title={unknown.length > 0 ? 'Not a country' : 'These filters cannot be read'} action={<Button variant="secondary" href={signalHref({ ...f, country: '', cpv: '', programme: '', page: 1 })}>Clear filters</Button>}>
             {unknown.length > 0
@@ -227,6 +225,9 @@ export default async function SignalsPage({ searchParams }: Props) {
               {a.kind === 'markets' && (a.items as MarketRow[]).map((r) => <MarketItem key={`${r.company.id}-${r.market}`} r={r} />)}
               {a.kind === 'funding' && (a.items as FundingRow[]).map((r) => <FundingItem key={r.company.id} r={r} />)}
             </ul>
+            {/* WP-175 (D-11): the order of the rows, said (backend/dgate/signals.py). WP-177: under the rows, not above them: three lines
+                between the filters and the list put the first row below the first screen of a phone (WP-154) */}
+            <p className="m-0 max-w-prose text-small text-ink-muted" data-rank-line>{RANKED[a.kind]}</p>
             <FullLine state={state} a={a} f={f} />
             {state === 'full' && <Pagination page={f.page} total={a.total} pageSize={FULL_PAGE_SIZE} hrefFor={(p) => signalHref(f, { page: p })} />}
           </>
