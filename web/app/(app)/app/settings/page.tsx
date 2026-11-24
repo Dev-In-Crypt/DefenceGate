@@ -17,10 +17,10 @@ import { deleteReportLogo, saveReportLogo } from './logo-actions';
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Settings', robots: { index: false, follow: false } };
 
-type Props = { searchParams: Promise<{ n?: string | string[] }> };
+type Props = { searchParams: Promise<{ n?: string | string[]; at?: string | string[] }> };
 
 export default async function SettingsPage({ searchParams }: Props) {
-  const [me, sessionsResult, { n }, status] = await Promise.all([getCurrentUser(), listSessions(), searchParams, getAccountStatus()]);
+  const [me, sessionsResult, { n, at }, status] = await Promise.all([getCurrentUser(), listSessions(), searchParams, getAccountStatus()]);
   const payOpen = billingOpen(BILLING_OPEN, status);
   const sessions = dataOrNull(sessionsResult);
   if (!me) return <LoadFailed href="/app/settings" />;
@@ -28,7 +28,8 @@ export default async function SettingsPage({ searchParams }: Props) {
   return (
     <>
       <AppHeader title="Settings" lead="Your profile, your password and two-step sign-in, the devices signed in to your account, and your data." />
-      <Notice code={n} />
+      {/* E-07: the outcome of deleting the account is said in its block, where the page lands (#delete), not 3,000 px above */}
+      {at !== 'delete' && at !== 'report-name' && <Notice code={n} />}
 
       <Block id="profile" title="Profile" aside={<span className="max-w-full truncate text-small text-ink-muted">{me.email}</span>}>
         <form action={saveSettings} className="flex max-w-form flex-col gap-6">
@@ -50,6 +51,7 @@ export default async function SettingsPage({ searchParams }: Props) {
 
       {me.features.includes('branded_reports') && (
         <Block id="report-name" title="Name on reports">
+          {at === 'report-name' && <Notice code={n} />}
           <form action={saveReportName} className="flex max-w-form flex-col gap-4" data-report-name-form>
             <TextInput name="reportName" label="Name on reports" defaultValue={me.profile.reportName ?? ''} maxLength={80}
               hint="Printed in the head of your company reports, beside our logo: your firm's name, for example. Plain text, at most 80 characters; leave empty to print none." />
@@ -147,6 +149,7 @@ export default async function SettingsPage({ searchParams }: Props) {
           while a subscription is running the account cannot be deleted, so nothing is charged for an account that no longer exists.
           Creem, which sold the plan, keeps its invoices and payment records as the law requires.
         </p>
+        {at === 'delete' && <Notice code={n} />}
         <form action={deleteAccount} className="flex max-w-form flex-col gap-4">
           <TextInput name="confirm" type="email" autoComplete="off" required maxLength={254}
             label="Type your e-mail address to confirm" hint="The same address you sign in with." />

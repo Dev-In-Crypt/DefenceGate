@@ -85,8 +85,9 @@ export function CallListTemplate({
       <SkipToResults />
 
       {chips.length > 0 && (
-        <nav aria-label="Browse funding" className="-mx-4 overflow-x-auto px-4 sm:-mx-6 sm:px-6 md:mx-0 md:overflow-visible md:px-0">
-          <ul className="m-0 flex w-max list-none gap-2 p-0 md:w-auto md:flex-wrap">
+        // F-7/F30: below md the row scrolls sideways; its right edge fades, so the chips past the screen are seen to be there
+        <nav aria-label="Browse funding" className="-mx-4 overflow-x-auto px-4 [mask-image:linear-gradient(to_right,#000_80%,transparent)] sm:-mx-6 sm:px-6 md:mx-0 md:overflow-visible md:px-0 md:[mask-image:none]">
+          <ul className="m-0 flex w-max list-none gap-2 p-0 pr-12 md:w-auto md:flex-wrap md:pr-0">
             {chips.map((c) => (
               <li key={c.href}>
                 <Link href={c.href} className="inline-flex min-h-11 items-center rounded-pill border border-transparent bg-surface px-4 text-small font-bold text-ink no-underline transition-colors duration-dg hover:bg-surface-inset hover:no-underline">{c.label}</Link>

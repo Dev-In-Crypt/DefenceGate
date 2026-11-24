@@ -6,7 +6,7 @@ import { getRequirement, getRequirements } from '@/lib/readiness-api';
 import { NSPA_NCAGE_URL, CATEGORY_WORD, OBLIGATION_WORD, costStatement, faqOf, formatDays, groupIssuers, originWords, publicPassage, publicRef, requirementCode, requirementSlug, ruleSentence, siteDay, statusWords } from '@/lib/readiness';
 import { countryName } from '@/lib/taxonomy';
 import { plural } from '@/lib/format';
-import { PUBLISHER, absoluteUrl, buildMetadata } from '@/lib/seo';
+import { NOT_FOUND_META, PUBLISHER, absoluteUrl, buildMetadata } from '@/lib/seo';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { Button } from '@/components/dg/button';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
@@ -38,9 +38,12 @@ async function load(params: Params) {
   return requirement ? { requirement, slug } : null;
 }
 
+/** A-23: a figure ("EUR 150", "5 to 10 days") in mono; a sentence ("Free of charge …") in the text face. */
+const figureCls = (text: string) => (/^[€$£]?\s?\d|^(EUR|USD|GBP|SEK|PLN|CZK|DKK|NOK|RON|HUF|CHF) \d/.test(text) ? 'block font-mono tabular-nums' : 'block');
+
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const found = await load(params);
-  if (!found) return { title: 'Page not found', robots: { index: false, follow: false } };
+  if (!found) return NOT_FOUND_META;          // A-17: the same 404 metadata as every other page
   const { requirement: r } = found;
   const what = r.kind === 'document' ? 'who issues it, cost and time' : 'what the rule says';
   const short = SHORT_META[r.code];
@@ -90,12 +93,12 @@ export default async function RequirementPage({ params }: { params: Params }) {
           {r.kind === 'document' && (
             <>
               <Fact label="Cost">
-                <span className="block font-mono tabular-nums">{costStatement(r.cost)}</span>
+                <span className={figureCls(costStatement(r.cost))}>{costStatement(r.cost)}</span>
                 {r.vendorRangeLabel && <span className="block text-small font-bold">{r.vendorRangeLabel}</span>}
                 {r.cost?.alt && <span className="block text-small text-ink-muted">{r.cost.alt.text}</span>}
               </Fact>
               <Fact label="Time">
-                <span className="block font-mono tabular-nums">{formatDays(r.days)}</span>
+                <span className={figureCls(formatDays(r.days))}>{formatDays(r.days)}</span>
                 {r.durationNote && <span className="block text-small text-ink-muted">{r.durationNote}</span>}
               </Fact>
             </>

@@ -6,6 +6,7 @@ import { activeClient, listClients, type ClientProfile } from '@/lib/workspace';
 import { Button } from '@/components/dg/button';
 import { Textarea, TextInput } from '@/components/dg/form';
 import { Tag } from '@/components/dg/tag';
+import { Details } from '@/components/dg/details';
 import { ClientSwitcher } from '@/components/account/client-switcher';
 import { AppHeader, Block, LoadFailed, NextStep, Notice } from '@/components/account/ui';
 import { addClient, chooseClient, removeClient, saveClient } from '../team/actions';
@@ -69,12 +70,20 @@ export default async function ClientsPage({ searchParams }: Props) {
                 {c.country && <Tag>{c.country}</Tag>}
                 {active?.id === c.id && <Tag kind="programme">Working on</Tag>}
               </div>
+              {/* E-28: the profile is read first; its form opens on request (every client was an open form) */}
+              {(c.cpvCodes.length > 0 || c.note) && (
+                <p className="m-0 max-w-prose break-words text-small text-ink-muted">
+                  {c.cpvCodes.length > 0 && <>CPV <span className="font-mono">{c.cpvCodes.join(', ')}</span>{c.note ? '. ' : ''}</>}{c.note}
+                </p>
+              )}
               {state.allowed && (
-                <form action={saveClient} className="flex max-w-form flex-col gap-4">
-                  <input type="hidden" name="id" value={c.id} />
-                  <Fields c={c} />
-                  <div><Button type="submit" variant="secondary">Save changes</Button></div>
-                </form>
+                <Details summary="Edit this client">
+                  <form action={saveClient} className="flex max-w-form flex-col gap-4 text-body text-ink">
+                    <input type="hidden" name="id" value={c.id} />
+                    <Fields c={c} />
+                    <div><Button type="submit" variant="secondary">Save changes</Button></div>
+                  </form>
+                </Details>
               )}
               <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                 {active?.id !== c.id && (

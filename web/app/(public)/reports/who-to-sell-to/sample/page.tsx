@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
+import { NOT_FOUND_META } from '@/lib/seo';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getUserState } from '@/lib/account';
 import { getNamedSample, getPublicSample } from '@/lib/sell-report-api';
-import { L } from '@/lib/sell-report';
+import { L, SR_CRUMBS } from '@/lib/sell-report';
 import { PageHeader } from '@/components/dg/page-header';
 import { PrintButton } from '@/components/dg/print-button';
 import { SellReportView } from '@/components/sell-report/report';
@@ -14,7 +15,10 @@ import { SellReportView } from '@/components/sell-report/report';
  * switched off (DGATE_COMPANY_REPORT_OPEN).
  */
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Who to sell to: sample report', robots: { index: false, follow: false } };
+// F-12: a 404 while reports are switched off, with the 404's title
+export async function generateMetadata(): Promise<Metadata> {
+  return (await getPublicSample()) ? { title: 'Who to sell to: sample report', robots: { index: false, follow: false } } : NOT_FOUND_META;
+}
 
 export default async function SellReportSamplePage() {
   const state = await getUserState();
@@ -24,7 +28,7 @@ export default async function SellReportSamplePage() {
   return (
     <>
       <div className="print:hidden">
-        <PageHeader crumbs={[{ label: 'Reports', href: '/reports/who-to-sell-to' }, { label: 'Sample', href: '/reports/who-to-sell-to/sample' }]}
+        <PageHeader crumbs={[...SR_CRUMBS, { label: 'Sample', href: '/reports/who-to-sell-to/sample' }]}
           title={`${L.title}: sample report`}>
           <PrintButton className="self-start">{L.printButton}</PrintButton>
           <p className="m-0 text-small text-ink-muted">

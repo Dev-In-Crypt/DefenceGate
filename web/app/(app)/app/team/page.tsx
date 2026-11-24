@@ -13,11 +13,11 @@ import { dropMember, endWorkspace, leaveTeam, sendInvite, startWorkspace, withdr
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Team', robots: { index: false, follow: false } };
 
-type Props = { searchParams: Promise<{ n?: string | string[] }> };
+type Props = { searchParams: Promise<{ n?: string | string[]; wait?: string | string[] }> };
 
 /** WP-157: the team workspace (Team, Consultant): members share the owner's plan, saved searches, shortlist and follows. */
 export default async function TeamPage({ searchParams }: Props) {
-  const [result, { n }] = await Promise.all([getWorkspace(), searchParams]);
+  const [result, { n, wait }] = await Promise.all([getWorkspace(), searchParams]);
   const state = dataOrNull(result);
   if (!state) return <LoadFailed href="/app/team" />;
   const ws = state.workspace;
@@ -26,7 +26,7 @@ export default async function TeamPage({ searchParams }: Props) {
     return (
       <>
         <AppHeader title="Team" lead={lead} />
-        <Notice code={n} />
+        <Notice code={n} wait={wait} />
         <Block id="start" title="Team workspace">
           {state.canCreate ? (
             <form action={startWorkspace} className="flex flex-col items-start gap-4">
@@ -49,7 +49,7 @@ export default async function TeamPage({ searchParams }: Props) {
   return (
     <>
       <AppHeader title="Team" lead={lead} />
-      <Notice code={n} />
+      <Notice code={n} wait={wait} />
       {!ws.active && (
         <p role="status" className="m-0 max-w-prose rounded-md bg-surface p-4 text-body" data-team-paused>
           Sharing is paused: the plan in force has no team workspace. Everyone sees their own searches, shortlist and follows only. Nothing is deleted. See <Link href="/app/billing" className="font-semibold">Billing</Link>.

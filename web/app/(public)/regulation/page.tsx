@@ -101,6 +101,8 @@ export default async function RegulationPage() {
       <div className="flex max-w-prose flex-col gap-2">
         {/* WP-88: what the tracker is and is not (the feed's notice) is collapsed under one line. */}
         <p className="m-0 text-small text-ink-muted" data-checked-line>Newest event first.{checked ? ` ${checked}` : ''}</p>
+        {/* A-28: a checked date is the day we read the source, no more */}
+        {checked && <p className="m-0 text-small text-ink-muted" data-checked-since>A source may have changed since: open it before you act on an entry.</p>}
         <AboutData>
           <p className="m-0">{feed.notice}</p>
           <p className="m-0">Each entry has a link to itself and a line you can copy into a note.</p>

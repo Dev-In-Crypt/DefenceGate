@@ -27,6 +27,21 @@ function definedTerms() {
   };
 }
 
+/** A-26: the official sources a term names, linked to their own sites (a source of several documents stays plain text). */
+const SOURCE_URL: Record<string, string> = {
+  'Directive 2009/81/EC on EUR-Lex': 'https://eur-lex.europa.eu/eli/dir/2009/81/oj',
+  'EUR-Lex': 'https://eur-lex.europa.eu/',
+  'EU Funding & Tenders Portal': 'https://ec.europa.eu/info/funding-tenders/opportunities/portal/',
+  'TED': 'https://ted.europa.eu/',
+  'TED and the Publications Office of the European Union': 'https://ted.europa.eu/',
+  'CORDIS, European Commission': 'https://cordis.europa.eu/',
+  'European Commission': 'https://commission.europa.eu/',
+  'European Defence Agency': 'https://eda.europa.eu/',
+  'BOE (Boletín Oficial del Estado)': 'https://www.boe.es/',
+  'Ministerio de Defensa': 'https://www.defensa.gob.es/',
+  'Ministerio de Hacienda': 'https://www.hacienda.gob.es/',
+};
+
 export default function GlossaryPage() {
   return (
     <ContentPage
@@ -38,10 +53,11 @@ export default function GlossaryPage() {
       <JsonLd data={definedTerms()} />
       {/* From lg the page's own contents list (sticky, at the left) does this; below lg the terms are one collapsed list. */}
       <nav aria-label="Terms" className="rounded-lg border border-transparent bg-surface px-5 sm:px-7 lg:hidden print:hidden">
+        {/* A-25: each term a 44 px target (they were 22 x 32 px on a phone) */}
         <Details summary="Jump to a term">
           <ul className="m-0 flex list-none flex-wrap gap-x-4 gap-y-0 p-0">
             {ENTRIES.map((e) => (
-              <li key={e.id}><a href={`#${e.id}`} className="inline-flex min-h-8 items-center font-semibold">{e.term}</a></li>
+              <li key={e.id}><a href={`#${e.id}`} className="inline-flex min-h-11 min-w-11 items-center font-semibold">{e.term}</a></li>
             ))}
           </ul>
         </Details>
@@ -60,7 +76,7 @@ export default function GlossaryPage() {
                 <p className="m-0 text-body text-ink-muted">{e.body}</p>
                 {(e.source || e.see) && (
                   <p className="m-0 flex flex-wrap items-center gap-x-4 gap-y-0 text-small text-ink-muted">
-                    {e.source && <span>Official source: {e.source}</span>}
+                    {e.source && <span>Official source: {SOURCE_URL[e.source] ? <a href={SOURCE_URL[e.source]} rel="noopener">{e.source}</a> : e.source}</span>}
                     {e.see && <Link href={e.see.href} className="inline-flex min-h-8 items-center font-semibold">{e.see.label}</Link>}
                   </p>
                 )}

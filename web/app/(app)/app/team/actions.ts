@@ -18,7 +18,7 @@ import { SHORTLIST_STATUSES } from '@/lib/account';
 import type { ShortlistStatus } from '@/lib/types';
 
 const CODES = new Set(['seats_full', 'plan_required', 'in_workspace', 'wrong_account', 'invalid_or_expired', 'already_member',
-  'limit_reached', 'not_open', 'owner_only', 'owner_cannot_leave', 'invalid_email', 'rate_limited']);
+  'limit_reached', 'not_open', 'owner_only', 'owner_cannot_leave', 'invalid_email', 'rate_limited', 'name_taken']);
 
 function field(form: FormData, key: string, max = 256): string {
   const v = form.get(key);
@@ -29,7 +29,9 @@ function field(form: FormData, key: string, max = 256): string {
 function back(path: string, r: AccountResult<unknown>, ok: string): never {
   if (!r.ok && r.status === 401) redirect('/auth/expired');
   const code = r.ok ? ok : CODES.has(r.error) ? r.error : r.status === 422 ? 'invalid' : 'error';
-  redirect(`${path}?n=${code}`);
+  // E-06: the wait the API gives (Retry-After, seconds) goes along in minutes
+  const wait = !r.ok && r.error === 'rate_limited' && r.retryAfter ? `&wait=${Math.ceil(r.retryAfter / 60)}` : '';
+  redirect(`${path}?n=${code}${wait}`);
 }
 
 /* ---- the workspace ---- */

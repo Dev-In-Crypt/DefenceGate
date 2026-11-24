@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getSupplier, getSupplierCompetition, isSupplierSlug, REMOVED, whenRemoved } from '@/lib/api';
-import { getFullCompetition, getUserState } from '@/lib/account';
+import { getAccountStatus, getFullCompetition, getUserState } from '@/lib/account';
+import { PLANS_FROM } from '@/lib/plans';
 import { displayName } from '@/lib/display-name';
 import { PageHeader } from '@/components/dg/page-header';
 import { Card } from '@/components/dg/card';
@@ -30,14 +31,19 @@ export default async function CompetitorsPage({ params }: Props) {
   const state = await getUserState();
   let c = pub;
   let gate: React.ReactNode = null;
+  // E-22 (F19): a gate only when the public answer leaves companies out, and it names who has the rest
+  const hidden = pub.competitorCount > pub.competitors.length;
   if (state.kind === 'anonymous' || state.kind === 'unauthorized') {
-    gate = <>The full list of competitors is for signed-in accounts: <Link href={`/signin?next=/suppliers/${s.slug}/competitors`} className="font-semibold">sign in</Link>.</>;
+    if (hidden) {
+      const onSale = (await getAccountStatus()).plansOnSale;
+      gate = <>The full list of competitors is {onSale ? <>part of the {PLANS_FROM.pro}</> : 'for signed-in accounts'}: <Link href={`/signin?next=/suppliers/${s.slug}/competitors`} className="font-semibold">sign in</Link>{onSale && <> or see <Link href="/pricing" className="font-semibold">pricing</Link></>}.</>;
+    }
   } else if (state.kind === 'unavailable') {
     gate = <>Your account could not be read just now. Try again in a moment.</>;
   } else {
     const full = await getFullCompetition(s.slug);
     if (full.ok) c = full.data;
-    else if (full.status === 402) gate = <span data-competitors-plan>The full list of competitors comes with the Pro, Team and Consultant plans: see <Link href="/app/billing" className="font-semibold">Billing</Link> in your account.</span>;
+    else if (full.status === 402) gate = hidden && <span data-competitors-plan>The full list of competitors is part of the {PLANS_FROM.pro}: see <Link href="/app/billing" className="font-semibold">Billing</Link> in your account.</span>;
     else gate = <>The full list could not be read just now. Try again in a moment.</>;
   }
   return (

@@ -44,6 +44,8 @@ export const PLANS: Plan[] = [
     { text: 'Company signals: the full lists', signin: true },
     { text: 'Contracts ending soon: the full list, with alerts', signin: true },
     { text: '3 company reports a month', signin: true },
+    // E-02 (QA 24 Nov 2026): the self-serve supplier report (/reports/who-to-sell-to) is a plan's too, counted on its own
+    { text: '3 “Who to sell to” supplier reports a month', signin: true },
     { text: 'Export of the eligibility check', signin: true },
     { text: '1 user' },
   ] },
@@ -53,6 +55,7 @@ export const PLANS: Plan[] = [
     { text: 'Shared workspace: saved searches, shortlist and follows', signin: true },
     { text: 'Up to 50 saved searches', signin: true },
     { text: '15 company reports a month', signin: true },
+    { text: '15 “Who to sell to” supplier reports a month', signin: true },
     { text: 'Company signals as CSV', signin: true },
     { text: 'Contracts ending soon as CSV', signin: true },
     // WP-161: the 'free today' note is true only while no plan is on sale
@@ -63,7 +66,7 @@ export const PLANS: Plan[] = [
     { text: 'Everything in Team' },
     { text: 'Up to 15 client profiles', signin: true },
     { text: 'Unlimited saved searches', signin: true },
-    { text: 'Unlimited company reports, with your firm’s name on them', signin: true },
+    { text: 'Unlimited company reports and “Who to sell to” reports, with your firm’s name on them (and its logo on the “Who to sell to” report)', signin: true },
   ] },
   { id: 'founding', name: 'Founding customer', audience: 'For the first 20 customers', yearly: '€390', priceNote: 'Price fixed', features: [
     { text: 'Everything in Pro' },
@@ -88,7 +91,7 @@ export const ON_REQUEST: OnRequest[] = [
     { text: 'Data licence' },
   ] },
   { name: '“Who to approach” report', price: '€450–900, one-off', features: [
-    { text: 'For one company: which buyers buy its products and which companies win those contracts, in the countries we cover' },
+    { text: 'Prepared by us for one company: which buyers buy its products and which companies win those contracts, in the countries we cover. The plans above include the self-serve “Who to sell to” report.' },
   ] },
 ];
 

@@ -136,7 +136,7 @@ test('a buyer page names its top suppliers and filters its tenders by CPV', asyn
   await expect(top.locator('[data-attribution]')).toContainText('natural persons are never named');
   await shot(page, 'buyer-top-suppliers');
   await page.getByLabel(/This buyer's tenders under a CPV code/).fill('445');
-  await page.locator('[data-buyer-cpv]').getByRole('button', { name: 'Show' }).click();
+  await page.locator('[data-buyer-cpv]').getByRole('button', { name: 'Apply' }).click();
   await expect(page).toHaveURL(/\/buyers\/1-demo-armaments-agency\?cpv=445$/);
   await expect(page.getByRole('status').filter({ hasText: 'under 445' })).toContainText(/[1-9]\d* open and \d+ earlier/);
   await expect(page.locator('main article', { hasText: 'workshop consumables' })).toHaveCount(1);

@@ -186,6 +186,14 @@ def test_a_sign_in_goes_to_the_welcome_until_the_profile_is_filled(client, sent)
     assert sign_in(client, sent)[1]["isNew"] is False
 
 
+def test_a_skipped_welcome_is_not_shown_again_once_the_dashboard_was_opened(client, sent):
+    # WP-176 (E-19): "Skip for now" leads to the dashboard; every later sign-in landed on the welcome again
+    session, first = sign_in(client, sent)
+    assert first["isNew"] is True
+    assert client.get("/v1/account/dashboard", headers=H(session)).status_code == 200
+    assert sign_in(client, sent)[1]["isNew"] is False
+
+
 # ---------------------------------------------------------------- A2 (now the confirmation link, A7)
 
 def test_a_link_works_once(client, sent):
@@ -267,6 +275,8 @@ def test_a_malformed_address_or_a_weak_password_is_refused(client, sent):
     assert register(client, "nope").json()["error"] == "invalid_email"
     assert register(client, password="short").json()["error"] == "password_too_short"
     assert register(client, password="Password2026!").json()["error"] == "password_common"
+    # WP-176 (E-24): the reason only; the page puts "Choose another password:" before it (it said "choose another" twice)
+    assert register(client, password="Password2026!").json()["message"] == "this password is too common or too easy to guess"
     assert sent == []
 
 

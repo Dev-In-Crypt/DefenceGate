@@ -33,10 +33,11 @@ const coming = [...PLANS, ...ON_REQUEST].flatMap((p) => p.features.filter((f) =>
 assert.deepEqual(coming, ['White-label']);
 assert.deepEqual([...PLANS, ...ON_REQUEST].flatMap((p) => p.features.filter((f) => f.signin).map((f) => f.text)), ['Up to 10 saved searches',
   'E-mail alerts', 'Full competitor lists', 'Company signals: the full lists', 'Contracts ending soon: the full list, with alerts', '3 company reports a month',
+  '3 “Who to sell to” supplier reports a month',   // WP-176 (E-02): the plans name the self-serve supplier report
   'Export of the eligibility check',
-  'Shared workspace: saved searches, shortlist and follows', 'Up to 50 saved searches', '15 company reports a month',
+  'Shared workspace: saved searches, shortlist and follows', 'Up to 50 saved searches', '15 company reports a month', '15 “Who to sell to” supplier reports a month',
   'Company signals as CSV', 'Contracts ending soon as CSV', 'Supplier-map export', 'Up to 15 client profiles', 'Unlimited saved searches',
-  'Unlimited company reports, with your firm’s name on them']);
+  'Unlimited company reports and “Who to sell to” reports, with your firm’s name on them (and its logo on the “Who to sell to” report)']);
 // Sign-up links: plan id and billing period; billing is off unless the setting says so
 assert.equal(signupHref('pro', 'monthly'), '/signup?plan=pro&billing=monthly');
 assert.equal(signupHref('founding', 'yearly'), '/signup?plan=founding&billing=yearly');

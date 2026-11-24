@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { startTransition, useActionState } from 'react';
 import Link from 'next/link';
 import { CircleAlert, MailCheck } from 'lucide-react';
 import {
@@ -44,7 +44,7 @@ function Email({ state }: { state: AuthState }) {
     <TextInput
       name="email" type="email" autoComplete="email" inputMode="email" maxLength={254} required
       label="E-mail address" defaultValue={state.email ?? ''} key={state.email ?? 'new'}
-      error={state.status === 'invalid' ? MESSAGE.invalid : undefined}
+      error={state.status === 'invalid' || state.fields?.email ? MESSAGE.invalid : undefined}
     />
   );
 }
@@ -56,7 +56,7 @@ export function NewPassword({ state, label = 'Password' }: { state: AuthState; l
     <TextInput
       name="password" type="password" autoComplete="new-password" minLength={12} maxLength={128} required
       label={label} hint={PASSWORD_HINT}
-      error={state.status === 'password' ? `Choose another password: ${state.message ?? 'this one is not accepted'}.` : undefined}
+      error={state.status === 'password' || state.fields?.password ? `Choose another password: ${state.fields?.password ?? state.message ?? 'this one is not accepted'}.` : undefined}
     />
   );
 }
@@ -106,8 +106,14 @@ export function RegisterForm({ termsVersion, privacyVersion, choice = null, payO
       </Sent>
     );
   }
+  // E-11: sent without `action`, so React does not empty the form when the answer is a refusal (the password stays typed)
+  const submit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const data = new FormData(e.currentTarget);
+    startTransition(() => action(data));
+  };
   return (
-    <form action={action} noValidate className={FORM}>
+    <form onSubmit={submit} noValidate className={FORM}>
       {choice && (
         <>
           <p className="m-0 text-body font-semibold" data-plan-choice>{planSentence(choice, payOpen)}</p>
@@ -117,7 +123,7 @@ export function RegisterForm({ termsVersion, privacyVersion, choice = null, payO
       )}
       <Email state={state} />
       <NewPassword state={state} />
-      <Alert text={!['invalid', 'password'].includes(state.status) ? MESSAGE[state.status] : undefined} />
+      <Alert text={!['invalid', 'password', 'terms'].includes(state.status) ? MESSAGE[state.status] : undefined} />
       <input type="hidden" name="termsVersion" value={termsVersion} />
       <input type="hidden" name="privacyVersion" value={privacyVersion} />
       <Choice
@@ -125,6 +131,7 @@ export function RegisterForm({ termsVersion, privacyVersion, choice = null, payO
         label={<>I act for a trade, business or profession, and I accept the <Link href="/terms" className="font-semibold">terms of use</Link> (version {termsVersion}).</>}
         hint={`How we handle your e-mail address and password is in the privacy notice (version ${privacyVersion}).`}
       />
+      <Alert text={state.status === 'terms' || state.fields?.terms ? MESSAGE.terms : undefined} />
       <div><Button type="submit" disabled={pending}>{pending ? 'Creating' : 'Create account'}</Button></div>
     </form>
   );

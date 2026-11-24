@@ -84,7 +84,7 @@ test.describe('launch day, the main path, against the fake account API', () => {
     await expect(page.locator('[data-current-plan]')).toContainText('Your plan is Free.');
     // a Free account is told saved searches are a plan's (the page said to go and save one)
     await page.goto('/app/searches');
-    await expect(page.getByText('Saved searches and their e-mail alerts are part of the Pro, Team and Consultant plans.')).toBeVisible();
+    await expect(page.getByText('Saved searches and their e-mail alerts are part of the Pro, Team, Consultant and Founding customer plans.')).toBeVisible();
     await expect(page.getByText('choose Save this search')).toHaveCount(0);
     // the supplier-map CSV is refused before the plan: back to the page
     const before = await page.request.get('/suppliers/export.csv?country=DE', { maxRedirects: 0 });

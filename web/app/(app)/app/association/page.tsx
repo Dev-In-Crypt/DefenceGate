@@ -42,7 +42,7 @@ export default async function AssociationPage({ searchParams }: Props) {
         <p className="m-0 font-mono text-mono text-ink-muted">Member since {formatStamp(a.memberSince)}</p>
         {a.seats && (
           <p className="m-0 max-w-prose text-body text-ink-muted" data-association-seats>
-            {a.seats.used} of {a.seats.cap} seats are used. To add or remove a member, write to us through the contact details in the <Link href="/imprint" className="font-semibold">imprint</Link>.
+            {a.seats.used} of {a.seats.cap} seats {a.seats.used === 1 ? 'is' : 'are'} used. To add or remove a member, write to us through the contact details in the <Link href="/imprint" className="font-semibold">imprint</Link>.
           </p>
         )}
       </Block>

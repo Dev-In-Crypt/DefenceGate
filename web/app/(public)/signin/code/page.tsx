@@ -22,7 +22,11 @@ export default async function SecondStepPage({ searchParams }: Props) {
       title="Enter your code"
       lead="Two-step sign-in is on for this account."
     >
-      {isTokenShaped(ticket) ? <SecondStepForm next={next} /> : <InvalidLink again={{ href: '/signin', label: 'Sign in again' }} />}
+      {isTokenShaped(ticket) ? <SecondStepForm next={next} /> : (
+        // E-26: no link was followed here: the step after the password has run out (5 minutes) or was never started
+        <InvalidLink again={{ href: '/signin', label: 'Sign in again' }} title="Your sign-in has timed out"
+          text="The code is asked for within 5 minutes of the password. Sign in again with your password." />
+      )}
     </ContentPage>
   );
 }

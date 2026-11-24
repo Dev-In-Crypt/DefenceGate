@@ -72,14 +72,26 @@ const NOTICES: Record<string, { text: string; error?: true }> = {
   already_member: { text: 'That address is a member already.', error: true },
   invalid_email: { text: 'Check the e-mail address: it is not one we can send to, or it is your own.', error: true },
   limit_reached: { text: 'Your plan holds no more of these. Remove one first.', error: true },
+  // WP-176 (E-14)
+  logo_saved: { text: 'Logo saved. It is printed on the cover of your next “Who to sell to” reports.' },
+  logo_removed: { text: 'Logo removed. Your reports carry our logo again.' },
+  logo_none: { text: 'Choose a file first. Nothing was changed.', error: true },
+  logo_type: { text: 'The logo must be a PNG or JPEG image. Nothing was changed.', error: true },
+  logo_size: { text: 'The logo is larger than 10 KB. Save a smaller version (for example 300 px wide) and upload it again. Nothing was changed.', error: true },
+  name_taken: { text: 'A client profile with that name exists already. Choose another name. Nothing was saved.', error: true },
   not_open: { text: 'Invitations open with sign-up. Nothing was sent.', error: true },
   owner_only: { text: 'Only the owner of the workspace can do this.', error: true },
   owner_cannot_leave: { text: 'The owner cannot leave the workspace. End it instead.', error: true },
 };
 
 /** Result of the last action, from `?n=`. Only codes in the table above are ever shown. */
-export function Notice({ code }: { code?: string | string[] }) {
-  const n = NOTICES[Array.isArray(code) ? (code[0] ?? '') : (code ?? '')];
+export function Notice({ code, wait }: { code?: string | string[]; wait?: string | string[] }) {
+  const c = Array.isArray(code) ? (code[0] ?? '') : (code ?? '');
+  // E-06: a refusal for too many requests says how long to wait when the API said it (`wait`, whole minutes)
+  const m = Number(Array.isArray(wait) ? wait[0] : wait);
+  const n = c === 'rate_limited' && Number.isInteger(m) && m > 0 && m <= 1440
+    ? { text: `Too many requests from this account or network just now. Nothing was sent. Try again in ${m} ${m === 1 ? 'minute' : 'minutes'}.`, error: true }
+    : NOTICES[c];
   if (!n) return null;
   return (
     <p role={n.error ? 'alert' : 'status'} className={cn('m-0 flex items-center gap-2 rounded-md bg-surface p-4 text-small font-semibold', n.error ? 'text-alert' : 'text-ink')}>
@@ -107,10 +119,16 @@ export function LoadFailed({ href }: { href: string }) {
  * dashboard's "Changes on what you follow" put its title link straight in the `li`, the one block whose titles were underlined.
  * Here the title underlines only on its own hover, as in every other block (the card hover rule).
  */
+/**
+ * E-17: a row of the account area shows the hover of its title link on the row's edge as well. The title itself keeps the rule for a link
+ * inside a card: underlined on its own hover only, never at rest (WP-150 C2). Put on the row (`li`) around an ItemTitle.
+ */
+export const ROW_HOVER = 'border border-transparent transition-colors duration-dg has-[[data-row-link]:hover]:border-ink-muted has-[[data-row-link]:focus-visible]:border-ink-muted';
+
 export function ItemTitle({ href, children }: { href: string | null; children: React.ReactNode }) {
   return (
     <span className="min-w-0 break-words text-body font-semibold" data-item-title>
-      {href ? <Link href={href} className="text-ink">{children}</Link> : children}
+      {href ? <Link href={href} className="text-ink" data-row-link>{children}</Link> : children}
     </span>
   );
 }
@@ -138,7 +156,7 @@ export function ItemRow({ kind, item, refId, badge }: {
   const href = itemHref(kind, refId ?? item.id, item.slug);
   const hot = d.state === 'soon' || d.state === 'urgent';
   return (
-    <li className="flex flex-col gap-2 rounded-md bg-surface-inset p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+    <li className={cn('flex flex-col gap-2 rounded-md bg-surface-inset p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4', ROW_HOVER)}>
       <div className="flex min-w-0 flex-col gap-1">
         <ItemTitle href={href}>{item.title}</ItemTitle>
         {who && <span className="text-small text-ink-muted">{who}</span>}

@@ -189,17 +189,21 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
           <Select name="unit" label="Unit" placeholder={`All units (${formatNumber(buyer.tenderCount)})`} defaultValue={unit?.key ?? ''}
             options={unitOptions(units)} className="min-w-0 sm:min-w-72 sm:max-w-xl" data-buyer-unit />
           {cpv && <input type="hidden" name="cpv" value={cpv.join(',')} />}
-          <Button type="submit">Show unit</Button>
+          <Button type="submit" variant="secondary">Apply</Button>
         </form>
       )}
       <form method="get" action={`/buyers/${buyer.slug}`} role="search" aria-label="Filter this buyer's tenders"
-        className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5 sm:flex-row sm:items-end" data-buyer-cpv>
+        className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5 sm:flex-row sm:items-start" data-buyer-cpv>
         <TextInput name="cpv" maxLength={200} label="This buyer's tenders under a CPV code" placeholder="For example 357 or 35700000"
           defaultValue={cpv?.join(', ') ?? ''} className="sm:min-w-72" hint="Starts with the digits you enter; separate several with commas. The figures above stay all of its tenders." />
         {unit && <input type="hidden" name="unit" value={unit.key} />}
+        {/* F-10: the button lines up with the field, not with the hint under it (a label's height of space above it, as the field has) */}
+        <div className="flex flex-col gap-1">
+        <span aria-hidden="true" className="invisible mb-1 hidden text-label sm:block">&nbsp;</span>
         <div className="flex items-center gap-3">
-          <Button type="submit">Show</Button>
+          <Button type="submit" variant="secondary">Apply</Button>
           {cpv && <Link href={`/buyers/${buyer.slug}${toTenderQuery({ unit: unit?.key, sort: undefined })}`} className="inline-flex min-h-11 items-center text-small font-bold">Clear</Link>}
+        </div>
         </div>
       </form>
       {narrowed && (

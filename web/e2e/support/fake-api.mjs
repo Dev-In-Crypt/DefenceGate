@@ -257,7 +257,7 @@ function sellRoute(p, session, method, body) {
   if (p === '/v1/account/sell-report/profile') return [404, { error: 'not_found' }];
   if (p !== '/v1/account/sell-report' || method !== 'POST') return [404, { error: 'not_found' }];
   if (!features.includes('sell_report')) return [402, { error: 'plan_required', message: 'supplier reports are part of Pro: choose a plan under Billing' }];
-  if (session === 'd'.repeat(43)) return [402, { error: 'report_quota', message: 'no supplier reports left this month: 3 of 3 used; the count starts again on 2026-11-01 (UTC)' }];
+  if (session === 'd'.repeat(43)) return [402, { error: 'report_quota', message: 'no supplier reports left this month: 3 of 3 used; the count starts again on 1 Nov 2026' }];
   let form = {};
   try { form = JSON.parse(body || '{}'); } catch { /* not JSON */ }
   const report = (form.cpv ?? []).includes('03111000') ? SELL.empty() : SELL.named();
@@ -279,7 +279,7 @@ function accountRoute(p, q, session, method, body) {
     const out = { resetsAt: '2026-11-01', reportName: features.includes('branded_reports') ? 'Acme Advisory Ltd' : null };
     if (m[1] === SAMPLE_SLUG) return [200, { ...out, sample: true, counted: false, used: null, limit: null, left: null }];
     if (!features.includes('company_report')) return [402, { error: 'plan_required', message: 'company reports are part of Pro' }];
-    if (session === 'd'.repeat(43)) return [402, { error: 'report_quota', message: 'no company reports left this month: 3 of 3 opened; the count starts again on 2026-11-01 (UTC)' }];
+    if (session === 'd'.repeat(43)) return [402, { error: 'report_quota', message: 'no company reports left this month: 3 of 3 opened; the count starts again on 1 Nov 2026' }];
     const limit = PLAN_OF[session] === 'pro' ? 3 : null;
     return [200, { ...out, sample: false, counted: true, used: 1, limit, left: limit === null ? null : limit - 1 }];
   }

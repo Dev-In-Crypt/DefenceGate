@@ -36,7 +36,7 @@ test('contracts ending soon: first 10 free, the list for Pro, the CSV for Team a
   await signIn(context, baseURL, S.none);
   await visit(page, '/tenders/ending', WANT);
   await expect(rows).toHaveCount(10);
-  await expect(page.locator('[data-full-state="plan"]')).toContainText('part of Pro');
+  await expect(page.locator('[data-full-state="plan"]')).toContainText('part of the Pro, Team, Consultant and Founding customer plans');   // WP-176 (E-27, moved on purpose)
   await shot(page, 'api-free');
 
   await signIn(context, baseURL, S.pro);

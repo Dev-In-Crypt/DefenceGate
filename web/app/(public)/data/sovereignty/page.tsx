@@ -18,6 +18,8 @@ export const metadata: Metadata = buildMetadata({
  */
 const CHECKED = '18 October 2026';
 const CORRECTED = '25 October 2026';
+// A-12 (QA 24 Nov 2026): the backup row said a plaintext dump stayed on the server; none does (checked that day)
+const BACKUPS_CHECKED = '24 November 2026';
 
 interface Row { what: string; who: string; where: string; eu: 'Yes' | 'No' | 'Not assessed'; note: string }
 
@@ -30,7 +32,7 @@ const RUNS_IN_THE_EU: Row[] = [
   {
     what: 'Archive of source payloads, and database backups',
     who: 'Hetzner Online GmbH (a Storage Box)', where: 'Germany (the box’s address is in Hetzner’s German range; we have not asked Hetzner for the data centre)', eu: 'Yes',
-    note: 'Backups made since 12 October 2026 are encrypted before they leave the server; the key is not on the server. The older nightly plaintext dumps age out by 11 November 2026. One more plaintext copy, a full dump of 16 September 2026 made when the service moved to this server, stays on the server until the operator deletes it. Production writes the archive to the Storage Box only.',
+    note: 'Database backups are encrypted before they leave the server; the key is not on the server. No unencrypted copy of the database is kept, on the server or on the box (checked on 24 November 2026). Production writes the archive to the Storage Box only.',
   },
   {
     // WP-143: privacy notice 1.7 (26 October 2026) names the mail processor; this page said it would be named later
@@ -93,7 +95,7 @@ export default function SovereigntyPage() {
       toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Source status', href: '/data' }, { label: 'Where the data runs', href: '/data/sovereignty' }]}
       title="Where the data runs"
-      lead={`What DefenceGate runs where, as read on ${CHECKED} (the language-model and backup rows corrected on ${CORRECTED}, the mail row added on 26 October 2026). The site and its data are on servers in the EU. Some services we depend on are not: they are listed below, with what each one sees.`}
+      lead={`What DefenceGate runs where, as read on ${CHECKED} (the language-model row corrected on ${CORRECTED}, the mail row added on 26 October 2026, the backup row checked again on ${BACKUPS_CHECKED}). The site and its data are on servers in the EU. Some services we depend on are not: they are listed below, with what each one sees.`}
     >
       <ContentSection title="In the EU">
         <Table rows={RUNS_IN_THE_EU} />

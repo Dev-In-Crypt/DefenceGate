@@ -55,7 +55,7 @@ export default async function KeysPage({ searchParams }: Props) {
                   <p className="m-0 font-mono text-mono text-ink-muted [overflow-wrap:anywhere]">
                     {k.scopes.join(', ')} · {k.ratePerMinute} a minute, {k.dailyQuota.toLocaleString('en-GB')} a day · made {formatStamp(k.createdAt)} ·
                     {' '}{k.revokedAt ? `revoked ${formatStamp(k.revokedAt)}` : `expires ${formatStamp(k.expiresAt)}`} ·
-                    {' '}{k.lastUsedAt ? `last used ${formatStamp(k.lastUsedAt)}` : 'never used'} · {k.requestsToday.toLocaleString('en-GB')} requests today
+                    {' '}{k.lastUsedAt ? `last used ${formatStamp(k.lastUsedAt)}` : 'never used'} · {k.requestsToday.toLocaleString('en-GB')} {k.requestsToday === 1 ? 'request' : 'requests'} today
                   </p>
                   {!k.revokedAt && !expired && (
                     <form action={endApiKey} className="flex flex-wrap items-end gap-3">

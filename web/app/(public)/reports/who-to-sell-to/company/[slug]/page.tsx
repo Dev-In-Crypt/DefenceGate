@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { PLANS_FROM } from '@/lib/plans';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getUserState } from '@/lib/account';
@@ -23,7 +24,7 @@ export default async function CompanySellReportPage({ params }: { params: Promis
     return <Gate><p className="m-0">The report is for signed-in accounts. <Link href={`/signin?next=/reports/who-to-sell-to/company/${slug}`} className="font-semibold">Sign in</Link>, then open this page again.</p></Gate>;
   }
   if (!state.user.features.includes('sell_report')) {
-    return <Gate><p className="m-0" data-sr-plan>The supplier report comes with a paid plan (Pro, Team or Consultant). See <Link href="/app/billing" className="font-semibold">Billing</Link>.</p></Gate>;
+    return <Gate><p className="m-0" data-sr-plan>The supplier report is part of the {PLANS_FROM.pro}. See <Link href="/app/billing" className="font-semibold">Billing</Link>.</p></Gate>;
   }
   return (
     <ReportOpener slug={slug} open={openSellReport} label="Make the report">

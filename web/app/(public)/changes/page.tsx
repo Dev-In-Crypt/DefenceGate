@@ -111,7 +111,7 @@ export default async function ChangesPage({ searchParams }: Props) {
       <Select name="week" label="Period" placeholder="The last 14 days" defaultValue={filters.week ?? ''} className="sm:min-w-64" options={periods} />
 
       <div className="flex items-center gap-3">
-        <Button type="submit">Apply</Button>
+        <Button type="submit" variant="secondary">Apply</Button>
         <Link href="/changes" className="inline-flex min-h-11 items-center text-small font-bold">Clear</Link>
       </div>
     </form>

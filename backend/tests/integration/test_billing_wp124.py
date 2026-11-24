@@ -594,3 +594,12 @@ def test_the_plan_is_changed_by_no_other_route(on, sent, creem):
     assert on.patch("/v1/account/me", json={"plan": "pro"}, headers=H(session)).status_code == 422
     paths = {getattr(r, "path", "") for r in on.app.routes}
     assert not any("plan" in p for p in paths)
+
+
+def test_after_a_cancellation_the_plan_chosen_once_is_not_asked_for_again(on, sent, creem, conn):
+    # WP-176 (E-09): the account area asked a cancelled account to "continue to payment" of the plan it picked at sign-up
+    session = subscribe(on, sent, creem)
+    conn.execute("UPDATE app_user SET plan_choice = 'pro', billing_choice = 'monthly'")
+    conn.commit()
+    deliver(on, sub_event("subscription.canceled", status="canceled"))
+    assert me_plan(on, session) == {"current": "free", "chosen": None, "billing": None}

@@ -22,7 +22,12 @@ export async function GET(request: Request): Promise<Response> {
   const back = new Response(null, { status: 303, headers: { location: `/suppliers${url.search}`, ...NO_STORE } });
   if (none) return back;
   const r = await getSupplierExport(api);
-  if (!r.ok) return back;
+  if (!r.ok) {
+    // E-05: the page says why (signed out, plan, or the service), next to the link
+    const q = new URLSearchParams(url.search);
+    q.set('csv', r.status === 401 ? 'signin' : r.status === 402 ? 'plan' : 'error');
+    return new Response(null, { status: 303, headers: { location: `/suppliers?${q.toString()}#supplier-csv`, ...NO_STORE } });
+  }
   const placsp = r.data.placsp ? placspNote((await getSupplierSummary().catch(() => null))?.sources) : null;
   const credit = `Source: TED, © European Union.${placsp ? ` ${placspCredit(placsp, formatDateUtc)}` : ''}`;
   const header = [...SUPPLIER_CSV_HEADER, 'source'];

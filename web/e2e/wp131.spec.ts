@@ -188,10 +188,11 @@ test('8: a refused source shows one status with one reason, and the glossary say
   expect(text).not.toContain('partial means the run fetched less than we expected');
 });
 
-test('9: where the data runs names the fact sheets and the one dump that stays', async ({ page }) => {
+test('9: where the data runs names the fact sheets and says no unencrypted dump is kept', async ({ page }) => {
   await visit(page, '/data/sovereignty', { title: /Where the data runs/, h1: 'Where the data runs' });
   const main = page.locator('main');
   await expect(main).toContainText('the text of public EDF project fact sheets');
-  await expect(main).toContainText('a full dump of 16 September 2026');
-  await expect(main).toContainText('stays on the server until the operator deletes it');
+  // WP-176 (A-12, moved on purpose): the dump of 16 September is gone (checked on the server on 24 November 2026)
+  await expect(main).toContainText('No unencrypted copy of the database is kept');
+  await expect(main).not.toContainText('stays on the server until the operator deletes it');
 });

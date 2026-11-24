@@ -643,7 +643,7 @@ def quota(aconn, user: dict[str, Any], org: int | None, *, count: bool, today: d
         resets = date(today.year + 1, 1, 1) if scope == "year" else date(month.year + month.month // 12, month.month % 12 + 1, 1)
         raise AccountError(402, "report_quota",
                            f"no supplier reports left this {scope}: {used} of {limit} used; the count starts again on "
-                           f"{resets.isoformat()} (UTC)")
+                           f"{resets.day} {resets:%b %Y}")   # WP-176 (E-30): the site's date form, as the page's other dates
     if count and not again:
         aconn.execute("INSERT INTO sell_report_use (account_id, month, org_id, association_id) VALUES (%s, %s, %s, %s)",
                       (user["id"], month, org, pool["id"] if pool else None))

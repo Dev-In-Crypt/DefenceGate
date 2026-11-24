@@ -28,7 +28,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
-      <body>
+      {/* A-29: a column at least a screen high, so the footer of a short page sits at the bottom, not mid-screen */}
+      <body className="flex min-h-dvh flex-col">
         <ThemeSync />
         {children}
       </body>

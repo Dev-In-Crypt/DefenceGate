@@ -12,7 +12,7 @@ import { STEPS_QUESTIONS, rangeWords } from '@/lib/question-counts';
 import { getCallDeadline, getTenderDeadline, now, soonestOpen, type DeadlineInfo } from '@/lib/deadline';
 import { displayName } from '@/lib/display-name';
 import { formatDateTimeUtc, formatDateUtc, formatMoney, formatNumber, isPlaceholderAmount, plural, repeatedCallBudgets } from '@/lib/format';
-import { buildMetadata, faqJsonLd, organizationJsonLd } from '@/lib/seo';
+import { tenderSubject, buildMetadata, faqJsonLd, organizationJsonLd } from '@/lib/seo';
 import { faqItems, homeFaq } from '@/lib/site-copy';
 import { PROGRAMMES, countryName, isNonEnglish } from '@/lib/taxonomy';
 import type { Money } from '@/lib/types';
@@ -28,11 +28,13 @@ const SAMPLE_SIZE = 3;
 /** WP-121: the rows asked for each closing list, of which the SAMPLE_SIZE soonest still open are shown. */
 const CANDIDATES = 20;
 
-export const metadata: Metadata = buildMetadata({
+const HOME_META = buildMetadata({
   title: 'Defence and dual-use tenders and funding calls',
   description: 'Tenders, buyers and funding calls from TED and national portals in one place. Every record links to its original source, and changes to dates, values and status are kept.',
   path: '/',
 });
+// A-32: the home page names the site's feed of changes for feed readers (autodiscovery), as /changes does
+export const metadata: Metadata = { ...HOME_META, alternates: { ...HOME_META.alternates, types: { 'application/atom+xml': '/changes.atom' } } };
 
 /**
  * A figure of a tile: the number, large, or nothing at all when the data service gave none (never a dash, never a zero it did not say).
@@ -66,7 +68,9 @@ function TileHead({ id, question, title }: { id: string; question: string; title
 function Tile({ id, href, question, title, go, children }: { id: string; href: string; question: string; title: string; go: string; children?: React.ReactNode }) {
   return (
     <li className="min-w-0">
-      <Link href={href} data-tile=""
+      {/* A-10: not prefetched: the lists are dynamic, so a prefetch warmed only the layout, and the proxy refused the one of
+          /organisations (403 in the console on every load of this page) */}
+      <Link href={href} prefetch={false} data-tile=""
         className={`group flex h-full flex-col gap-3 border-strong text-ink no-underline transition-colors duration-dg hover:border-ink-muted focus-visible:border-ink-muted ${CARD_SURFACE} ${CARD_PADDING}`}>
         <TileHead id={id} question={question} title={title} />
         {children && <span id={`${id}-n`} className="mt-auto flex flex-wrap gap-x-6 gap-y-2 pt-4">{children}</span>}
@@ -119,7 +123,7 @@ function ConsortiumPath({ openCalls, ukraine, usi }: { openCalls: number | null;
       <ol className="m-0 grid list-none gap-4 p-0 md:grid-cols-2 xl:grid-cols-4">
         {STEPS.map((st) => (
           <li key={st.n} className="min-w-0">
-            <Link href={st.href} data-step={st.n}
+            <Link href={st.href} prefetch={false} data-step={st.n}
               className={`flex h-full flex-col gap-1 border-strong text-ink no-underline transition-colors duration-dg hover:border-ink-muted hover:bg-surface-inset focus-visible:border-ink-muted ${CARD_SURFACE} ${CARD_PADDING}`}>
               <h3 className="m-0 flex items-baseline gap-2 text-h3"><span className="font-mono text-small text-accent-text">{st.n}</span>{' '}{st.title}</h3>
               <span className="text-body text-ink-muted">{st.text}</span>
@@ -145,8 +149,9 @@ function ConsortiumPath({ openCalls, ukraine, usi }: { openCalls: number | null;
 /** A row of a closing-soon list: the title, what it is from (and its value where stated) and the deadline, nothing more. */
 function Row({ href, title, lang, meta, deadline }: { href: string; title: string; lang?: string; meta: string; deadline: DeadlineInfo }) {
   return (
-    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-0.5 border-t border-line px-5 py-3 first:border-t-0">
-      <Link href={href} prefetch={false} lang={lang} title={title} className="inline-flex min-h-11 min-w-0 items-center font-semibold no-underline hover:underline">
+    // F25 (card hover rule): the row is tinted while its title is hovered or focused; the title is never underlined
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-0.5 border-t border-line px-5 py-3 transition-colors duration-dg first:border-t-0 has-[a:hover]:bg-surface-inset has-[a:focus-visible]:bg-surface-inset">
+      <Link href={href} prefetch={false} lang={lang} title={title} className="inline-flex min-h-11 min-w-0 items-center font-semibold no-underline hover:no-underline">
         {/* two lines at most: one line cut a phone's titles to two words */}
         <span className="line-clamp-2 min-w-0 break-words">{title}</span>
       </Link>
@@ -259,14 +264,15 @@ export default async function LandingPage() {
           {soonCalls.map(({ item: c, deadline }) => (
             // A call budget shared by the topics of one call is stated once (on its first row), as the list cards do.
             <Row key={c.id} href={`/funding/${c.slug}`} title={displayName(c.title)} lang={isNonEnglish(c.titleLanguage) ? c.titleLanguage : undefined}
-              meta={[PROGRAMMES[c.programme].label, budgetRepeats.has(c.id) ? null : stated(c.budget), c.openToUkraine === true ? 'Open to Ukrainian participants' : null].filter(Boolean).join(' · ')} deadline={deadline} />
+              meta={[c.programme === 'NATIONAL' && c.funderCountry ? `National, ${countryName(c.funderCountry)}` : PROGRAMMES[c.programme].label, budgetRepeats.has(c.id) ? null : stated(c.budget), c.openToUkraine === true ? 'Open to Ukrainian participants' : null].filter(Boolean).join(' · ')} deadline={deadline} />
           ))}
         </ClosingList>
         <ClosingList id="closing-tenders" title="Tenders closing soon"
           more={{ href: '/tenders', label: openTenders === null ? 'All open tenders' : `All ${formatNumber(openTenders)} open tenders` }}
           empty={<EmptyState title="No tenders to show right now" action={<Button variant="secondary" href="/tenders">Browse all tenders</Button>} />}>
           {soonTenders.map(({ item: t, deadline }) => (
-            <Row key={t.id} href={`/tenders/${t.slug}`} title={displayName(t.title)} lang={isNonEnglish(t.titleLanguage) ? (t.titleLanguage ?? undefined) : undefined}
+            // A-22: the subject, without the country TED puts first (the line under it names the country)
+            <Row key={t.id} href={`/tenders/${t.slug}`} title={tenderSubject(displayName(t.title), t.country) || displayName(t.title)} lang={isNonEnglish(t.titleLanguage) ? (t.titleLanguage ?? undefined) : undefined}
               meta={[t.country ? countryName(t.country) : null, stated(t.estimatedValue)].filter(Boolean).join(' · ')} deadline={deadline} />
           ))}
         </ClosingList>

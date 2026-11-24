@@ -33,12 +33,13 @@ test('competitors: five on the supplier page, the full list for a plan that has 
   const all = `/suppliers/${PRIME}/competitors`;
   const want = { title: /Competitors/, h1: 'Competitors of Fake Prime SA' };
   await visit(page, all, want);
-  await expect(page.locator('[data-competitors-gate]')).toContainText('for signed-in accounts');
+  // WP-176 (E-22, moved on purpose): with plans on sale the gate names them
+  await expect(page.locator('[data-competitors-gate]')).toContainText('part of the Pro, Team, Consultant and Founding customer plans');
   await expect(page.locator('[data-competitor]')).toHaveCount(5);
   await shot(page, 'competitors-anonymous');
   await signIn(context, baseURL, S.none);
   await visit(page, all, want);
-  await expect(page.locator('[data-competitors-plan]')).toContainText('Pro, Team and Consultant');
+  await expect(page.locator('[data-competitors-plan]')).toContainText('Pro, Team, Consultant and Founding customer');
   await expect(page.locator('[data-competitor]')).toHaveCount(5);
   await shot(page, 'competitors-free');
   await signIn(context, baseURL, S.pro);
@@ -60,7 +61,7 @@ test('the company report: the sample for everyone, the paywall links it, the cou
   await shot(page, 'report-gate-anonymous');
   await signIn(context, baseURL, S.none);
   await visit(page, `/suppliers/${OTHER}/report`, { title: /Company report/i, h1: 'Company report: Fake Defence GmbH' });
-  await expect(page.locator('[data-report-plan]')).toContainText('comes with a paid plan');
+  await expect(page.locator('[data-report-plan]')).toContainText('part of the Pro, Team, Consultant and Founding customer plans');
   await expect(page.locator('[data-sample-link]')).toBeVisible();
   await signIn(context, baseURL, S.pro);
   await visit(page, `/suppliers/${OTHER}/report`, { title: /Company report/i, h1: 'Company report: Fake Defence GmbH' });
@@ -71,7 +72,7 @@ test('the company report: the sample for everyone, the paywall links it, the cou
   await signIn(context, baseURL, S.spent);
   await visit(page, `/suppliers/${OTHER}/report`, { title: /Company report/i, h1: 'Company report: Fake Defence GmbH' });
   await page.getByRole('button', { name: 'Open the report' }).click();   // the button counts, opening the page does not
-  await expect(page.locator('[data-report-quota]')).toContainText('No company reports left this month: 3 of 3 opened; the count starts again on 2026-11-01 (UTC)');
+  await expect(page.locator('[data-report-quota]')).toContainText('No company reports left this month: 3 of 3 opened; the count starts again on 1 Nov 2026');
   await expect(page.locator('[data-company-report]')).toHaveCount(0);
   await shot(page, 'report-quota-used');
 });

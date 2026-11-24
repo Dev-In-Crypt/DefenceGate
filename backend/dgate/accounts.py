@@ -718,7 +718,7 @@ def _address(raw: str) -> tuple[str, str]:
 _PASSWORD_MESSAGES = {
     "too_short": f"use at least {credentials.PASSWORD_MIN} characters",
     "too_long": f"use at most {credentials.PASSWORD_MAX} characters",
-    "common": "this password is too common or too easy to guess: choose another",
+    "common": "this password is too common or too easy to guess",   # WP-176 (E-24): the page says "Choose another password" before it
 }
 
 
@@ -909,7 +909,7 @@ def login(body: Login, conn=Depends(get_conn),
     _prune(conn)
     conn.commit()
     _login_gate(conn, canonical, ip)
-    user = conn.execute("SELECT id, password_hash, email_verified_at, totp_enabled_at, onboarded "
+    user = conn.execute("SELECT id, password_hash, email_verified_at, totp_enabled_at, onboarded, last_visit_at "
                         "FROM app_user WHERE email_canonical = %s", (canonical,)).fetchone()
     if not credentials.verify_password(body.password, user["password_hash"] if user else None):
         _login_failed(conn, canonical, ip)
@@ -925,7 +925,9 @@ def login(body: Login, conn=Depends(get_conn),
         return {"secondStep": True, "ticket": _issue(conn, user["id"], "mfa", MFA_TTL)}
     _login_succeeded(conn, canonical, ip)
     _audit("signed_in", user["id"], client=_client_tag(ip))
-    return _new_session(conn, user["id"], not user["onboarded"])
+    # WP-176 (E-19): the welcome is for an account that has not been in yet; "Skip for now" opens the dashboard, which
+    # stamps last_visit_at, and from then on sign-in goes where it was going
+    return _new_session(conn, user["id"], not user["onboarded"] and user["last_visit_at"] is None)
 
 
 def _second_factor(conn, row: dict[str, Any], code: str) -> bool:
@@ -952,7 +954,7 @@ def login_second(body: SecondStep, conn=Depends(get_conn),
     if not _TOKEN.match(body.ticket):
         raise fail
     row = conn.execute(
-        "SELECT t.token_hash, t.user_id, u.email_canonical, u.totp_secret_enc, u.totp_last_step, u.onboarded "
+        "SELECT t.token_hash, t.user_id, u.email_canonical, u.totp_secret_enc, u.totp_last_step, u.onboarded, u.last_visit_at "
         "FROM app_auth_token t JOIN app_user u ON u.id = t.user_id "
         "WHERE t.token_hash = %s AND t.purpose = 'mfa' AND t.used_at IS NULL AND t.expires_at > now() "
         "AND u.totp_enabled_at IS NOT NULL FOR UPDATE OF t, u", (_hash(body.ticket),)).fetchone()
@@ -967,7 +969,7 @@ def login_second(body: SecondStep, conn=Depends(get_conn),
     conn.execute("UPDATE app_auth_token SET used_at = now() WHERE token_hash = %s", (row["token_hash"],))
     _login_succeeded(conn, row["email_canonical"], ip)
     _audit("signed_in", row["user_id"], second_step=True, client=_client_tag(ip))
-    return _new_session(conn, row["user_id"], not row["onboarded"])
+    return _new_session(conn, row["user_id"], not row["onboarded"] and row["last_visit_at"] is None)
 
 
 @router.post("/auth/logout", status_code=204)
@@ -1151,8 +1153,10 @@ def _user_out(u: dict[str, Any]) -> dict[str, Any]:
         # WP-123: `chosen` and `billing` are what the person picked on the pricing page, remembered and nothing
         # more. WP-124: `current` is the plan in force from the verified payment events (billing.plan_of),
         # `features` the paid features the account may use (all of them while no plan is on sale).
-        "plan": {"current": billing.plan_of(u), "chosen": u.get("plan_choice"),
-                 "billing": u.get("billing_choice")},
+        # WP-176 (E-09): once the account has had a subscription the choice is spent: after a cancellation the site no longer
+        # asks it to pay for the plan it once picked
+        "plan": {"current": billing.plan_of(u), "chosen": None if u.get("sub_plan") else u.get("plan_choice"),
+                 "billing": None if u.get("sub_plan") else u.get("billing_choice")},
         # WP-153: `api_keys` while the data API's keys are open (the account area then shows API keys); WP-155: and the
         # account holds a licence (no plan grants it)
         "features": billing.features(u) + (["api_keys"] if settings().api_keys_open and u.get("api_licensed_at") else []),

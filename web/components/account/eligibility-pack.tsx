@@ -71,10 +71,13 @@ export function EligibilityPack({ answer, base }: { answer: PackAnswer; base: st
           {answer.total > answer.items.length ? ` Only the first ${formatNumber(answer.items.length)} of ${formatNumber(answer.total)} open calls (by deadline) were compared.` : ''}
         </p>
         <p className="m-0 text-small text-ink-muted">Calls as of {formatDateTimeUtc(answer.asOf)}. {DISCLAIMER} Your answers stay in this browser.</p>
-        <div className="flex flex-wrap gap-3 print:hidden">
-          <Button icon={Printer} onClick={() => window.print()} data-pack-print>Print or save as PDF</Button>
-          <Button icon={Download} variant="secondary" onClick={download} data-pack-csv>Download CSV</Button>
-        </div>
+        {/* E-35: nothing to export when no call fits (the CSV was its header only) */}
+        {rows.length > 0 && (
+          <div className="flex flex-wrap gap-3 print:hidden">
+            <Button icon={Printer} onClick={() => window.print()} data-pack-print>Print or save as PDF</Button>
+            <Button icon={Download} variant="secondary" onClick={download} data-pack-csv>Download CSV</Button>
+          </div>
+        )}
         <p className="m-0 max-w-prose text-small text-ink-muted print:hidden">
           To keep a PDF, choose “Save as PDF” as the printer in your browser’s print dialog. Changed an answer? <Link href="/readiness" className="font-semibold">Edit your profile</Link> and come back.
         </p>

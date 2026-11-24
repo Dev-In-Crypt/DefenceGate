@@ -199,7 +199,8 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
         <div className={CARD_TEXT}>
           <div className="flex flex-wrap items-center gap-2">
             {tender.cpv && <Tag kind="programme">CPV {tender.cpv}</Tag>}
-            {mainName && <span title={mainName} className="min-w-0 flex-1 truncate text-small text-ink-muted">{mainName}</span>}
+            {/* F-7/F30: below 8rem the name takes a line of its own instead of 2 to 3 letters and an ellipsis */}
+            {mainName && <span title={mainName} className="min-w-[8rem] flex-1 truncate text-small text-ink-muted">{mainName}</span>}
             {tender.country && <Tag>{tender.country}</Tag>}
             <span className="ml-auto flex min-w-0 max-w-full flex-wrap gap-2"><TenderStatusPills tender={tender} /></span>
           </div>

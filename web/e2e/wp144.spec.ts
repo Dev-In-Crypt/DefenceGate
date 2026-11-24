@@ -19,7 +19,7 @@ async function chooseUnit(page: Page) {
     'All units (3)', 'Demo Armaments Agency (2)', 'Demo Armaments Agency, Regional Logistics Base (1)',
   ]);
   await select.selectOption(UNIT);
-  await page.getByRole('button', { name: 'Show unit' }).click();
+  await page.locator('[data-buyer-unit-form]').getByRole('button', { name: 'Apply' })  /* WP-176 (F-8): one label for inline filters */.click();
   await page.waitForURL(/[?&]unit=/);
 }
 
@@ -75,7 +75,7 @@ test('the Unit choice is the branded select: named by its label, opened and chos
   await page.keyboard.press('Enter');
   await expect(combo).toBeFocused();
   await expect(combo).toHaveValue(UNIT);
-  await page.getByRole('button', { name: 'Show unit' }).click();
+  await page.locator('[data-buyer-unit-form]').getByRole('button', { name: 'Apply' })  /* WP-176 (F-8): one label for inline filters */.click();
   await page.waitForURL(/[?&]unit=/);
   await expectUnitShown(page);
 });

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { PLANS_FROM } from '@/lib/plans';
 import Link from 'next/link';
 import { dataOrNull, getCurrentUser, getDashboard } from '@/lib/account';
 import { STATUS_LABEL, STATUS_ORDER, followHref, itemHref } from '@/lib/account-format';
@@ -8,7 +9,7 @@ import { Callout } from '@/components/dg/blocks';
 import { FactCell } from '@/components/dg/data-display';
 import { Tag } from '@/components/dg/tag';
 import { describeChange } from '@/components/dg/version-timeline';
-import { AppHeader, Block, ItemRow, ItemTitle, LoadFailed, NextStep } from '@/components/account/ui';
+import { AppHeader, Block, ItemRow, ItemTitle, LoadFailed, NextStep, ROW_HOVER } from '@/components/account/ui';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Dashboard', robots: { index: false, follow: false } };
@@ -22,7 +23,7 @@ function NewForSearches({ d, canSave }: { d: Dashboard; canSave: boolean }) {
       {d.matches.length === 0 && !canSave ? (
         // WP-161: a Free account once the plans are on sale
         <NextStep links={[{ label: 'Billing', href: '/app/billing' }, { label: 'Pricing', href: '/pricing' }]}>
-          Saved searches and their e-mail alerts are part of the Pro, Team and Consultant plans.
+          Saved searches and their e-mail alerts are part of the {PLANS_FROM.pro}.
         </NextStep>
       ) : d.matches.length === 0 ? (
         <NextStep links={BROWSE}>
@@ -80,7 +81,7 @@ function Changes({ d }: { d: Dashboard }) {
           {d.changes.map((c) => {
             const href = itemHref(c.kind, c.item.id, c.item.slug);
             return (
-              <li key={`${c.kind}/${c.item.id}/${c.observedAt}`} className="flex flex-col gap-2 rounded-md bg-surface-inset p-4">
+              <li key={`${c.kind}/${c.item.id}/${c.observedAt}`} className={`flex flex-col gap-2 rounded-md bg-surface-inset p-4 ${ROW_HOVER}`}>
                 <ItemTitle href={href}>{c.item.title}</ItemTitle>
                 <span className="font-mono text-mono text-ink-muted">Detected <time dateTime={c.observedAt}>{formatDateUtc(c.observedAt)}</time></span>
                 <ul className="m-0 flex list-none flex-col gap-1 p-0">
@@ -107,7 +108,7 @@ function Following({ d }: { d: Dashboard }) {
           {d.following.map((f) => {
             const href = followHref(f.kind, f.ref);
             return (
-              <li key={`${f.kind}/${f.ref}`} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-md bg-surface-inset p-4">
+              <li key={`${f.kind}/${f.ref}`} className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-md bg-surface-inset p-4 ${ROW_HOVER}`}>
                 <span className="flex min-w-0 flex-col">
                   <ItemTitle href={href}>{f.name}</ItemTitle>
                   <span className="text-small text-ink-muted">{f.kind === 'buyer' ? 'Buyer' : 'Programme'}{f.latestAt ? ` · latest ${formatDateUtc(f.latestAt)}` : ''}</span>
@@ -148,6 +149,9 @@ function Shortlist({ d }: { d: Dashboard }) {
   );
 }
 
+/** E-40: the figures of the pulse read as figures (they were 14 px mono, the size of the notes under them). */
+const KPI = 'block font-mono text-h3 font-bold tabular-nums';
+
 function Pulse({ d }: { d: Dashboard }) {
   const p = d.pulse;
   return (
@@ -158,17 +162,17 @@ function Pulse({ d }: { d: Dashboard }) {
         <>
           <dl className="facts-grid m-0 border-b border-line">
             <FactCell label="Published, last 30 days">
-              {formatNumber(p.tendersPublished30d)}
+              <span className={KPI}>{formatNumber(p.tendersPublished30d)}</span>
               <div className="font-sans text-small font-normal text-ink-muted">Previous 30 days: {formatNumber(p.tendersPublishedPrev30d)}</div>
             </FactCell>
-            <FactCell label="Open now">{formatNumber(p.openTenders)}</FactCell>
-            <FactCell label="Closing within 14 days">{formatNumber(p.closingWithin14d)}</FactCell>
+            <FactCell label="Open now"><span className={KPI}>{formatNumber(p.openTenders)}</span></FactCell>
+            <FactCell label="Closing within 14 days"><span className={KPI}>{formatNumber(p.closingWithin14d)}</span></FactCell>
             <FactCell label="Amended, last 30 days">
-              {formatPercent(p.amendedShare30d)}
+              <span className={KPI}>{formatPercent(p.amendedShare30d)}</span>
               <div className="font-sans text-small font-normal text-ink-muted">of notices published</div>
             </FactCell>
             <FactCell label="Median time to deadline">
-              {p.medianWindowDays === null ? <span className="font-sans">Not enough data</span> : `${Math.round(p.medianWindowDays * 10) / 10} days`}
+              {p.medianWindowDays === null ? <span className="font-sans">Not enough data</span> : <span className={KPI}>{`${Math.round(p.medianWindowDays * 10) / 10} days`}</span>}
               <div className="font-sans text-small font-normal text-ink-muted">notices published in the last 90 days</div>
             </FactCell>
           </dl>

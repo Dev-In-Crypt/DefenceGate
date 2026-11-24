@@ -124,7 +124,7 @@ export default async function MarketPage({ searchParams }: Props) {
       <Select name="scope" label="What is counted" defaultValue={filters.scope ?? ''} className="sm:min-w-56"
         options={[{ value: '', label: SCOPE_CHOICES.core.label }, { value: 'relevant', label: `${SCOPE_CHOICES.relevant.label} (with a country or a code)` }]} />
       <div className="flex items-center gap-3">
-        <Button type="submit">Show</Button>
+        <Button type="submit" variant="secondary">Apply</Button>
         <Link href="/market" className="inline-flex min-h-11 items-center text-small font-bold">Clear</Link>
       </div>
     </form>

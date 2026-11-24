@@ -309,7 +309,7 @@ def open_report(slug: str, client: str | None = None, conn=Depends(get_conn), ac
         if limit is not None and len(seen) >= limit:
             raise AccountError(402, "report_quota",
                                f"no company reports left this month: {len(seen)} of {limit} opened; "
-                               f"the count starts again on {resets.isoformat()} (UTC)")
+                               f"the count starts again on {resets.day} {resets:%b %Y}")   # WP-176 (E-30): the site's date form
         aconn.execute("INSERT INTO company_report_open (account_id, month, org_id) VALUES (%s, %s, %s)",
                       (user["id"], first, org))
         seen.add(org)

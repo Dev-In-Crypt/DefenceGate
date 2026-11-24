@@ -126,7 +126,7 @@ test('filtered and paged list views have titles of their own', async ({ page }) 
     ['/funding?q=drone', /^Funding calls: “drone” · DefenceGate$/],
     ['/buyers?country=PL', /^Buyers in Poland · DefenceGate$/],
     ['/organisations?country=DE', /^Organisations in Germany · DefenceGate$/],
-    ['/suppliers?country=DE', /^Supplier map in Germany · DefenceGate$/],
+    ['/suppliers?country=DE', /^Companies, supplier map in Germany · DefenceGate$/],   // WP-176 (A-27, moved on purpose)
   ];
   for (const [url, title] of cases) {
     await page.goto(url);

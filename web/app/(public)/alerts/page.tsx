@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { PLANS_FROM } from '@/lib/plans';
 import { ArrowRight, BellRing, Bookmark, CalendarDays, Clock, Download, GitCompare, Link2, Rss } from 'lucide-react';
 import { buildMetadata } from '@/lib/seo';
 import { getAccountStatus } from '@/lib/account';
@@ -39,7 +40,7 @@ export default async function AlertsPage() {
       lead={open
         ? plansOnSale
           // WP-161: once the plans are on sale, saved searches and alerts are the paid plans' (following stays free)
-          ? 'Stop re-checking portals. Sign in with your e-mail to follow buyers; saved searches and e-mail alerts come with the Pro, Team and Consultant plans.'
+          ? `Stop re-checking portals. Sign in with your e-mail to follow buyers; saved searches and e-mail alerts come with the ${PLANS_FROM.pro}.`
           : 'Stop re-checking portals. Sign in with your e-mail to save searches, follow buyers and get alerts.'
         : 'Saved searches and e-mail alerts are built, but sign-in is not open yet: it opens soon. What works today needs no account, and it is listed first.'}
     >
