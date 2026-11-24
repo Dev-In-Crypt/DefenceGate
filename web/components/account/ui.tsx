@@ -120,15 +120,17 @@ export function LoadFailed({ href }: { href: string }) {
  * Here the title underlines only on its own hover, as in every other block (the card hover rule).
  */
 /**
- * E-17: a row of the account area shows the hover of its title link on the row's edge as well. The title itself keeps the rule for a link
- * inside a card: underlined on its own hover only, never at rest (WP-150 C2). Put on the row (`li`) around an ItemTitle.
+ * E-17 (owner's hover rule): a row of the account area is one target, as a card of the public lists is: its title link is stretched over
+ * the row (ROW_LINK), the row's edge shows hover, keyboard focus outlines the row, and the title is never underlined, not even under the
+ * pointer. Put ROW_HOVER on the row (`li`) around an ItemTitle; a control inside the row sits above the link (`relative z-10`).
  */
-export const ROW_HOVER = 'border border-transparent transition-colors duration-dg has-[[data-row-link]:hover]:border-ink-muted has-[[data-row-link]:focus-visible]:border-ink-muted';
+export const ROW_HOVER = 'relative border border-transparent transition-colors duration-dg hover:border-ink-muted has-[[data-row-link]:focus-visible]:border-ink-muted has-[[data-row-link]:focus-visible]:outline has-[[data-row-link]:focus-visible]:outline-2 has-[[data-row-link]:focus-visible]:outline-offset-2 has-[[data-row-link]:focus-visible]:outline-accent-text';
+export const ROW_LINK = 'text-ink no-underline hover:no-underline focus-visible:outline-none after:absolute after:inset-0 after:rounded-[inherit] after:content-[""]';
 
 export function ItemTitle({ href, children }: { href: string | null; children: React.ReactNode }) {
   return (
     <span className="min-w-0 break-words text-body font-semibold" data-item-title>
-      {href ? <Link href={href} className="text-ink" data-row-link>{children}</Link> : children}
+      {href ? <Link href={href} className={ROW_LINK} data-row-link>{children}</Link> : children}
     </span>
   );
 }
