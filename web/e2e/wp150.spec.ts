@@ -58,7 +58,10 @@ test('/funding: a one-line lead, a one-line search hint with the rest behind "Wh
   }
   if (isMobile(page)) await page.getByRole('button', { name: /^Show filters/ }).click();
   const form = page.getByRole('search', { name: 'Filter funding calls' });
-  await expect(form.getByText('Finds calls with every word, as whole words.')).toBeVisible(); // WP-173 (F11): says what it does
+  const hint = form.getByText('Finds every word, as whole words.');
+  await expect(hint).toBeVisible(); // WP-173 (F11): says what it does
+  // WP-177: and in one line, as this test's title says (the longer F11 wording took two in the desktop column)
+  expect(await hint.evaluate((e) => Math.round(e.getBoundingClientRect().height / parseFloat(getComputedStyle(e).lineHeight)))).toBe(1);
   const about = form.locator('[data-about]').filter({ hasText: 'What is searched' });
   await expect(about.locator('details')).not.toHaveAttribute('open', '');
   await about.getByText('What is searched').click();

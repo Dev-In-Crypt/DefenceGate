@@ -206,8 +206,10 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
         <div className={CARD_TEXT}>
           <div className="flex flex-wrap items-center gap-2">
             {tender.cpv && <Tag kind="programme">CPV {tender.cpv}</Tag>}
-            {/* WP-174 (F30): in a narrow card the code's name was cut to three letters ("Sim…") between the tags: there it has a line of its own */}
-            {mainName && <span title={mainName} className="order-last min-w-0 basis-full text-small text-ink-muted line-clamp-2 cq:order-none cq:basis-auto cq:flex-1 cq:line-clamp-1">{mainName}</span>}
+            {/* WP-174 (F30): in a narrow card the code's name was cut to three letters ("Sim…") between the tags: there it has a line of its own.
+                WP-177: in a wide card it fills what is left of the tag row from a zero basis (basis-auto beat flex-1 and took the name's
+                full width, which pushed the status pills to a second row: tender cards 308 px at 1280) */}
+            {mainName && <span title={mainName} className="order-last min-w-0 basis-full text-small text-ink-muted line-clamp-2 cq:order-none cq:basis-0 cq:flex-1 cq:line-clamp-1">{mainName}</span>}
             {tender.country && <Tag>{tender.country}</Tag>}
             <span className="ml-auto flex min-w-0 max-w-full flex-wrap gap-2"><TenderStatusPills tender={tender} /></span>
           </div>
