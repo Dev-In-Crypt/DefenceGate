@@ -109,7 +109,8 @@ void (async () => {
   // The list's order for a file read by id.
   const d = (id: string, deadline: string | null) => ({ id, deadline });
   assert.deepEqual(listOrder([d('a', null), d('b', '2026-12-01T00:00:00Z'), d('c', '2026-11-01T00:00:00Z')], 'open').map((x) => x.id), ['c', 'b', 'a']);
-  assert.deepEqual(listOrder([d('a', null), d('b', '2026-12-01T00:00:00Z'), d('c', '2026-11-01T00:00:00Z')], 'closed').map((x) => x.id), ['b', 'c', 'a']);
+  // WP-174 (B-3) puts a closed notice whose stated deadline is still ahead last, so this case uses deadlines in the past
+  assert.deepEqual(listOrder([d('a', null), d('b', '2025-12-01T00:00:00Z'), d('c', '2025-11-01T00:00:00Z')], 'closed').map((x) => x.id), ['b', 'c', 'a']);
   // The order asked for is applied; without one, the status decides.
   const e = (id: string, deadline: string | null, publishedAt: string | null) => ({ id, deadline, publishedAt });
   const rowsE = [e('a', '2026-12-01T00:00:00Z', '2026-01-01'), e('b', '2026-11-01T00:00:00Z', '2026-03-01'), e('c', null, null)];
