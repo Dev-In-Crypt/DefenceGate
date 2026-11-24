@@ -2493,7 +2493,9 @@
       "kind": "information",
       "requirement": null,
       "condition": null,
+      "applies_when": {"field": "country", "is": "ES"},
       "texts": {
+        "not_applicable": "The editions listed here are the Spanish Ministry of Defence's (PECAL); a contract outside Spain names its own.",
         "info": "When a contract names an AQAP or a PECAL, check the edition. The Ministry of Defence lists: PECAL 2110 Ed. 4 = AQAP-2110 Ed. D V1; PECAL 2310 Ed. B V1 = AQAP-2310 Ed. B V1; PECAL 2131 Ed. 3 = AQAP-2131 Ed. C V1 (final inspection and test, relevant to build-to-print component makers). PECAL 2210 is a supplement to 2110 or 2310. The contractual AQAP/PECAL 2000 series is a civil standard such as ISO 9001 plus NATO-specific requirements."
       },
       "note": null,

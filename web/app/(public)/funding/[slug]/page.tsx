@@ -6,7 +6,7 @@ import { getCall, getOpenCallsForRelated, relatedCallsFrom, REMOVED, whenRemoved
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { callStatusKind, getCallDeadline, localDeadline, now } from '@/lib/deadline';
 import { displayName } from '@/lib/display-name';
-import { documentBudgetLine, formatDateLabelledUtc, formatDateUtc, formatMoney, funderLine, openingPhrase, isoDatesToSite, portalFilingNote } from '@/lib/format';
+import { budgetLabel, budgetScopeLine, documentBudgetLine, formatDateLabelledUtc, formatDateUtc, formatMoney, funderLine, openingPhrase, isoDatesToSite, portalFilingNote } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { sourceDisplay } from '@/lib/source-status';
 import { absoluteUrl, buildMetadata, callJsonLd, meetsMinimumContent } from '@/lib/seo';
@@ -176,7 +176,8 @@ export default async function CallDetailPage({ params }: Props) {
                   : <span className="font-sans">{d.label}</span>}
               </FactCell>
             )}
-            <FactCell label="Budget"><BudgetDisplay money={call.budget} note={call.budgetNote} /></FactCell>
+            {/* WP-173 (F03): the header's figure says whose budget it is, as the list does */}
+            <FactCell label={call.budget ? budgetLabel(call) : 'Budget'}><BudgetDisplay money={call.budget} note={call.budgetNote} /></FactCell>
           </FactsGrid>
           {/* a line, not a third cell: the cell's row pushed "What it funds" under the fold of a 375 px phone (WP-92 test) */}
           <p className="m-0 mt-2 max-w-prose text-body text-ink-muted">{funderLine(call)}</p>
@@ -235,11 +236,9 @@ export default async function CallDetailPage({ params }: Props) {
             <FactsGrid className={IN_CARD}>
               <FactCell label="Budget">
                 <BudgetDisplay money={call.budget} note={call.budgetNote} size="lg" long />
-                {call.budget && call.budgetScope === 'call' && (
-                  <div className="mt-1 font-sans text-small font-normal text-ink-muted">Shared across several topics of the same call</div>
-                )}
-                {call.budget && call.budgetScope === 'topic' && (
-                  <div className="mt-1 font-sans text-small font-normal text-ink-muted">Budget of this topic</div>
+                {/* WP-173 (C-8, F14): the same words as the list and the feed; a national call's budget is the whole call's */}
+                {call.budget && budgetScopeLine(call) && (
+                  <div className="mt-1 font-sans text-small font-normal text-ink-muted" data-budget-scope>{budgetScopeLine(call)}</div>
                 )}
                 {/* WP-167: the call document's own total where it differs from the portal's figure (the voted EU budget) */}
                 {call.documentBudget && safeHttpUrl(call.documentBudget.documentUrl) && (
@@ -408,7 +407,8 @@ export default async function CallDetailPage({ params }: Props) {
 
         {call.partnerArea && (
           <Panel title="Partners from earlier projects" className="print:hidden">
-            <PartnerSuggestions callSlug={call.slug} />
+            <PartnerSuggestions callSlug={call.slug} eligible={call.documentEligibility?.facts.eligible_countries}
+              ctx={{ programme: call.programme, topic: call.topicId, ukraineBeforeAssociation: beforeAssociation(call.ukraineBasis?.reason) }} />
           </Panel>
         )}
 

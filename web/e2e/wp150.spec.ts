@@ -58,11 +58,11 @@ test('/funding: a one-line lead, a one-line search hint with the rest behind "Wh
   }
   if (isMobile(page)) await page.getByRole('button', { name: /^Show filters/ }).click();
   const form = page.getByRole('search', { name: 'Filter funding calls' });
-  await expect(form.getByText('Matches whole words.')).toBeVisible();
+  await expect(form.getByText('Finds calls with every word, as whole words.')).toBeVisible(); // WP-173 (F11): says what it does
   const about = form.locator('[data-about]').filter({ hasText: 'What is searched' });
   await expect(about.locator('details')).not.toHaveAttribute('open', '');
   await about.getByText('What is searched').click();
-  await expect(about).toContainText('Titles, call IDs and the source’s topic keywords, as whole words; drone also finds unmanned.');
+  await expect(about).toContainText('Titles, call IDs and the source’s topic keywords, every word as a whole word');
   if (isMobile(page)) {
     await page.goto('/funding');
     const tools = page.locator('#results').getByRole('link', { name: 'Download CSV' });
@@ -89,7 +89,8 @@ test('a call page: title, status, deadline, budget and funder on the first scree
   await firstScreen(page);
   await visit(page, CALL, { title: /DefenceGate/, h1: 'Additive manufacturing of certified spare parts' });
   const facts = page.locator('[data-head-facts]');
-  for (const t of ['Deadline', 'Budget', 'European Commission · European Defence Fund', 'in 45 days']) await expect(facts).toContainText(t);
+  for (const t of ['Deadline', /budget/i, 'European Commission · European Defence Fund', 'in 45 days']) await expect(facts).toContainText(t);
+  // WP-173 (F03): the budget cell says whose budget it is ("Topic budget", "Call budget, all topics"), hence /budget/i
   expect(await bottom(facts)).toBeLessThanOrEqual(page.viewportSize()!.height);
   expect(await bottom(page.locator('main header').getByText('Open', { exact: true }))).toBeLessThanOrEqual(page.viewportSize()!.height);
 });

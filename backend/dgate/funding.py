@@ -782,7 +782,7 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         "programmeName": programme_name_of(programme_of(prog, r.get("topic_code")), r["programme_name"]),
         "funder": redact_emails(funder_of(prog, r.get("issuer"), r["programme_name"])),
         "callId": r.get("call_identifier"),
-        "topicId": r.get("topic_code") or r["native_id"],
+        "topicId": source_id_of(r.get("topic_code") or r["native_id"]),
         "title": redact_emails(heading),
         "titleLanguage": lang,
         "originalTitle": redact_emails(original),
@@ -805,7 +805,8 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         "budgetScope": r.get("budget_scope"),
         "budgetNote": budget_note(prog, cond) if r.get("budget") is None else None,
         "documentBudget": document_budget_of(r),
-        "actionType": r.get("type_of_action"),
+        # WP-173 (QA C-13): NCBR's programme type codes ("eu") are no action type; Terms says them as "Programme type"
+        "actionType": None if prog == "PL-NCBR" else r.get("type_of_action"),
         "fundingRate": None,
         "scope": scope_keywords(prog, cond),
         "eligibility": redact_emails(eligibility_rows(prog, cond, r)),
@@ -846,6 +847,12 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         out["cutOffs"] = cut_offs(cond)
         out["deadlineModel"] = (str(cond.get("deadline_model") or "").strip().lower() or None) if out["cutOffs"] else None
     return out
+
+
+def source_id_of(value: str) -> str:
+    """WP-173 (QA C-13): the source's key as an ID: NCBR's key is its page path ("/web/ncbr/feng0101-ip01-00426-sciezka-smart-..."), shown
+    by its last part."""
+    return value.rstrip("/").rsplit("/", 1)[-1] if value.startswith("/") else value
 
 
 def cut_offs(cond: dict[str, Any]) -> list[str]:

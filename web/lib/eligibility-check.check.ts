@@ -27,8 +27,10 @@ assert.equal(check(edf, { ...base, controlledAbroad: 'unsure' }).verdict, 'check
 // A country outside the EU is "check": the associated-country list is in the document.
 assert.equal(check(edf, { ...base, country: 'UA' }).verdict, 'check');
 assert.equal(check(edf, { ...base, country: 'NO' }).verdict, 'yes');
-// A natural person: the exception in the note makes it "check", not "no".
-assert.equal(check(edf, { ...base, orgType: 'individual' }).verdict, 'check');
+// A natural person: WP-173 (QA C-6) the sole-trader exception is a business, so the natural person is a "no", told to answer as one
+// (it was "check", and a Ukrainian natural person read "nothing blocks you"); another exception in the note still makes it "check".
+assert.equal(check(edf, { ...base, orgType: 'individual' }).verdict, 'no');
+assert.equal(check({ ...edf, natural_persons_allowed: f(false, 'researchers holding a grant agreement are an exception') }, { ...base, orgType: 'individual' }).verdict, 'check');
 assert.equal(check({ ...edf, natural_persons_allowed: f(false) }, { ...base, orgType: 'individual' }).verdict, 'no');
 // SME-only call and a large company: no.
 assert.equal(check({ ...edf, sme_only: f(true) }, { ...base, orgType: 'large' }).verdict, 'no');

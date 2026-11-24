@@ -8,7 +8,7 @@
  */
 import { rfc3339, tagId, xmlText } from './atom';
 import { toQuery } from './filters';
-import { formatDateLabelledUtc, formatDateTimeUtc, formatMoney, isPlaceholderAmount, programmeNameOf } from './format';
+import { budgetLabel, formatDateLabelledUtc, formatDateTimeUtc, formatMoney, isPlaceholderAmount, programmeNameOf } from './format';
 import type { Call, CallFilters } from './types';
 
 /** The filters of /funding the calendar file and the feed read (app/(public)/funding.ics/route.ts SEARCH_PARAMS); not the page or the view. */
@@ -43,7 +43,8 @@ function summary(c: Call): string {
   const programme = programmeNameOf(c);
   // WP-109 (p09): the programme once ("European Defence Fund, European Defence Fund"), the funder before it when it is another body
   const who = c.issuer && c.issuer !== programme ? `${c.issuer}, ${programme}` : c.funder && c.funder !== programme ? `${c.funder}, ${programme}` : programme;
-  const budget = c.budget && !isPlaceholderAmount(c.budget.amount) ? `Budget ${formatMoney(c.budget)}${c.budgetScope === 'topic' ? ' (this topic)' : ''}.` : 'Budget not stated.';
+  // WP-173 (A-8): the EDIP figures were unlabelled; the label is the one of the list and the call page (`budgetLabel`)
+  const budget = c.budget && !isPlaceholderAmount(c.budget.amount) ? `${budgetLabel(c)}: ${formatMoney(c.budget)}.` : 'Budget not stated.';
   return `${who}. ${deadline} ${budget} Source: ${c.source.sourceName}. The original call is authoritative.`;
 }
 

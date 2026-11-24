@@ -119,6 +119,9 @@ const NAMED: [RegExp, string][] = [
   [/t[üu]rkiye|\bturkey\b/i, 'TR'], [/\bmoldova\b/i, 'MD'], [/\balbania\b/i, 'AL'], [/\bserbia\b/i, 'RS'], [/\bmontenegro\b/i, 'ME'],
   [/north macedonia/i, 'MK'], [/\bgeorgia\b/i, 'GE'], [/\barmenia\b/i, 'AM'], [/\btunisia\b/i, 'TN'], [/faroe/i, 'FO'], [/bosnia/i, 'BA'], [/kosovo/i, 'XK'],
 ];
+/** Words that open a list beyond the EEA members it names as associated (WP-173): third countries, any entity or country. */
+const OPEN_BEYOND_EEA = /third[- ]countr|any (?:legal )?(?:entity|entities|country|countries)|regardless|other countries|middle[- ]income|international organi|countries associated|associated countr/i;
+const NAMED_WORD: Record<string, string> = { UA: 'Ukraine', CH: 'Switzerland', GB: 'the United Kingdom', NO: 'Norway', IS: 'Iceland', LI: 'Liechtenstein' };
 /** The countries an eligible-country text names one by one (an EU Member State is not listed here). */
 export function namedCountries(text: string): Set<string> {
   return new Set(NAMED.filter(([re]) => re.test(text)).map(([, code]) => code));
@@ -183,7 +186,14 @@ export function countryStatus(fact: EligibilityFact, country: string, ctx?: Call
   if (opensToAssociated && assoc === 'EDF' && country === 'UA') {
     return ctx?.ukraineBeforeAssociation ? { verdict: 'check', reason: EDF_UA_BEFORE } : { verdict: 'yes', reason: EDF_UA_YES };
   }
-  if (opensToAssociated && list?.yes.includes(country)) return { verdict: 'yes', reason: `Your country is associated to ${list.name}, and the call is open to the associated countries.` };
+  // WP-173 (QA C-5, EIC STEP Defence): "established in the Union, in Ukraine, or in an EEA member associated to Horizon Europe" opens the
+  // list to the associated EEA members only, not to every associated country (Switzerland and Türkiye were told they may apply)
+  // a control clause ("controlled by a third country other than Ukraine ... cannot participate") does not open the list
+  const opening = text.split(/(?<=[.;])\s+/).filter((part) => !/controll?ed|exclusion rule/i.test(part)).join(' ');
+  if (eeaAssociatedOnly && !OPEN_BEYOND_EEA.test(opening) && !EEA_EXTRA.has(country) && !EU27.has(country) && !named.has(country)) {
+    return { verdict: 'no', reason: `The call is open to the Member States${named.size > 0 ? `, ${[...named].map((c) => NAMED_WORD[c] ?? c).join(', ')}` : ''} and the EEA members associated to ${list?.name ?? 'the programme'} only, and your country is not among them.` };
+  }
+  if (opensToAssociated && list?.yes.includes(country)) return { verdict: 'yes', reason: eeaAssociatedOnly ? `Your country is an EEA member associated to ${list.name}, and the call is open to them.` : `Your country is associated to ${list.name}, and the call is open to the associated countries.` };
   if (opensToAssociated && list?.no.includes(country)) return { verdict: 'no', reason: `Your country is not associated to ${list.name}, and the call is open only to the Member States and the associated countries it names.` };
   if (fact.scope !== 'general' && eu && !OPEN_LIST.test(text) && (named.size > 0 || /\bEEA\b/.test(text))) {
     return { verdict: 'no', reason: `The call lists the countries where applicants must be established (${text}), and your country is not among them.` };
@@ -214,6 +224,14 @@ export function sizeRule(facts: EligibilityFacts): { limit: 249 | 499; midcap: s
   if (kinds && facts.entity_types) {
     const mid = kinds.some((k) => /mid-?\s?caps?/i.test(k));
     return { limit: mid ? 499 : 249, midcap: null, fact: facts.entity_types, words: mid ? 'SMEs and small mid-caps (up to 499 staff)' : 'SMEs' };
+  }
+  // WP-173 (QA C-5): the size limit inside the country sentence, "participation is limited to SMEs, including start-ups, and small mid-caps
+  // established in the Union, ..." (Article 48(2) of the Horizon Europe Regulation, EIC STEP Defence): no separate fact carries it
+  const where = facts.eligible_countries;
+  const limited = String(where?.value ?? '').match(/limited to SMEs[^.;]*/i) ?? String(where?.quote ?? '').match(/limited to SMEs[^.;]*/i);
+  if (where && limited) {
+    const mid = /mid-?\s?caps?/i.test(limited[0]);
+    return { limit: mid ? 499 : 249, midcap: null, fact: where, words: mid ? 'SMEs and small mid-caps (up to 499 staff)' : 'SMEs' };
   }
   return null;
 }
@@ -525,7 +543,7 @@ export function check(facts: EligibilityFacts, p: Profile, ctx?: CallContext): R
     // names only SMEs and small mid-caps (131); the same "check" as the "Who may apply" line for a large company (V3-B).
     if (p.orgType === 'sme') lines.push(withNote({ key: 'sme', label: 'Organisation size', verdict: 'yes', reason: rule.limit === 249 ? 'The call is reserved for SMEs and you are one.' : `The call is for ${rule.words}, and you are an SME.`, quote: sizeQuote }, rule.fact));
     else if (p.orgType === 'large' && rule.midcap) lines.push({ key: 'sme', label: 'Organisation size', verdict: 'check', reason: `The call is reserved for SMEs; a small mid-cap (up to 499 staff) may apply only on a condition: ${rule.midcap}`, quote: sizeQuote });
-    else if (p.orgType === 'large' && rule.limit === 499) lines.push({ key: 'sme', label: 'Organisation size', verdict: 'check', reason: `The call names only these kinds of applicant: ${(smallKindsOnly(facts) ?? []).join('; ')}. It does not name a large company, so check your size class against the document before you go on.`, quote: sizeQuote });
+    else if (p.orgType === 'large' && rule.limit === 499) lines.push({ key: 'sme', label: 'Organisation size', verdict: 'check', reason: smallKindsOnly(facts) ? `The call names only these kinds of applicant: ${(smallKindsOnly(facts) ?? []).join('; ')}. It does not name a large company, so check your size class against the document before you go on.` : `The call is for ${rule.words} only, counted with the staff of linked enterprises. A company of 500 staff or more cannot apply; check your size class against the document.`, quote: sizeQuote });
     else if (p.orgType === 'large' || rule.limit === 249) lines.push({ key: 'sme', label: 'Organisation size', verdict: 'no', reason: 'The call is reserved for SMEs.', quote: sizeQuote });
     else lines.push({ key: 'sme', label: 'Organisation size', verdict: 'check', reason: `The call names only these kinds of applicant: ${(smallKindsOnly(facts) ?? []).join('; ')}. Check that you are one of them.`, quote: sizeQuote });
   } else if (sme && p.orgType) {
@@ -535,7 +553,12 @@ export function check(facts: EligibilityFacts, p: Profile, ctx?: CallContext): R
 
   const np = facts.natural_persons_allowed;
   if (np && p.orgType === 'individual') {
-    if (np.value === false) {
+    // WP-173 (QA C-6, USI 113): the one exception, a sole trader whose business has no legal personality of its own, is a business: the
+    // natural person is a "no" and is told to answer as one ("nothing blocks you" was shown to a Ukrainian natural person)
+    const soleTrader = /sole trader|self-employed/i.test(`${np.note ?? ''} ${np.quote ?? ''}`);
+    if (np.value === false && soleTrader) {
+      lines.push({ key: 'person', label: 'Natural person', verdict: 'no', reason: 'Natural persons are not eligible. The one exception is a self-employed person (sole trader) whose business has no legal personality separate from them: if that is you, answer as a small or medium enterprise.', quote: np.quote });
+    } else if (np.value === false) {
       lines.push({ key: 'person', label: 'Natural person', verdict: np.note ? 'check' : 'no', reason: np.note ? `Natural persons are not eligible, with an exception: ${np.note}` : 'Natural persons are not eligible.', quote: np.quote });
     } else lines.push(withNote({ key: 'person', label: 'Natural person', verdict: 'yes', reason: 'Natural persons may apply.', quote: np.quote }, np));
   }

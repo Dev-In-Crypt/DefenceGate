@@ -8,11 +8,16 @@ import { countryName } from '@/lib/taxonomy';
 import { UA_MARK, pastRolesWords } from '@/lib/networks';
 import { Tag } from '@/components/dg/tag';
 import type { PartnersAnswer } from '@/lib/types';
+import { countryStatus, type CallContext, type EligibilityFact } from '@/lib/eligibility-check';
 import { Button } from '@/components/dg/button';
 import { Select } from '@/components/dg/form';
 import { ErrorState, Skeleton } from '@/components/dg/feedback';
 import { useProfile } from '@/components/readiness/use-readiness';
 import { AboutData } from '@/components/dg/about-data';
+
+/** WP-173: the mark of an organisation whose country the call's own list of eligible countries leaves out. */
+export const NOT_ELIGIBLE = 'Country not eligible under this call';
+const NOT_ELIGIBLE_SHORT = 'not eligible under this call';
 
 /** A failure we word ourselves; any other (no answer, unreadable JSON) gets the standard sentence, never the browser's. */
 class LoadError extends Error {}
@@ -28,7 +33,10 @@ type State = { state: 'idle' } | { state: 'loading' } | { state: 'error'; messag
  * re-sort the page it was given, and the organisations of a small country are never among the largest twenty of the whole
  * area (U1 of the UX verification).
  */
-export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
+export function PartnerSuggestions({ callSlug, eligible, ctx }: { callSlug: string; eligible?: EligibilityFact; ctx?: CallContext }) {
+  // WP-173 (QA C-4, F02): a country the call's own list excludes is marked, never offered as a plain choice (Norway and Kongsberg on the
+  // Ukraine Support Instrument; the UK, Switzerland, the US and "Ukrainian organisations only" on a Digital Europe cyber call)
+  const excluded = (code: string) => (eligible ? countryStatus(eligible, code, ctx).verdict === 'no' : false);
   const { profile, ready } = useProfile();
   const [asked, setAsked] = useState(false);
   const [country, setCountry] = useState('');
@@ -82,7 +90,7 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
   const d = result.data;
   // WP-109 (p08, 113: "Ukraine (0)"): a country with no organisation in this area is no choice (the one chosen stays, to be changed)
   const countries = [{ value: '', label: 'All countries' }, ...d.countries.filter((c) => c.organisations > 0 || c.country === country)
-    .map((c) => ({ value: c.country, label: `${countryName(c.country)} (${c.organisations})` }))];
+    .map((c) => ({ value: c.country, label: `${countryName(c.country)} (${c.organisations})${excluded(c.country) ? `: ${NOT_ELIGIBLE_SHORT}` : ''}` }))];
   // The call names no capability category (or the category is too small): the list is the whole programme's, and says so.
   const wide = d.area !== null && (d.area.kind === 'edf' || d.area.kind === 'horizon-family');
   // WP-91: the organisations whose projects share a topic word of the call's title rank first (the API says which words)
@@ -115,7 +123,7 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
   // WP-166: the Ukrainian organisations of the area, one press away (the same server filter as the country choice). "None" is said only
   // when the API's country list is whole (it sends the 40 largest countries).
   const uaHere = d.countries.find((c) => c.country === 'UA')?.organisations ?? 0;
-  const uaFilter = d.area !== null && (uaHere > 0 || country === 'UA'
+  const uaFilter = d.area !== null && (excluded('UA') ? null : uaHere > 0 || country === 'UA'
     ? (
       <Button type="button" variant="secondary" aria-pressed={country === 'UA'} onClick={() => setCountry(country === 'UA' ? '' : 'UA')}
         className="self-start whitespace-normal text-left" data-ua-filter>
@@ -167,7 +175,8 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
                   <p className="m-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-body font-semibold break-words">
                     <Link href={`/organisations/${p.slug}`}>{p.name}</Link>
                     <span className="font-normal text-ink-muted">{countryName(p.country)}</span>
-                    {p.country === 'UA' && <span data-ua-mark><Tag>{UA_MARK}</Tag></span>}
+                    {p.country === 'UA' && !excluded('UA') && <span data-ua-mark><Tag>{UA_MARK}</Tag></span>}
+                    {excluded(p.country) && <span data-not-eligible><Tag>{NOT_ELIGIBLE}</Tag></span>}
                   </p>
                   <p className="m-0 text-small">
                     {p.projects} {p.projects === 1 ? 'project' : 'projects'} in this area{p.coordinated > 0 ? `, ${p.coordinated} as coordinator` : ''}
@@ -187,7 +196,7 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
         </>
       )}
       <p className="m-0 text-small text-ink-muted" data-attribution>
-        Who has worked in the same area, not a recommendation. Sources: {d.source?.sources.join(' and ') ?? 'CORDIS and the EDF factsheets'}.{d.source?.licence ? ` Licence: ${d.source.licence}.` : ''}
+        Who has worked in the same area, not a recommendation.{eligible && partners.some((p) => excluded(p.country)) ? ` “${NOT_ELIGIBLE}”: the call’s own list of eligible countries leaves that country out, so the organisation could not be a funded partner.` : ''} Sources: {d.source?.sources.join(' and ') ?? 'CORDIS and the EDF factsheets'}.{d.source?.licence ? ` Licence: ${d.source.licence}.` : ''}
       </p>
       <AboutData>
       <p className="m-0">

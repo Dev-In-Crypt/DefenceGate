@@ -130,8 +130,9 @@ function ConsortiumPath({ openCalls, ukraine, usi }: { openCalls: number | null;
       </ol>
       {/* Ukraine flags in sight: the calls open to Ukrainian participants and the Ukraine Support Instrument's, with the list counts */}
       <p className="m-0 flex flex-wrap gap-x-6 gap-y-1 text-body" data-ukraine-line>
-        <Link href="/funding?ukraine=true" className="inline-flex min-h-11 items-center font-bold">
-          {ukraine === null ? 'Calls open to Ukrainian participants' : `${formatNumber(ukraine)} ${plural(ukraine, 'call')} open to Ukrainian participants`}
+        {/* WP-173 (QA F10): the calls that open soon too (EIC STEP Defence, open to Ukraine, was not reachable from here) */}
+        <Link href="/funding?ukraine=true&status=open-forthcoming" className="inline-flex min-h-11 items-center font-bold">
+          {ukraine === null ? 'Calls open to Ukrainian participants, now or soon' : `${formatNumber(ukraine)} ${plural(ukraine, 'call')} open to Ukrainian participants, now or soon`}
         </Link>
         <Link href="/funding?programme=EDIP-USI" className="inline-flex min-h-11 items-center font-bold">
           {usi === null ? 'Ukraine Support Instrument calls' : `${formatNumber(usi)} open Ukraine Support Instrument ${plural(usi, 'call')}`}
@@ -191,7 +192,7 @@ export default async function LandingPage() {
     // WP-121: the partners tile opens the organisations in EU-funded defence projects (the defence programmes, most defence projects first)
     getOrganisations(parseOrgFilters({})).catch(() => null),
     // WP-166: the counts of the two funding lists the consortium path links to, with their own filters
-    getCalls({ ...parseCallFilters({ ukraine: 'true' }), pageSize: 1 }, { cacheable: true }).catch(() => null),
+    getCalls({ ...parseCallFilters({ ukraine: 'true', status: 'open-forthcoming' }), pageSize: 1 }, { cacheable: true }).catch(() => null),
     getCalls({ ...parseCallFilters({ programme: 'EDIP-USI' }), pageSize: 1 }, { cacheable: true }).catch(() => null),
   ]);
   // A list that did not come is not an empty list, and not a page to keep. This page is prerendered and revalidated every minute

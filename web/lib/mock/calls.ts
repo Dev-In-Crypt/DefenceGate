@@ -122,6 +122,9 @@ function mockDetail(r: RawCall): Partial<Call> {
         sme_only: fact(false, 'Small mid-caps up to 499 staff may apply under Horizon Europe202 rules.'),
       },
     };
+    // WP-173 (C-1): the cut-offs of a multiple cut-off call; e2e/wp173.spec.ts reads them
+    out.cutOffs = ['2026-09-29', '2026-11-26', '2027-03-02'];
+    out.deadlineModel = 'multiple cut-off';
   }
   // The regimes with no rules encoded (backend/dgate/regime.py): the block names the regime and says so.
   const NOT_ENCODED: Partial<Record<ProgrammeCode, { code: string; name: string; why: string }>> = {

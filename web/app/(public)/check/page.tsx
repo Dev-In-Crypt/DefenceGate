@@ -56,7 +56,7 @@ export default function CheckPage() {
         </ul>
         <p className="m-0 text-body">
           <Link href="/readiness/spain-automotive" className="inline-flex min-h-11 items-center gap-2 font-bold">
-            I make parts in Spain, for example for cars: who buys and who wins my products?<ArrowRight size={18} aria-hidden="true" className="shrink-0" />
+            I make parts in Spain: who buys them, and who wins those contracts?<ArrowRight size={18} aria-hidden="true" className="shrink-0" />
           </Link>
         </p>
       </section>

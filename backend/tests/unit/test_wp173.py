@@ -70,3 +70,45 @@ def test_a_control_clause_is_not_quoted_as_the_list_of_eligible_countries():
     listed = {"scope": "call_document", "quote": "Eligible countries: the Member States and the EEA countries Norway, Iceland and "
               "Liechtenstein."}
     assert ukraine._closed_list(listed) is not None
+
+
+# ---------------------------------------------------------------- F13: a conditional minimum consortium is not "None"
+
+def test_a_single_applicant_beside_a_conditional_minimum_is_not_served_as_no_minimum():
+    from dgate import who_apply
+
+    def fact(value, scope="call_document"):
+        return {"value": value, "scope": scope, "quote": "q", "confidence": 0.9}
+
+    kec = {"single_applicant_allowed": fact(True), "min_entities": fact(3), "min_countries": fact(2)}
+    rule = who_apply.consortium_of(kec)
+    assert rule.startswith("Depends on the proposal: a single legal entity may apply, but at least 3 legal entities from at least 2 "
+                           "countries") and "(the call document" in rule
+    assert who_apply.consortium_of({"single_applicant_allowed": fact(True), "min_entities": fact(1)}).startswith("None:")
+
+
+# ---------------------------------------------------------------- C-13: the NCBR page's issuer, ID and action type
+
+def test_an_ncbr_call_reads_with_its_accent_its_short_id_and_no_code_as_action_type():
+    from dgate.funding import source_id_of
+    from dgate.normalise import from_ncbr
+
+    assert source_id_of("/web/ncbr/feng0101-ip01-00426-sciezka-smart-projekty") == "feng0101-ip01-00426-sciezka-smart-projekty"
+    assert source_id_of("HORIZON-EIC-2027-STEP") == "HORIZON-EIC-2027-STEP"
+    call = from_ncbr({"path": "/web/ncbr/x", "name": "FENG.01.01 Ścieżka SMART", "programmeTypes": ["eu", "defence_security"]},
+                     today=date(2026, 11, 24))
+    assert call.issuer == "Narodowe Centrum Badań i Rozwoju (NCBR)"
+
+
+# ---------------------------------------------------------------- C-5, C-6: the API's verdict (verdict.py), as the browser's (lib/wp173.check.ts)
+
+def test_the_api_reads_eic_step_defence_and_natural_persons_as_the_browser_does():
+    from dgate import verdict
+
+    step = {"value": STEP_2027, "quote": STEP_2027, "scope": "call_document"}
+    ctx = {"programme": "HORIZON", "topic": "HORIZON-EIC-2027-DEFENCE-01"}
+    for country in ("US", "GB", "CH", "TR"):
+        assert verdict.country_status(step, country, ctx)[0] == "no", country
+    assert verdict.country_status(step, "NO", ctx)[0] == "yes" and verdict.country_status(step, "UA", ctx)[0] == "yes"
+    assert verdict.size_rule({"eligible_countries": step})["limit"] == 499
+    assert verdict.fit_word({"fit": "no", "conditions": [], "blockedBy": ["Country", "Partners"]}) == "Blocked by: Country and Partners"

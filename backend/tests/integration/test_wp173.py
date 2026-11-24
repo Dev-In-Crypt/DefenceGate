@@ -81,3 +81,15 @@ def test_the_stages_and_cut_offs_and_the_edition_are_served(client, conn):
     one = _put(conn, "ONE", days=30, conditions={"deadline_model": "single-stage", "budget_line": {"deadlineDates": [_ms(s1)]}})
     body = client.get(f"/v1/funding/{one}").json()
     assert body["cutOffs"] == [] and body["deadlineModel"] is None
+
+
+def test_an_ncbr_call_shows_its_short_id_and_no_programme_code_as_action_type(client, conn):
+    """C-13: NCBR 202 showed "Action type: eu" and its page path as the source ID."""
+    call = Call(programme_code="PL-NCBR", native_id="/web/ncbr/feng0101-ip01-00426-sciezka-smart", title="FENG Ścieżka SMART",
+                status="open", regime="dual_use", country="PL", type_of_action="eu", deadline_at=NOW + timedelta(days=60),
+                conditions_raw={"programme_types": ["eu"]})
+    call_id, _, _ = db.upsert_call(conn, call, "h-ncbr", db.source_id(conn, "pl_ncbr"))
+    conn.commit()
+    body = client.get(f"/v1/funding/{call_id}").json()
+    assert body["topicId"] == "feng0101-ip01-00426-sciezka-smart" and body["actionType"] is None
+    assert {"label": "Programme type", "value": "EU"} in body["eligibility"]

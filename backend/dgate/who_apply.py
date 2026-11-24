@@ -199,6 +199,13 @@ def consortium_of(facts: dict[str, Any]) -> str | None:
     Pathfinder calls said "3 legal entities" beside "a single legal entity may apply" (128, 129). A single applicant allowed is the
     minimum."""
     single, n, k = facts.get("single_applicant_allowed"), facts.get("min_entities"), facts.get("min_countries")
+    if single and single["value"] is True and (_count(n) or 0) >= 2:
+        # WP-173 (QA F13, Key electronic components 116): "a single legal entity may apply" beside "at least 3 independent entities from
+        # 2 different Member States" where no SEAP takes part was served "Minimum consortium: None"; the condition is the call's own
+        k2 = _count(k) if (_count(k) or 0) >= 2 else None
+        return (f"Depends on the proposal: a single legal entity may apply, but at least {_count(n)} legal entities"
+                f"{f' from at least {k2} countries' if k2 else ''} where the call's condition applies "
+                f"({_READ_IN.get(n['scope'], 'the rules read')}; read the condition there)")
     if (single and single["value"] is True) or _count(n) == 1:
         where = single if single and single["value"] is True else n
         return f"None: a single legal entity may apply ({_READ_IN.get(where['scope'], 'the rules read')})"

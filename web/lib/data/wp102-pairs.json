@@ -5776,7 +5776,7 @@
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
        "requirement": null,
-       "outcome": "info"
+       "outcome": "not_applicable"
       }
      ]
     }
@@ -6504,7 +6504,7 @@
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
        "requirement": null,
-       "outcome": "info"
+       "outcome": "not_applicable"
       }
      ]
     }
@@ -6792,7 +6792,7 @@
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
        "requirement": null,
-       "outcome": "info"
+       "outcome": "not_applicable"
       }
      ]
     }
@@ -7080,7 +7080,7 @@
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
        "requirement": null,
-       "outcome": "info"
+       "outcome": "not_applicable"
       }
      ]
     }
@@ -7371,7 +7371,7 @@
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
        "requirement": null,
-       "outcome": "info"
+       "outcome": "not_applicable"
       }
      ]
     }
@@ -7659,7 +7659,7 @@
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
        "requirement": null,
-       "outcome": "info"
+       "outcome": "not_applicable"
       }
      ]
     }
@@ -7947,7 +7947,7 @@
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
        "requirement": null,
-       "outcome": "info"
+       "outcome": "not_applicable"
       }
      ]
     }
@@ -8235,7 +8235,7 @@
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
        "requirement": null,
-       "outcome": "info"
+       "outcome": "not_applicable"
       }
      ]
     }
@@ -8532,7 +8532,7 @@
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
        "requirement": null,
-       "outcome": "info"
+       "outcome": "not_applicable"
       }
      ]
     }
@@ -9413,7 +9413,7 @@
     {
      "key": "country",
      "verdict": "yes",
-     "reason": "Your country is associated to Horizon Europe, and the call is open to the associated countries."
+     "reason": "Your country is an EEA member associated to Horizon Europe, and the call is open to them."
     },
     {
      "key": "sme",
@@ -10474,7 +10474,7 @@
   "A2|131": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Organisation size and 1 more",
+   "word": "Blocked by: Organisation size and Investor pre-commitment",
    "conditions": [],
    "lines": [
     {
@@ -11323,7 +11323,7 @@
   "A3|111": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: contracting authorities, international organisations, SEAPs and the EDA and 1 more",
+   "word": "Blocked by: contracting authorities, international organisations, SEAPs and the EDA and at most 35 % of component cost",
    "conditions": [
     "Who may apply: contracting authorities, international organisations, SEAPs and the EDA",
     "European Defence Industry Programme (EDIP): the Programme: Components from outside the Union and associated countries: at most 35 % of component cost",
@@ -11561,7 +11561,7 @@
   "A3|131": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Organisation size and 1 more",
+   "word": "Blocked by: Organisation size and Investor pre-commitment",
    "conditions": [],
    "lines": [
     {
@@ -13711,7 +13711,7 @@
   "A5|131": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Organisation size and 1 more",
+   "word": "Blocked by: Organisation size and Investor pre-commitment",
    "conditions": [],
    "lines": [
     {
@@ -14624,7 +14624,7 @@
   "F10|116": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Established in the Union or an associated country and 1 more",
+   "word": "Blocked by: Established in the Union or an associated country and Executive management in the Union or an associated country",
    "conditions": [
     "European Defence Industry Programme (EDIP): the Programme: Established in the Union or an associated country",
     "European Defence Industry Programme (EDIP): the Programme: Executive management in the Union or an associated country"
@@ -14660,7 +14660,7 @@
   "F10|117": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Established in the Union or an associated country and 1 more",
+   "word": "Blocked by: Established in the Union or an associated country and Executive management in the Union or an associated country",
    "conditions": [
     "European Defence Industry Programme (EDIP): the Programme: Established in the Union or an associated country",
     "European Defence Industry Programme (EDIP): the Programme: Executive management in the Union or an associated country"
@@ -14788,7 +14788,7 @@
   "F10|131": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Investor pre-commitment",
+   "word": "Blocked by: Country and Investor pre-commitment",
    "conditions": [],
    "lines": [
     {
@@ -14798,8 +14798,8 @@
     },
     {
      "key": "country",
-     "verdict": "yes",
-     "reason": "Your country is associated to Horizon Europe, and the call is open to the associated countries."
+     "verdict": "no",
+     "reason": "The call is open to the Member States, Ukraine and the EEA members associated to Horizon Europe only, and your country is not among them."
     },
     {
      "key": "sme",
@@ -15700,7 +15700,7 @@
   "F6|116": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Established in the Union or an associated country and 1 more",
+   "word": "Blocked by: Established in the Union or an associated country and Executive management in the Union or an associated country",
    "conditions": [
     "European Defence Industry Programme (EDIP): the Programme: Established in the Union or an associated country",
     "European Defence Industry Programme (EDIP): the Programme: Executive management in the Union or an associated country"
@@ -15961,7 +15961,7 @@
   "F6|144": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Country and 1 more",
+   "word": "Blocked by: Country and Ownership control",
    "conditions": [
     "A consortium is required: at least 2 legal entities from at least 2 countries. Your profile does not say whether you have partners."
    ],
@@ -15996,7 +15996,7 @@
   "F6|145": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Country and 1 more",
+   "word": "Blocked by: Country and Ownership control",
    "conditions": [],
    "lines": [
     {
@@ -16024,7 +16024,7 @@
   "F6|147": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Country and 1 more",
+   "word": "Blocked by: Country and Ownership control",
    "conditions": [],
    "lines": [
     {
@@ -16052,7 +16052,7 @@
   "F6|150": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Country and 1 more",
+   "word": "Blocked by: Country and Ownership control",
    "conditions": [],
    "lines": [
     {
@@ -16950,7 +16950,7 @@
   "F7|131": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Organisation size and 1 more",
+   "word": "Blocked by: Organisation size and Investor pre-commitment",
    "conditions": [],
    "lines": [
     {
@@ -18027,7 +18027,7 @@
   "F8|131": {
    "fit": "no",
    "shown": "no",
-   "word": "Blocked by: Organisation size and 1 more",
+   "word": "Blocked by: Organisation size and Investor pre-commitment",
    "conditions": [],
    "lines": [
     {

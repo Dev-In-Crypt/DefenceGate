@@ -88,7 +88,7 @@ const atom = buildFundingAtom([feedCall], { origin: 'https://example.test', quer
 const summary = /<summary type="text">([^<]*)<\/summary>/.exec(atom)![1];
 assert.ok(summary.startsWith('European Commission, EDIP Ukraine Support Instrument. '), summary);
 assert.ok(!summary.includes('European Defence Fund'), summary);
-assert.ok(/ Budget [^.]*150[^.]* \(this topic\)\. /.test(summary), summary);
+assert.ok(/ Topic budget: [^.]*150[^.]*\. /.test(summary), summary);   // WP-173 (A-8): the label of the list and the call page
 
 // ---------------------------------------------------------------- NCH vs NATCH (p05, 191)
 

@@ -1,7 +1,7 @@
 import { TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { callStatusKind, closingDayNote, getCallDeadline, getTenderDeadline, localDeadline, now } from '@/lib/deadline';
-import { formatDateUtc, formatNumber, funderLine, isPlaceholderAmount, openingPhrase, variantsLine } from '@/lib/format';
+import { budgetLabel, formatDateUtc, formatNumber, funderLine, isPlaceholderAmount, openingPhrase, variantsLine } from '@/lib/format';
 import { AWARD_VALUE_LABEL, anomalyNotes, isLongRunning, noticeValueLabel, subjectAddsTo, tenderChangedLabel, tenderStatusView, winnersLine } from '@/lib/tender-status';
 import { PROGRAMMES, REGIMES, isNonEnglish } from '@/lib/taxonomy';
 import { WHO_BADGE } from '@/lib/filters';
@@ -124,7 +124,7 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
               <span className="font-sans">{closed ? 'Closed' : 'No fixed deadline'}</span>
             )}
           </ListFact>
-          <ListFact label={call.budgetScope === 'call' ? 'Call budget, all topics' : call.budgetScope === 'topic' ? 'Topic budget' : 'Budget'} tone={closed ? 'closed' : 'default'}>
+          <ListFact label={budgetLabel(call)} tone={closed ? 'closed' : 'default'}>
             {budgetRepeated ? (
               <span className="font-sans text-body text-ink-muted">Shared with the other topics of this call</span>
             ) : (

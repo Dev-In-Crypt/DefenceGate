@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { CircleAlert, CircleCheck, CircleHelp, CircleX, Info, ListChecks, Minus, UserRoundSearch } from 'lucide-react';
-import { OBLIGATION_WORD, OUTCOME_WORD, VERDICT_WORD, verdictMeaning, isoDay, originWords, publicPassage, publicRef, statusWords } from '@/lib/readiness';
+import { OBLIGATION_WORD, OUTCOME_WORD, VERDICT_WORD, generalHeadline, verdictMeaning, isoDay, originWords, publicPassage, publicRef, statusWords } from '@/lib/readiness';
 import type { Outcome, ProgrammeAssessment, RSource, RuleResult, Verdict } from '@/lib/readiness-types';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { cleanQuote } from '@/lib/quote';
@@ -146,7 +146,8 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false, supplie
           <ul className="m-0 flex list-none flex-col gap-1 p-0">{todo.map((r) => <li key={r.rule}>{r.title}</li>)}</ul>
         </div>
       )}
-      {general && todo.length === 0 && <p className="m-0 text-small font-semibold">Nothing to do under these rules on the answers given.</p>}
+      {/* WP-173 (QA C-11): not "nothing to do" above rules that apply to the answers (a facility clearance after "classified: yes") */}
+      {general && todo.length === 0 && <p className="m-0 text-small font-semibold" data-general-headline>{generalHeadline(applies)}</p>}
       {blockers.length > 0 && (
         <div className="flex flex-col gap-1 text-small">
           <p className="m-0 font-bold">Not met:</p>

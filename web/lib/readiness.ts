@@ -334,3 +334,14 @@ export function faqOf(r: RequirementDetail): { q: string; a: string }[] {
   if (r.mandatoryFor) out.push({ q: `Who needs ${r.name}?`, a: r.mandatoryFor });
   return out;
 }
+
+/**
+ * WP-173 (QA C-11): the line of the general rules when nothing is to do. The rules that apply to the answers without a verdict (for
+ * information, recommended, only in some cases) are named, so the line never says "nothing" above them.
+ */
+export function generalHeadline(applies: { title: string; outcome: string }[]): string {
+  const toRead = applies.filter((r) => r.outcome !== 'met' && r.outcome !== 'not_met' && r.outcome !== 'to_obtain');
+  return toRead.length === 0
+    ? 'Nothing to do under these rules on the answers given.'
+    : `Nothing required on the answers given. To read, as ${toRead.length === 1 ? 'it applies' : 'they apply'} to you: ${toRead.map((r) => r.title).join('; ')}.`;
+}

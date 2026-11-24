@@ -277,3 +277,14 @@ def test_a_roadmap_step_says_where_its_text_and_figures_come_from():
     assert steps["REQ-RID"]["origin"] == "primary"
     assert steps["REQ-NCAGE"]["origin"] == "notes" and steps["REQ-NCAGE"]["cost"]["basis"] == "free"
     assert all(s["origin"] == CONTENT.requirements[c].text_origin for c, s in steps.items())
+
+
+def test_the_spanish_aqap_edition_list_is_for_a_company_in_spain_only():
+    """WP-173 (QA C-11): a Polish company was shown the Spanish Ministry of Defence's PECAL editions."""
+    pl = dataclasses.replace(ES_AUTO, country="PL", executive_management_country="PL")
+
+    def outcome(profile):
+        lines = [r for a in (*answer(profile, {})["assessments"], *answer(profile, {})["general"]) for r in a["rules"]]
+        return next(r["outcome"] for r in lines if r["rule"] == "NATO-AQAP-ED")
+    assert outcome(pl) == "not_applicable"
+    assert outcome(ES_AUTO) != "not_applicable"

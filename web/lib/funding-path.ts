@@ -53,7 +53,8 @@ export interface SummaryLine { key: string; verdict: Verdict | 'info'; text: str
 /** `unknown` (WP-93, finding 6): no rule of the call or its programme is held, so nothing is said either way. */
 export interface Summary { verdict: Verdict | 'unknown'; lines: SummaryLine[] }
 
-const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+// WP-173 (QA C-14): an acronym keeps its capitals ("eEA countries are eligible")
+export const lowerFirst = (s: string) => (/^[A-Z]{2}/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1));
 const worst = (a: Verdict, b: Verdict): Verdict => (a === 'no' || b === 'no' ? 'no' : a === 'check' || b === 'check' ? 'check' : 'yes');
 
 /**
